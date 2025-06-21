@@ -2,11 +2,13 @@
 #import "DlScan-Swift.h"
 
 @implementation DlScan
+
 RCT_EXPORT_MODULE()
 
-- (void)scanLicense:(NSString *)barcodeData
-           resolver:(RCTPromiseResolveBlock)resolve
-           rejecter:(RCTPromiseRejectBlock)reject {
+RCT_EXPORT_METHOD(scanLicense:(NSString *)barcodeData
+                  resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject)
+{
     @try {
         NSError *error = nil;
         NSDictionary *licenseData = [LicenseParser parse:barcodeData error:&error];
@@ -37,6 +39,20 @@ RCT_EXPORT_MODULE()
         };
         resolve(result);
     }
+}
+
+RCT_EXPORT_METHOD(startScanning:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject)
+{
+    // Future implementation for camera integration
+    reject(@"NOT_IMPLEMENTED", @"Camera scanning not yet implemented", nil);
+}
+
+RCT_EXPORT_METHOD(stopScanning:(RCTPromiseResolveBlock)resolve
+                 reject:(RCTPromiseRejectBlock)reject)
+{
+    // Future implementation for camera integration
+    reject(@"NOT_IMPLEMENTED", @"Camera scanning not yet implemented", nil);
 }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
