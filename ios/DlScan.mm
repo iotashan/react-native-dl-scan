@@ -3,10 +3,20 @@
 @implementation DlScan
 RCT_EXPORT_MODULE()
 
-- (NSNumber *)multiply:(double)a b:(double)b {
-    NSNumber *result = @(a * b);
-
-    return result;
+- (void)scanLicense:(RCTPromiseResolveBlock)resolve
+           rejecter:(RCTPromiseRejectBlock)reject {
+    // Placeholder implementation - will be replaced with actual DLParser-Swift integration
+    NSDictionary *result = @{
+        @"success": @NO,
+        @"error": @{
+            @"code": @"NOT_IMPLEMENTED",
+            @"message": @"License scanning not yet implemented",
+            @"userMessage": @"This feature is coming soon",
+            @"recoverable": @YES
+        }
+    };
+    
+    resolve(result);
 }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:

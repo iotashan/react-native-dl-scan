@@ -10,13 +10,33 @@ npm install react-native-dl-scan
 
 ## Usage
 
-
 ```js
-import { multiply } from 'react-native-dl-scan';
+import { scanLicense } from 'react-native-dl-scan';
 
-// ...
+// Basic usage
+const result = await scanLicense();
 
-const result = multiply(3, 7);
+if (result.success && result.data) {
+  console.log('License scanned successfully:', result.data);
+  console.log('Name:', result.data.firstName, result.data.lastName);
+  console.log('License Number:', result.data.licenseNumber);
+  console.log('Expiration:', result.data.expirationDate);
+} else if (result.error) {
+  console.error('Scan failed:', result.error.userMessage);
+}
+```
+
+## TypeScript Support
+
+This library includes TypeScript definitions for better development experience:
+
+```typescript
+import { scanLicense, LicenseData, ScanResult } from 'react-native-dl-scan';
+
+const handleScan = async (): Promise<void> => {
+  const result: ScanResult = await scanLicense();
+  // TypeScript will provide full type checking and autocompletion
+};
 ```
 
 

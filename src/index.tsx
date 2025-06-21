@@ -1,5 +1,9 @@
 import DlScan from './NativeDlScan';
+import type { LicenseData, ScanError, ScanResult } from './types/license';
 
-export function multiply(a: number, b: number): number {
-  return DlScan.multiply(a, b);
+export function scanLicense(): Promise<ScanResult> {
+  return DlScan.scanLicense();
 }
+
+// Export types for consumers
+export type { LicenseData, ScanError, ScanResult };
