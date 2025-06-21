@@ -7,7 +7,10 @@ export default function App() {
 
   const handleScan = async () => {
     try {
-      const result = await scanLicense();
+      // For demo purposes, using a placeholder barcode data string
+      // In a real app, this would come from camera scanning
+      const testBarcodeData = 'TEST_BARCODE_DATA';
+      const result = await scanLicense(testBarcodeData);
       if (result.success && result.data) {
         setScanResult(
           `Scanned: ${result.data.firstName || 'Unknown'} ${result.data.lastName || ''}`

@@ -3,7 +3,7 @@ import { TurboModuleRegistry } from 'react-native';
 import type { LicenseData, ScanError } from './types/license';
 
 export interface Spec extends TurboModule {
-  scanLicense(): Promise<{
+  scanLicense(barcodeData: string): Promise<{
     success: boolean;
     data?: LicenseData;
     error?: ScanError;
