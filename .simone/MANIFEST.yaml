@@ -1,0 +1,43 @@
+project:
+  name: react-native-dl-scan
+  type: React Native Module
+  description: Custom React Native iOS module for offline driver's license scanning
+  version: 0.1.0
+  created: 2025-01-21
+  
+technical_stack:
+  primary_language: TypeScript/Swift
+  frameworks:
+    - React Native
+    - iOS Vision Framework
+    - AVFoundation
+    - CoreML
+  platforms:
+    - iOS 15.0+
+  
+current_status:
+  phase: Planning
+  milestone: M1_Module_Foundation
+  completion: 0%
+  
+team:
+  lead: shan
+  
+project_structure:
+  documentation: .simone/01_PROJECT_DOCS/
+  requirements: .simone/02_REQUIREMENTS/
+  current_milestone: .simone/02_REQUIREMENTS/M1_Module_Foundation/
+  
+key_features:
+  - Offline driver's license scanning
+  - PDF417 barcode decoding
+  - OCR text extraction
+  - AAMVA data parsing
+  - Real-time processing (30-60 FPS)
+  - M3 Neural Engine optimization
+  
+constraints:
+  - iOS only (initial release)
+  - Offline processing requirement
+  - US/Canada license focus
+  - M3 iPad Air optimization
