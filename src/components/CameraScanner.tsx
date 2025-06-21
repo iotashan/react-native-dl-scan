@@ -24,12 +24,13 @@ export interface CameraScannerProps {
 }
 
 export const CameraScanner: React.FC<CameraScannerProps> = ({
-  onLicenseScanned: _onLicenseScanned,
+  onLicenseScanned,
   onError,
 }) => {
   const device = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
-  const [isActive] = useState(true);
+  const [isActive, setIsActive] = useState(true);
+  const [isScanning, setIsScanning] = useState(false);
 
   useEffect(() => {
     // Request permission on mount if not already granted
@@ -38,30 +39,50 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
     }
   }, [hasPermission, requestPermission]);
 
-  const onFrameProcessorError = (error: Error) => {
-    'worklet';
-    runOnJS(() => {
-      console.error('Frame processor error:', error);
-      onError?.(error);
-    })();
+  const onLicenseDetected = (data: LicenseData) => {
+    setIsScanning(false);
+    setIsActive(false);
+    onLicenseScanned?.(data);
   };
 
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet';
-    try {
-      const result = scanLicense(frame);
+  const onScanError = (error: any) => {
+    console.error('Scan error:', error);
+    onError?.(new Error(error.message || 'Scanning failed'));
+  };
 
-      // In the next task (T02_S02), this will contain actual license data
-      // For now, we're just logging the frame info
-      if (result.status === 'ready') {
-        console.log(
-          `Processing frame: ${result.frameWidth}x${result.frameHeight}`
-        );
+  const frameProcessor = useFrameProcessor(
+    (frame) => {
+      'worklet';
+
+      // Skip processing if we're already handling a scan
+      if (isScanning) {
+        return;
       }
-    } catch (error) {
-      runOnJS(onFrameProcessorError)(error as Error);
-    }
-  }, []);
+
+      try {
+        const result = scanLicense(frame);
+
+        // If no result, no barcode was detected in this frame
+        if (!result) {
+          return;
+        }
+
+        // Handle successful scan
+        if (result.success && result.data) {
+          runOnJS(setIsScanning)(true);
+          runOnJS(onLicenseDetected)(result.data);
+        } else if (result.error) {
+          // Only report errors that are not recoverable
+          if (!result.error.recoverable) {
+            runOnJS(onScanError)(result.error);
+          }
+        }
+      } catch (error) {
+        runOnJS(onScanError)(error);
+      }
+    },
+    [isScanning]
+  );
 
   const handlePermissionDenied = () => {
     Alert.alert(
