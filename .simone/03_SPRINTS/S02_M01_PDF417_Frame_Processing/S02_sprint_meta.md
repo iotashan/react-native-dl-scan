@@ -2,7 +2,7 @@
 sprint_id: S02
 sprint_name: PDF417 Frame Processing
 milestone_id: M01
-status: planning
+status: completed
 created: 2025-06-21
 updated: 2025-06-21
 ---
