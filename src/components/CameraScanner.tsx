@@ -31,13 +31,38 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
   const { hasPermission, requestPermission } = useCameraPermission();
   const [isActive, setIsActive] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
+  const [scanAttempts, setScanAttempts] = useState(0);
+  const [lastScanTime, setLastScanTime] = useState<number>(0);
 
   useEffect(() => {
     // Request permission on mount if not already granted
-    if (!hasPermission) {
-      requestPermission();
+    if (hasPermission === false) {
+      requestPermission().catch((error) => {
+        console.error('Failed to request camera permission:', error);
+        onError?.(new Error('Failed to request camera permission'));
+      });
     }
-  }, [hasPermission, requestPermission]);
+  }, [hasPermission, requestPermission, onError]);
+
+  // Timeout detection after 30 seconds of continuous scanning
+  useEffect(() => {
+    if (isScanning && scanAttempts > 0) {
+      const timeoutId = setTimeout(() => {
+        if (Date.now() - lastScanTime > 30000) {
+          setIsScanning(false);
+          setScanAttempts(0);
+          onError?.(
+            new Error(
+              'Scanning timeout. Please reposition the license and try again.'
+            )
+          );
+        }
+      }, 30000);
+
+      return () => clearTimeout(timeoutId);
+    }
+    return undefined;
+  }, [isScanning, scanAttempts, lastScanTime, onError]);
 
   const onLicenseDetected = (data: LicenseData) => {
     setIsScanning(false);
@@ -62,6 +87,12 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
       try {
         const result = scanLicense(frame);
 
+        // Track scan attempts
+        runOnJS(() => {
+          setScanAttempts((prev) => prev + 1);
+          setLastScanTime(Date.now());
+        })();
+
         // If no result, no barcode was detected in this frame
         if (!result) {
           return;
@@ -72,7 +103,16 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
           runOnJS(setIsScanning)(true);
           runOnJS(onLicenseDetected)(result.data);
         } else if (result.error) {
-          // Only report errors that are not recoverable
+          // Log quality errors but don't report to user (they're recoverable)
+          if (
+            result.error.code?.startsWith('POOR_QUALITY') &&
+            result.error.recoverable
+          ) {
+            console.log('Frame quality issue:', result.error.code);
+            return;
+          }
+
+          // Only report non-recoverable errors or persistent issues
           if (!result.error.recoverable) {
             runOnJS(onScanError)(result.error);
           }
@@ -140,12 +180,22 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
         isActive={isActive}
         frameProcessor={frameProcessor}
         pixelFormat="yuv"
+        enableZoomGesture={true}
+        torch={scanAttempts > 50 ? 'on' : 'off'} // Auto-enable torch if struggling
       />
       <View style={styles.overlay}>
         <View style={styles.scanFrame} />
         <Text style={styles.instructionText}>
           Position the barcode within the frame
         </Text>
+        {scanAttempts > 20 && (
+          <Text style={styles.hintText}>
+            Tip: Ensure good lighting and hold steady
+          </Text>
+        )}
+        {scanAttempts > 50 && (
+          <Text style={styles.hintText}>Flashlight enabled automatically</Text>
+        )}
       </View>
     </View>
   );
@@ -196,5 +246,13 @@ const styles = StyleSheet.create({
     marginTop: 30,
     textAlign: 'center',
     paddingHorizontal: 40,
+  },
+  hintText: {
+    color: '#FFD700',
+    fontSize: 14,
+    marginTop: 20,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+    fontWeight: '600',
   },
 });
