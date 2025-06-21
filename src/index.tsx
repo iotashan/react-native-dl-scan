@@ -1,8 +1,16 @@
 import DlScanModule from './NativeDlScan';
-import type { LicenseData, ScanError, LicenseResult } from './types/license';
+import type {
+  LicenseData,
+  LicenseResult,
+  ScanError as ScanErrorType,
+} from './types/license';
 
 export * from './types/license';
 export { useLicenseScanner } from './hooks/useLicenseScanner';
+export { scanLicense as scanLicenseFrame } from './frameProcessors/scanLicense';
+export type { ScanLicenseResult } from './frameProcessors/scanLicense';
+export { CameraScanner } from './components/CameraScanner';
+export type { CameraScannerProps } from './components/CameraScanner';
 
 /**
  * Scan a PDF417 barcode string and extract license data
@@ -10,7 +18,7 @@ export { useLicenseScanner } from './hooks/useLicenseScanner';
 export async function scanLicense(barcodeData: string): Promise<LicenseData> {
   try {
     const result: LicenseResult = await DlScanModule.scanLicense(barcodeData);
-    
+
     if (result.success && result.data) {
       return result.data;
     } else if (result.error) {
@@ -22,13 +30,13 @@ export async function scanLicense(barcodeData: string): Promise<LicenseData> {
     if (error instanceof ScanError) {
       throw error;
     }
-    
+
     // Handle native errors
     throw new ScanError({
       code: 'UNKNOWN_ERROR',
-      message: error.message || 'Unknown error occurred',
+      message: (error as Error).message || 'Unknown error occurred',
       userMessage: 'An unexpected error occurred. Please try again.',
-      recoverable: true
+      recoverable: true,
     });
   }
 }
@@ -41,12 +49,7 @@ export class ScanError extends Error {
   public readonly userMessage: string;
   public readonly recoverable: boolean;
 
-  constructor(error: {
-    code: string;
-    message: string;
-    userMessage: string;
-    recoverable: boolean;
-  }) {
+  constructor(error: ScanErrorType) {
     super(error.message);
     this.name = 'ScanError';
     this.code = error.code;

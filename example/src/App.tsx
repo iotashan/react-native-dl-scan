@@ -1,38 +1,70 @@
-import React from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
-import { useLicenseScanner } from 'react-native-dl-scan';
+import { useState } from 'react';
+import {
+  View,
+  Text,
+  Button,
+  StyleSheet,
+  Modal,
+  SafeAreaView,
+} from 'react-native';
+import { useLicenseScanner, CameraScanner } from 'react-native-dl-scan';
 
 export default function App() {
   const { licenseData, isScanning, error, scan, reset } = useLicenseScanner();
+  const [showCamera, setShowCamera] = useState(false);
 
-  const handleScan = () => {
+  const handleTestScan = () => {
     // Test with sample AAMVA data
     // In a real app, this would come from camera scanning
-    const sampleBarcode = "SAMPLE_AAMVA_DATA_HERE";
+    const sampleBarcode = 'SAMPLE_AAMVA_DATA_HERE';
     scan(sampleBarcode);
+  };
+
+  const handleCameraScan = () => {
+    setShowCamera(true);
+  };
+
+  const handleLicenseScanned = (data: any) => {
+    // This will be implemented in the next task (T02_S02)
+    console.log('License scanned:', data);
+    setShowCamera(false);
+  };
+
+  const handleCameraError = (cameraError: Error) => {
+    console.error('Camera error:', cameraError);
+    setShowCamera(false);
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>DL Scan Test</Text>
-      
-      <Button 
-        title={isScanning ? "Scanning..." : "Test Scan"} 
-        onPress={handleScan}
-        disabled={isScanning}
-      />
-      
+
+      <View style={styles.buttonContainer}>
+        <Button title="Open Camera" onPress={handleCameraScan} />
+
+        <View style={styles.buttonSpacer} />
+
+        <Button
+          title={isScanning ? 'Scanning...' : 'Test Scan'}
+          onPress={handleTestScan}
+          disabled={isScanning}
+        />
+      </View>
+
       {licenseData && (
         <View style={styles.result}>
           <Text style={styles.resultTitle}>License Data:</Text>
-          <Text>Name: {licenseData.firstName} {licenseData.lastName}</Text>
+          <Text>
+            Name: {licenseData.firstName} {licenseData.lastName}
+          </Text>
           <Text>License: {licenseData.licenseNumber}</Text>
           {licenseData.dateOfBirth && (
             <Text>DOB: {licenseData.dateOfBirth.toLocaleDateString()}</Text>
           )}
           {licenseData.address && (
             <Text>
-              Address: {licenseData.address.street}, {licenseData.address.city}, {licenseData.address.state} {licenseData.address.postalCode}
+              Address: {licenseData.address.street}, {licenseData.address.city},{' '}
+              {licenseData.address.state} {licenseData.address.postalCode}
             </Text>
           )}
           {licenseData.sex && <Text>Sex: {licenseData.sex}</Text>}
@@ -40,18 +72,36 @@ export default function App() {
           {licenseData.weight && <Text>Weight: {licenseData.weight}</Text>}
         </View>
       )}
-      
+
       {error && (
         <View style={styles.errorContainer}>
           <Text style={styles.error}>{error.userMessage}</Text>
           <Text style={styles.errorCode}>Error Code: {error.code}</Text>
           {error.recoverable && (
-            <Text style={styles.errorHint}>This error is recoverable - try again</Text>
+            <Text style={styles.errorHint}>
+              This error is recoverable - try again
+            </Text>
           )}
         </View>
       )}
-      
+
       <Button title="Reset" onPress={reset} />
+
+      <Modal
+        visible={showCamera}
+        animationType="slide"
+        presentationStyle="fullScreen"
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <CameraScanner
+            onLicenseScanned={handleLicenseScanned}
+            onError={handleCameraError}
+          />
+          <View style={styles.closeButtonContainer}>
+            <Button title="Close Camera" onPress={() => setShowCamera(false)} />
+          </View>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -67,6 +117,13 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  buttonSpacer: {
+    width: 20,
   },
   result: {
     backgroundColor: '#f0f0f0',
@@ -104,5 +161,17 @@ const styles = StyleSheet.create({
     color: '#4caf50',
     fontSize: 12,
     fontStyle: 'italic',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'black',
+  },
+  closeButtonContainer: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 8,
+    overflow: 'hidden',
   },
 });

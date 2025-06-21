@@ -1,12 +1,38 @@
+// Mock react-native TurboModuleRegistry
+jest.mock('react-native', () => {
+  // Create the mock inside the factory function
+  const mockScanLicense = jest.fn();
+  // Store reference on a global for access in tests
+  (global as any).__mockScanLicense = mockScanLicense;
+  return {
+    TurboModuleRegistry: {
+      getEnforcing: jest.fn(() => ({
+        scanLicense: mockScanLicense,
+        startScanning: jest.fn(),
+        stopScanning: jest.fn(),
+      })),
+    },
+    StyleSheet: {
+      create: (styles: any) => styles,
+    },
+    Platform: {
+      OS: 'ios',
+      select: (obj: any) => obj.ios || obj.default,
+    },
+    Alert: {
+      alert: jest.fn(),
+    },
+    Linking: {
+      openSettings: jest.fn(() => Promise.resolve()),
+    },
+  };
+});
+
+// Import after mocks are set up
 import { scanLicense, ScanError } from '../src/index';
-import { NativeModules } from 'react-native';
 
-// Mock the native module
-jest.mock('../src/NativeDlScan', () => ({
-  scanLicense: jest.fn(),
-}));
-
-const mockNativeDlScan = require('../src/NativeDlScan').default;
+// Get the mock function from global
+const mockScanLicenseFunction = (global as any).__mockScanLicense;
 
 describe('React Native Bridge', () => {
   beforeEach(() => {
@@ -26,13 +52,13 @@ describe('React Native Bridge', () => {
           street: '123 Main St',
           city: 'Anytown',
           state: 'CA',
-          postalCode: '12345'
-        }
-      }
+          postalCode: '12345',
+        },
+      },
     };
-    
-    mockNativeDlScan.scanLicense.mockResolvedValue(mockData);
-    
+
+    mockScanLicenseFunction.mockResolvedValue(mockData);
+
     const result = await scanLicense('mock-barcode-data');
     expect(result.firstName).toBe('John');
     expect(result.lastName).toBe('Doe');
@@ -46,22 +72,24 @@ describe('React Native Bridge', () => {
       error: {
         code: 'PARSING_FAILED',
         message: 'Invalid format',
-        userMessage: 'This doesn\'t appear to be a valid license.',
-        recoverable: true
-      }
+        userMessage: "This doesn't appear to be a valid license.",
+        recoverable: true,
+      },
     };
-    
-    mockNativeDlScan.scanLicense.mockResolvedValue(mockError);
-    
+
+    mockScanLicenseFunction.mockResolvedValue(mockError);
+
     await expect(scanLicense('invalid-data')).rejects.toThrow(ScanError);
-    
+
     try {
       await scanLicense('invalid-data');
     } catch (error) {
       expect(error).toBeInstanceOf(ScanError);
       if (error instanceof ScanError) {
         expect(error.code).toBe('PARSING_FAILED');
-        expect(error.userMessage).toBe('This doesn\'t appear to be a valid license.');
+        expect(error.userMessage).toBe(
+          "This doesn't appear to be a valid license."
+        );
         expect(error.recoverable).toBe(true);
       }
     }
@@ -69,10 +97,10 @@ describe('React Native Bridge', () => {
 
   test('should handle native module rejection', async () => {
     const nativeError = new Error('Native module error');
-    mockNativeDlScan.scanLicense.mockRejectedValue(nativeError);
-    
+    mockScanLicenseFunction.mockRejectedValue(nativeError);
+
     await expect(scanLicense('test-data')).rejects.toThrow(ScanError);
-    
+
     try {
       await scanLicense('test-data');
     } catch (error) {
@@ -86,13 +114,15 @@ describe('React Native Bridge', () => {
 
   test('should handle unknown scanning error', async () => {
     const mockData = {
-      success: false
+      success: false,
       // Missing error field
     };
-    
-    mockNativeDlScan.scanLicense.mockResolvedValue(mockData);
-    
-    await expect(scanLicense('test-data')).rejects.toThrow('Unknown scanning error');
+
+    mockScanLicenseFunction.mockResolvedValue(mockData);
+
+    await expect(scanLicense('test-data')).rejects.toThrow(
+      'Unknown scanning error'
+    );
   });
 
   test('should pass through all license data fields', async () => {
@@ -117,7 +147,7 @@ describe('React Native Bridge', () => {
           city: 'Springfield',
           state: 'IL',
           postalCode: '62701',
-          country: 'USA'
+          country: 'USA',
         },
         licenseClass: 'C',
         restrictions: 'NONE',
@@ -128,17 +158,17 @@ describe('React Native Bridge', () => {
         isVeteran: false,
         isRealID: true,
         allFields: {
-          'DCS': 'Smith',
-          'DAC': 'Jane',
-          'DAD': 'Marie'
-        }
-      }
+          DCS: 'Smith',
+          DAC: 'Jane',
+          DAD: 'Marie',
+        },
+      },
     };
-    
-    mockNativeDlScan.scanLicense.mockResolvedValue(mockData);
-    
+
+    mockScanLicenseFunction.mockResolvedValue(mockData);
+
     const result = await scanLicense('complete-barcode-data');
-    
+
     // Verify all fields are passed through
     expect(result.firstName).toBe('Jane');
     expect(result.lastName).toBe('Smith');
@@ -164,9 +194,9 @@ describe('React Native Bridge', () => {
     expect(result.isVeteran).toBe(false);
     expect(result.isRealID).toBe(true);
     expect(result.allFields).toEqual({
-      'DCS': 'Smith',
-      'DAC': 'Jane',
-      'DAD': 'Marie'
+      DCS: 'Smith',
+      DAC: 'Jane',
+      DAD: 'Marie',
     });
   });
 });

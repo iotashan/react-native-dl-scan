@@ -4,19 +4,19 @@ export interface LicenseData {
   lastName?: string;
   middleName?: string;
   suffix?: string;
-  
+
   // Dates
   dateOfBirth?: Date;
   issueDate?: Date;
   expirationDate?: Date;
-  
+
   // Physical Description
   sex?: 'M' | 'F';
   eyeColor?: string;
   hairColor?: string;
   height?: string;
   weight?: string;
-  
+
   // Address
   address?: {
     street?: string;
@@ -25,22 +25,22 @@ export interface LicenseData {
     postalCode?: string;
     country?: string;
   };
-  
+
   // License Information
   licenseNumber?: string;
   licenseClass?: string;
   restrictions?: string;
   endorsements?: string;
-  
+
   // Metadata
   issuerIdentificationNumber?: string;
   documentDiscriminator?: string;
-  
+
   // Flags
   isOrganDonor?: boolean;
   isVeteran?: boolean;
   isRealID?: boolean;
-  
+
   // Raw data for debugging
   allFields?: Record<string, string>;
 }

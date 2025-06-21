@@ -160,5 +160,9 @@
     "languages": "kotlin-objc",
     "type": "turbo-module",
     "version": "0.51.0"
+  },
+  "dependencies": {
+    "react-native-reanimated": "^3.18.0",
+    "react-native-vision-camera": "^3.0.0"
   }
 }

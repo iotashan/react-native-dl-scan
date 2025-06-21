@@ -14,7 +14,8 @@ export interface LicenseScannerActions {
   clearError: () => void;
 }
 
-export function useLicenseScanner(): LicenseScannerState & LicenseScannerActions {
+export function useLicenseScanner(): LicenseScannerState &
+  LicenseScannerActions {
   const [licenseData, setLicenseData] = useState<LicenseData | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<ScanError | null>(null);
@@ -22,7 +23,7 @@ export function useLicenseScanner(): LicenseScannerState & LicenseScannerActions
   const scan = useCallback(async (barcodeData: string) => {
     setIsScanning(true);
     setError(null);
-    
+
     try {
       const data = await scanLicense(barcodeData);
       setLicenseData(data);
@@ -30,12 +31,14 @@ export function useLicenseScanner(): LicenseScannerState & LicenseScannerActions
       if (err instanceof ScanError) {
         setError(err);
       } else {
-        setError(new ScanError({
-          code: 'UNKNOWN_ERROR',
-          message: 'Unknown error occurred',
-          userMessage: 'Something went wrong. Please try again.',
-          recoverable: true
-        }));
+        setError(
+          new ScanError({
+            code: 'UNKNOWN_ERROR',
+            message: 'Unknown error occurred',
+            userMessage: 'Something went wrong. Please try again.',
+            recoverable: true,
+          })
+        );
       }
     } finally {
       setIsScanning(false);
