@@ -69,3 +69,39 @@ export interface OCRTextObservation {
     height: number;
   };
 }
+
+export type ScanMode = 'auto' | 'barcode' | 'ocr';
+
+export type ScanningState =
+  | 'idle'
+  | 'barcode'
+  | 'ocr'
+  | 'fallback_transition'
+  | 'completed'
+  | 'failed';
+
+export interface FallbackConfig {
+  barcodeTimeoutMs: number;
+  maxBarcodeAttempts: number;
+  maxFallbackProcessingTimeMs: number;
+  enableQualityAssessment: boolean;
+}
+
+export interface ScanProgress {
+  state: ScanningState;
+  mode: ScanMode;
+  startTime: number;
+  barcodeAttempts: number;
+  timeElapsed: number;
+  message?: string;
+}
+
+export interface ScanMetrics {
+  totalProcessingTime: number;
+  barcodeAttemptTime: number;
+  ocrProcessingTime: number;
+  fallbackTriggered: boolean;
+  fallbackReason?: 'timeout' | 'failure' | 'quality' | 'manual';
+  finalMode: ScanMode;
+  success: boolean;
+}
