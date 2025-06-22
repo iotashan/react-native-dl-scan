@@ -7,7 +7,7 @@
 jest.mock('react-native', () => {
   const mockParseOCRText = jest.fn();
   (global as any).__mockParseOCRText = mockParseOCRText;
-  
+
   return {
     TurboModuleRegistry: {
       getEnforcing: jest.fn(() => ({
@@ -36,55 +36,55 @@ describe('OCR Field Parsing Integration', () => {
       // Given: California license OCR observations
       const californiaObservations: OCRTextObservation[] = [
         {
-          text: "CALIFORNIA",
+          text: 'CALIFORNIA',
           confidence: 0.95,
-          boundingBox: { x: 0.1, y: 0.9, width: 0.3, height: 0.05 }
+          boundingBox: { x: 0.1, y: 0.9, width: 0.3, height: 0.05 },
         },
         {
-          text: "DRIVER LICENSE",
+          text: 'DRIVER LICENSE',
           confidence: 0.92,
-          boundingBox: { x: 0.1, y: 0.85, width: 0.4, height: 0.05 }
+          boundingBox: { x: 0.1, y: 0.85, width: 0.4, height: 0.05 },
         },
         {
-          text: "LN DOE",
+          text: 'LN DOE',
           confidence: 0.9,
-          boundingBox: { x: 0.1, y: 0.75, width: 0.2, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.75, width: 0.2, height: 0.04 },
         },
         {
-          text: "FN JOHN",
+          text: 'FN JOHN',
           confidence: 0.9,
-          boundingBox: { x: 0.1, y: 0.7, width: 0.2, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.7, width: 0.2, height: 0.04 },
         },
         {
-          text: "DL D1234567",
+          text: 'DL D1234567',
           confidence: 0.95,
-          boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 },
         },
         {
-          text: "DOB 01/15/1990",
+          text: 'DOB 01/15/1990',
           confidence: 0.88,
-          boundingBox: { x: 0.1, y: 0.5, width: 0.3, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.5, width: 0.3, height: 0.04 },
         },
         {
-          text: "EXP 01/15/2026",
+          text: 'EXP 01/15/2026',
           confidence: 0.88,
-          boundingBox: { x: 0.1, y: 0.45, width: 0.3, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.45, width: 0.3, height: 0.04 },
         },
         {
-          text: "SEX M",
+          text: 'SEX M',
           confidence: 0.9,
-          boundingBox: { x: 0.1, y: 0.4, width: 0.15, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.4, width: 0.15, height: 0.04 },
         },
         {
-          text: "HGT 5-10",
+          text: 'HGT 5-10',
           confidence: 0.85,
-          boundingBox: { x: 0.1, y: 0.35, width: 0.2, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.35, width: 0.2, height: 0.04 },
         },
         {
-          text: "WGT 180",
+          text: 'WGT 180',
           confidence: 0.85,
-          boundingBox: { x: 0.1, y: 0.3, width: 0.2, height: 0.04 }
-        }
+          boundingBox: { x: 0.1, y: 0.3, width: 0.2, height: 0.04 },
+        },
       ];
 
       const expectedLicenseData: LicenseData = {
@@ -102,14 +102,16 @@ describe('OCR Field Parsing Integration', () => {
       mockParseOCRTextFunction.mockResolvedValue({
         success: true,
         data: expectedLicenseData,
-        processingTime: 0.25
+        processingTime: 0.25,
       });
 
       // When: Parsing OCR text
       const result = await parseOCRText(californiaObservations);
 
       // Then: Should extract structured license data
-      expect(mockParseOCRTextFunction).toHaveBeenCalledWith(californiaObservations);
+      expect(mockParseOCRTextFunction).toHaveBeenCalledWith(
+        californiaObservations
+      );
       expect(result.firstName).toBe('JOHN');
       expect(result.lastName).toBe('DOE');
       expect(result.licenseNumber).toBe('D1234567');
@@ -122,35 +124,35 @@ describe('OCR Field Parsing Integration', () => {
       // Given: Texas license OCR observations
       const texasObservations: OCRTextObservation[] = [
         {
-          text: "TEXAS",
+          text: 'TEXAS',
           confidence: 0.95,
-          boundingBox: { x: 0.1, y: 0.9, width: 0.2, height: 0.05 }
+          boundingBox: { x: 0.1, y: 0.9, width: 0.2, height: 0.05 },
         },
         {
-          text: "DRIVER LICENSE",
+          text: 'DRIVER LICENSE',
           confidence: 0.92,
-          boundingBox: { x: 0.1, y: 0.85, width: 0.4, height: 0.05 }
+          boundingBox: { x: 0.1, y: 0.85, width: 0.4, height: 0.05 },
         },
         {
-          text: "SMITH, JANE",
+          text: 'SMITH, JANE',
           confidence: 0.9,
-          boundingBox: { x: 0.1, y: 0.75, width: 0.3, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.75, width: 0.3, height: 0.04 },
         },
         {
-          text: "DL 12345678",
+          text: 'DL 12345678',
           confidence: 0.95,
-          boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 },
         },
         {
-          text: "DOB 03/20/1985",
+          text: 'DOB 03/20/1985',
           confidence: 0.88,
-          boundingBox: { x: 0.1, y: 0.5, width: 0.3, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.5, width: 0.3, height: 0.04 },
         },
         {
-          text: "SEX F",
+          text: 'SEX F',
           confidence: 0.9,
-          boundingBox: { x: 0.1, y: 0.4, width: 0.15, height: 0.04 }
-        }
+          boundingBox: { x: 0.1, y: 0.4, width: 0.15, height: 0.04 },
+        },
       ];
 
       const expectedData: LicenseData = {
@@ -164,7 +166,7 @@ describe('OCR Field Parsing Integration', () => {
       mockParseOCRTextFunction.mockResolvedValue({
         success: true,
         data: expectedData,
-        processingTime: 0.18
+        processingTime: 0.18,
       });
 
       // When: Parsing Texas OCR data
@@ -181,10 +183,10 @@ describe('OCR Field Parsing Integration', () => {
       // Given: Invalid OCR observations
       const invalidObservations: OCRTextObservation[] = [
         {
-          text: "CORRUPTED_TEXT",
+          text: 'CORRUPTED_TEXT',
           confidence: 0.1,
-          boundingBox: { x: 0, y: 0, width: 0.1, height: 0.1 }
-        }
+          boundingBox: { x: 0, y: 0, width: 0.1, height: 0.1 },
+        },
       ];
 
       // Mock parsing error
@@ -193,47 +195,50 @@ describe('OCR Field Parsing Integration', () => {
         error: {
           code: 'INSUFFICIENT_DATA',
           message: 'Not enough valid text found to extract license data',
-          userMessage: 'Unable to read license information. Please ensure the license is clearly visible.',
-          recoverable: true
+          userMessage:
+            'Unable to read license information. Please ensure the license is clearly visible.',
+          recoverable: true,
         },
-        processingTime: 0.05
+        processingTime: 0.05,
       });
 
       // When: Parsing invalid data
       // Then: Should throw appropriate error
-      await expect(parseOCRText(invalidObservations)).rejects.toThrow('Not enough valid text found');
+      await expect(parseOCRText(invalidObservations)).rejects.toThrow(
+        'Not enough valid text found'
+      );
     });
 
     it('should handle low confidence OCR data', async () => {
       // Given: Low confidence observations
       const lowConfidenceObservations: OCRTextObservation[] = [
         {
-          text: "J0HN", // OCR errors
+          text: 'J0HN', // OCR errors
           confidence: 0.3,
-          boundingBox: { x: 0.1, y: 0.7, width: 0.15, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.7, width: 0.15, height: 0.04 },
         },
         {
-          text: "D0E",
+          text: 'D0E',
           confidence: 0.25,
-          boundingBox: { x: 0.1, y: 0.75, width: 0.15, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.75, width: 0.15, height: 0.04 },
         },
         {
-          text: "D12G4567", // Mixed up characters
+          text: 'D12G4567', // Mixed up characters
           confidence: 0.4,
-          boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 }
-        }
+          boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 },
+        },
       ];
 
       const partialData: LicenseData = {
         firstName: 'JOHN', // Corrected by parser
-        lastName: 'DOE',   // Corrected by parser
+        lastName: 'DOE', // Corrected by parser
         licenseNumber: 'D1234567', // Corrected by parser
       };
 
       mockParseOCRTextFunction.mockResolvedValue({
         success: true,
         data: partialData,
-        processingTime: 0.35
+        processingTime: 0.35,
       });
 
       // When: Parsing low confidence data
@@ -255,13 +260,15 @@ describe('OCR Field Parsing Integration', () => {
           code: 'NO_TEXT_FOUND',
           message: 'No text observations provided',
           userMessage: 'No text was detected in the image. Please try again.',
-          recoverable: true
-        }
+          recoverable: true,
+        },
       });
 
       // When: Parsing empty data
       // Then: Should handle gracefully
-      await expect(parseOCRText(emptyObservations)).rejects.toThrow('No text observations provided');
+      await expect(parseOCRText(emptyObservations)).rejects.toThrow(
+        'No text observations provided'
+      );
     });
 
     it('should perform within acceptable time limits', async () => {
@@ -271,31 +278,31 @@ describe('OCR Field Parsing Integration', () => {
         largeObservationSet.push({
           text: `TEXT_${i}`,
           confidence: Math.random() * 0.5 + 0.5,
-          boundingBox: { 
-            x: Math.random() * 0.8, 
-            y: Math.random() * 0.8, 
-            width: 0.1, 
-            height: 0.05 
-          }
+          boundingBox: {
+            x: Math.random() * 0.8,
+            y: Math.random() * 0.8,
+            width: 0.1,
+            height: 0.05,
+          },
         });
       }
 
       // Add actual license data
       largeObservationSet.push(
         {
-          text: "JOHN",
+          text: 'JOHN',
           confidence: 0.9,
-          boundingBox: { x: 0.1, y: 0.7, width: 0.15, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.7, width: 0.15, height: 0.04 },
         },
         {
-          text: "DOE",
+          text: 'DOE',
           confidence: 0.9,
-          boundingBox: { x: 0.1, y: 0.75, width: 0.15, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.75, width: 0.15, height: 0.04 },
         },
         {
-          text: "D1234567",
+          text: 'D1234567',
           confidence: 0.95,
-          boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 },
         }
       );
 
@@ -308,7 +315,7 @@ describe('OCR Field Parsing Integration', () => {
       mockParseOCRTextFunction.mockResolvedValue({
         success: true,
         data: performanceData,
-        processingTime: 0.45 // Just under 500ms target
+        processingTime: 0.45, // Just under 500ms target
       });
 
       // When: Parsing large dataset
@@ -326,30 +333,30 @@ describe('OCR Field Parsing Integration', () => {
       // Given: Address-heavy observations
       const addressObservations: OCRTextObservation[] = [
         {
-          text: "JOHN DOE",
+          text: 'JOHN DOE',
           confidence: 0.9,
-          boundingBox: { x: 0.1, y: 0.8, width: 0.25, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.8, width: 0.25, height: 0.04 },
         },
         {
-          text: "123 MAIN STREET",
+          text: '123 MAIN STREET',
           confidence: 0.85,
-          boundingBox: { x: 0.1, y: 0.5, width: 0.4, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.5, width: 0.4, height: 0.04 },
         },
         {
-          text: "APT 5B",
+          text: 'APT 5B',
           confidence: 0.8,
-          boundingBox: { x: 0.1, y: 0.45, width: 0.2, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.45, width: 0.2, height: 0.04 },
         },
         {
-          text: "ANYTOWN CA 90210",
+          text: 'ANYTOWN CA 90210',
           confidence: 0.85,
-          boundingBox: { x: 0.1, y: 0.4, width: 0.4, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.4, width: 0.4, height: 0.04 },
         },
         {
-          text: "D1234567",
+          text: 'D1234567',
           confidence: 0.95,
-          boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 }
-        }
+          boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 },
+        },
       ];
 
       const addressData: LicenseData = {
@@ -360,14 +367,14 @@ describe('OCR Field Parsing Integration', () => {
           street: '123 MAIN STREET APT 5B',
           city: 'ANYTOWN',
           state: 'CA',
-          postalCode: '90210'
-        }
+          postalCode: '90210',
+        },
       };
 
       mockParseOCRTextFunction.mockResolvedValue({
         success: true,
         data: addressData,
-        processingTime: 0.32
+        processingTime: 0.32,
       });
 
       // When: Parsing address data
@@ -384,20 +391,20 @@ describe('OCR Field Parsing Integration', () => {
       // Given: Consistent input observations
       const consistentObservations: OCRTextObservation[] = [
         {
-          text: "JOHN",
+          text: 'JOHN',
           confidence: 0.9,
-          boundingBox: { x: 0.1, y: 0.7, width: 0.15, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.7, width: 0.15, height: 0.04 },
         },
         {
-          text: "DOE",
+          text: 'DOE',
           confidence: 0.9,
-          boundingBox: { x: 0.1, y: 0.75, width: 0.15, height: 0.04 }
+          boundingBox: { x: 0.1, y: 0.75, width: 0.15, height: 0.04 },
         },
         {
-          text: "D1234567",
+          text: 'D1234567',
           confidence: 0.95,
-          boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 }
-        }
+          boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 },
+        },
       ];
 
       const consistentData: LicenseData = {
@@ -409,19 +416,19 @@ describe('OCR Field Parsing Integration', () => {
       mockParseOCRTextFunction.mockResolvedValue({
         success: true,
         data: consistentData,
-        processingTime: 0.2
+        processingTime: 0.2,
       });
 
       // When: Parsing multiple times
       const results = await Promise.all([
         parseOCRText(consistentObservations),
         parseOCRText(consistentObservations),
-        parseOCRText(consistentObservations)
+        parseOCRText(consistentObservations),
       ]);
 
       // Then: Results should be consistent
       expect(results).toHaveLength(3);
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result.firstName).toBe('JOHN');
         expect(result.lastName).toBe('DOE');
         expect(result.licenseNumber).toBe('D1234567');
@@ -435,20 +442,20 @@ describe('OCR Field Parsing Integration', () => {
   describe('OCR Text Observation validation', () => {
     it('should accept well-formed observations', () => {
       const validObservation: OCRTextObservation = {
-        text: "VALID TEXT",
+        text: 'VALID TEXT',
         confidence: 0.85,
         boundingBox: {
           x: 0.1,
           y: 0.5,
           width: 0.3,
-          height: 0.05
-        }
+          height: 0.05,
+        },
       };
 
       // Should not throw when creating observation
       expect(() => {
         const observations = [validObservation];
-        expect(observations[0]?.text).toBe("VALID TEXT");
+        expect(observations[0]?.text).toBe('VALID TEXT');
         expect(observations[0]?.confidence).toBe(0.85);
       }).not.toThrow();
     });
@@ -456,26 +463,26 @@ describe('OCR Field Parsing Integration', () => {
     it('should handle edge case confidence values', () => {
       const edgeCaseObservations: OCRTextObservation[] = [
         {
-          text: "HIGH CONFIDENCE",
+          text: 'HIGH CONFIDENCE',
           confidence: 1.0, // Maximum confidence
-          boundingBox: { x: 0, y: 0, width: 0.5, height: 0.1 }
+          boundingBox: { x: 0, y: 0, width: 0.5, height: 0.1 },
         },
         {
-          text: "ZERO CONFIDENCE",
+          text: 'ZERO CONFIDENCE',
           confidence: 0.0, // Minimum confidence
-          boundingBox: { x: 0, y: 0.2, width: 0.5, height: 0.1 }
+          boundingBox: { x: 0, y: 0.2, width: 0.5, height: 0.1 },
         },
         {
-          text: "NEGATIVE CONFIDENCE",
+          text: 'NEGATIVE CONFIDENCE',
           confidence: -0.1, // Invalid confidence (should be handled gracefully)
-          boundingBox: { x: 0, y: 0.4, width: 0.5, height: 0.1 }
-        }
+          boundingBox: { x: 0, y: 0.4, width: 0.5, height: 0.1 },
+        },
       ];
 
       mockParseOCRTextFunction.mockResolvedValue({
         success: true,
         data: { firstName: 'TEST' },
-        processingTime: 0.1
+        processingTime: 0.1,
       });
 
       // Should handle edge cases without crashing

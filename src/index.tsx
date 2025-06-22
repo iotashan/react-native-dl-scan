@@ -15,13 +15,16 @@ export type { CameraScannerProps } from './components/CameraScanner';
 
 /**
  * Parse OCR text observations into structured license data
- * 
+ *
  * @param textObservations Array of text observations from Vision Framework OCR
  * @returns Promise<LicenseData> Structured license data
  */
-export async function parseOCRText(textObservations: OCRTextObservation[]): Promise<LicenseData> {
+export async function parseOCRText(
+  textObservations: OCRTextObservation[]
+): Promise<LicenseData> {
   try {
-    const result: LicenseResult = await DlScanModule.parseOCRText(textObservations);
+    const result: LicenseResult =
+      await DlScanModule.parseOCRText(textObservations);
 
     if (result.success && result.data) {
       return result.data;
@@ -39,7 +42,8 @@ export async function parseOCRText(textObservations: OCRTextObservation[]): Prom
     throw new ScanError({
       code: 'OCR_PARSING_ERROR',
       message: (error as Error).message || 'OCR parsing failed',
-      userMessage: 'Unable to process the license image. Please try again with better lighting.',
+      userMessage:
+        'Unable to process the license image. Please try again with better lighting.',
       recoverable: true,
     });
   }

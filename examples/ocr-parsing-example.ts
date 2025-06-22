@@ -3,7 +3,11 @@
  * Demonstrates how to use the new OCR parsing functionality with Vision Framework
  */
 
-import { parseOCRText, type OCRTextObservation, type LicenseData } from 'react-native-dl-scan';
+import {
+  parseOCRText,
+  type OCRTextObservation,
+  type LicenseData,
+} from 'react-native-dl-scan';
 
 /**
  * Example: Parse OCR text observations from Vision Framework
@@ -15,7 +19,7 @@ export async function parseDriverLicenseFromOCR(
   try {
     // Parse the OCR text observations into structured license data
     const licenseData = await parseOCRText(textObservations);
-    
+
     console.log('Successfully parsed license data:', {
       name: `${licenseData.firstName} ${licenseData.lastName}`,
       licenseNumber: licenseData.licenseNumber,
@@ -23,7 +27,7 @@ export async function parseDriverLicenseFromOCR(
       expirationDate: licenseData.expirationDate,
       state: licenseData.address?.state,
     });
-    
+
     return licenseData;
   } catch (error) {
     console.error('Failed to parse OCR text:', error);
@@ -38,75 +42,75 @@ export async function parseDriverLicenseFromOCR(
 export function getCaliforniaLicenseExample(): OCRTextObservation[] {
   return [
     {
-      text: "CALIFORNIA",
+      text: 'CALIFORNIA',
       confidence: 0.95,
-      boundingBox: { x: 0.1, y: 0.9, width: 0.3, height: 0.05 }
+      boundingBox: { x: 0.1, y: 0.9, width: 0.3, height: 0.05 },
     },
     {
-      text: "DRIVER LICENSE",
+      text: 'DRIVER LICENSE',
       confidence: 0.92,
-      boundingBox: { x: 0.1, y: 0.85, width: 0.4, height: 0.05 }
+      boundingBox: { x: 0.1, y: 0.85, width: 0.4, height: 0.05 },
     },
     {
-      text: "LN SMITH",
+      text: 'LN SMITH',
       confidence: 0.9,
-      boundingBox: { x: 0.1, y: 0.75, width: 0.2, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.75, width: 0.2, height: 0.04 },
     },
     {
-      text: "FN JOHN",
+      text: 'FN JOHN',
       confidence: 0.9,
-      boundingBox: { x: 0.1, y: 0.7, width: 0.2, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.7, width: 0.2, height: 0.04 },
     },
     {
-      text: "DL D1234567",
+      text: 'DL D1234567',
       confidence: 0.95,
-      boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 },
     },
     {
-      text: "DOB 01/15/1990",
+      text: 'DOB 01/15/1990',
       confidence: 0.88,
-      boundingBox: { x: 0.1, y: 0.5, width: 0.3, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.5, width: 0.3, height: 0.04 },
     },
     {
-      text: "EXP 01/15/2026",
+      text: 'EXP 01/15/2026',
       confidence: 0.88,
-      boundingBox: { x: 0.1, y: 0.45, width: 0.3, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.45, width: 0.3, height: 0.04 },
     },
     {
-      text: "SEX M",
+      text: 'SEX M',
       confidence: 0.9,
-      boundingBox: { x: 0.1, y: 0.4, width: 0.15, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.4, width: 0.15, height: 0.04 },
     },
     {
-      text: "HGT 5-10",
+      text: 'HGT 5-10',
       confidence: 0.85,
-      boundingBox: { x: 0.1, y: 0.35, width: 0.2, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.35, width: 0.2, height: 0.04 },
     },
     {
-      text: "WGT 180",
+      text: 'WGT 180',
       confidence: 0.85,
-      boundingBox: { x: 0.1, y: 0.3, width: 0.2, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.3, width: 0.2, height: 0.04 },
     },
     {
-      text: "EYES BRN",
+      text: 'EYES BRN',
       confidence: 0.8,
-      boundingBox: { x: 0.1, y: 0.25, width: 0.2, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.25, width: 0.2, height: 0.04 },
     },
     {
-      text: "HAIR BLK",
+      text: 'HAIR BLK',
       confidence: 0.8,
-      boundingBox: { x: 0.1, y: 0.2, width: 0.2, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.2, width: 0.2, height: 0.04 },
     },
     {
-      text: "123 MAIN ST",
+      text: '123 MAIN ST',
       confidence: 0.85,
-      boundingBox: { x: 0.1, y: 0.15, width: 0.3, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.15, width: 0.3, height: 0.04 },
     },
     {
-      text: "ANYTOWN CA 90210",
+      text: 'ANYTOWN CA 90210',
       confidence: 0.85,
-      boundingBox: { x: 0.1, y: 0.1, width: 0.4, height: 0.04 }
-    }
+      boundingBox: { x: 0.1, y: 0.1, width: 0.4, height: 0.04 },
+    },
   ];
 }
 
@@ -117,50 +121,50 @@ export function getCaliforniaLicenseExample(): OCRTextObservation[] {
 export function getTexasLicenseExample(): OCRTextObservation[] {
   return [
     {
-      text: "TEXAS",
+      text: 'TEXAS',
       confidence: 0.95,
-      boundingBox: { x: 0.1, y: 0.9, width: 0.2, height: 0.05 }
+      boundingBox: { x: 0.1, y: 0.9, width: 0.2, height: 0.05 },
     },
     {
-      text: "DRIVER LICENSE",
+      text: 'DRIVER LICENSE',
       confidence: 0.92,
-      boundingBox: { x: 0.1, y: 0.85, width: 0.4, height: 0.05 }
+      boundingBox: { x: 0.1, y: 0.85, width: 0.4, height: 0.05 },
     },
     {
-      text: "JOHNSON, MARY",
+      text: 'JOHNSON, MARY',
       confidence: 0.9,
-      boundingBox: { x: 0.1, y: 0.75, width: 0.3, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.75, width: 0.3, height: 0.04 },
     },
     {
-      text: "DL 12345678",
+      text: 'DL 12345678',
       confidence: 0.95,
-      boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.6, width: 0.25, height: 0.04 },
     },
     {
-      text: "DOB 03/20/1985",
+      text: 'DOB 03/20/1985',
       confidence: 0.88,
-      boundingBox: { x: 0.1, y: 0.5, width: 0.3, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.5, width: 0.3, height: 0.04 },
     },
     {
-      text: "EXP 03/20/2025",
+      text: 'EXP 03/20/2025',
       confidence: 0.88,
-      boundingBox: { x: 0.1, y: 0.45, width: 0.3, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.45, width: 0.3, height: 0.04 },
     },
     {
-      text: "SEX F",
+      text: 'SEX F',
       confidence: 0.9,
-      boundingBox: { x: 0.1, y: 0.4, width: 0.15, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.4, width: 0.15, height: 0.04 },
     },
     {
-      text: "HGT 5-06",
+      text: 'HGT 5-06',
       confidence: 0.85,
-      boundingBox: { x: 0.1, y: 0.35, width: 0.2, height: 0.04 }
+      boundingBox: { x: 0.1, y: 0.35, width: 0.2, height: 0.04 },
     },
     {
-      text: "WGT 135",
+      text: 'WGT 135',
       confidence: 0.85,
-      boundingBox: { x: 0.1, y: 0.3, width: 0.2, height: 0.04 }
-    }
+      boundingBox: { x: 0.1, y: 0.3, width: 0.2, height: 0.04 },
+    },
   ];
 }
 
@@ -172,11 +176,11 @@ export async function batchProcessLicenseImages(
 ): Promise<LicenseData[]> {
   const results: LicenseData[] = [];
   const errors: Error[] = [];
-  
+
   for (let i = 0; i < ocrResultsBatch.length; i++) {
     const batch = ocrResultsBatch[i];
     if (!batch) continue;
-    
+
     try {
       const licenseData = await parseOCRText(batch);
       results.push(licenseData);
@@ -186,9 +190,11 @@ export async function batchProcessLicenseImages(
       errors.push(error as Error);
     }
   }
-  
-  console.log(`Batch processing complete: ${results.length} successful, ${errors.length} failed`);
-  
+
+  console.log(
+    `Batch processing complete: ${results.length} successful, ${errors.length} failed`
+  );
+
   return results;
 }
 
@@ -199,18 +205,20 @@ export async function monitorOCRPerformance(
   textObservations: OCRTextObservation[]
 ): Promise<{ data: LicenseData; processingTime: number }> {
   const startTime = Date.now();
-  
+
   try {
     const licenseData = await parseOCRText(textObservations);
     const processingTime = Date.now() - startTime;
-    
+
     console.log(`OCR parsing completed in ${processingTime}ms`);
-    
+
     // Log performance warning if over target
     if (processingTime > 500) {
-      console.warn(`OCR parsing took ${processingTime}ms, exceeding 500ms target`);
+      console.warn(
+        `OCR parsing took ${processingTime}ms, exceeding 500ms target`
+      );
     }
-    
+
     return { data: licenseData, processingTime };
   } catch (error) {
     const processingTime = Date.now() - startTime;
@@ -233,22 +241,25 @@ export async function parseWithErrorHandling(
     if (error.code === 'INSUFFICIENT_DATA') {
       return {
         success: false,
-        error: 'Not enough license information detected. Please ensure the entire license is visible and well-lit.'
+        error:
+          'Not enough license information detected. Please ensure the entire license is visible and well-lit.',
       };
     } else if (error.code === 'LOW_CONFIDENCE') {
       return {
         success: false,
-        error: 'License text is unclear. Please improve lighting and hold the device steady.'
+        error:
+          'License text is unclear. Please improve lighting and hold the device steady.',
       };
     } else if (error.code === 'INVALID_FORMAT') {
       return {
         success: false,
-        error: 'This does not appear to be a valid driver\'s license format.'
+        error: "This does not appear to be a valid driver's license format.",
       };
     } else {
       return {
         success: false,
-        error: 'Unable to read license. Please try again or use barcode scanning instead.'
+        error:
+          'Unable to read license. Please try again or use barcode scanning instead.',
       };
     }
   }
@@ -262,12 +273,14 @@ export function validateStateSpecificData(
   expectedState?: string
 ): { isValid: boolean; issues: string[] } {
   const issues: string[] = [];
-  
+
   // Validate license number format based on state
   if (expectedState === 'CA' && licenseData.licenseNumber) {
     // California: Letter + 7 digits
     if (!/^[A-Z]\d{7}$/.test(licenseData.licenseNumber)) {
-      issues.push('California license number should be 1 letter followed by 7 digits');
+      issues.push(
+        'California license number should be 1 letter followed by 7 digits'
+      );
     }
   } else if (expectedState === 'TX' && licenseData.licenseNumber) {
     // Texas: 8 digits
@@ -275,7 +288,7 @@ export function validateStateSpecificData(
       issues.push('Texas license number should be 8 digits');
     }
   }
-  
+
   // Validate required fields
   if (!licenseData.firstName) {
     issues.push('First name is required');
@@ -289,47 +302,47 @@ export function validateStateSpecificData(
   if (!licenseData.dateOfBirth) {
     issues.push('Date of birth is required');
   }
-  
+
   // Validate date formats and ranges
   if (licenseData.dateOfBirth) {
     const dob = new Date(licenseData.dateOfBirth);
     const now = new Date();
     const age = now.getFullYear() - dob.getFullYear();
-    
+
     if (age < 16 || age > 100) {
       issues.push('Date of birth indicates invalid age for driver license');
     }
   }
-  
+
   if (licenseData.expirationDate) {
     const expDate = new Date(licenseData.expirationDate);
     const now = new Date();
-    
+
     if (expDate < now) {
       issues.push('License appears to be expired');
     }
   }
-  
+
   return {
     isValid: issues.length === 0,
-    issues
+    issues,
   };
 }
 
 /**
  * Example usage:
- * 
+ *
  * // Parse California license
  * const caObservations = getCaliforniaLicenseExample();
  * const caLicense = await parseDriverLicenseFromOCR(caObservations);
- * 
+ *
  * // Parse Texas license
  * const txObservations = getTexasLicenseExample();
  * const txLicense = await parseDriverLicenseFromOCR(txObservations);
- * 
+ *
  * // Monitor performance
  * const { data, processingTime } = await monitorOCRPerformance(caObservations);
- * 
+ *
  * // Validate state-specific format
  * const validation = validateStateSpecificData(caLicense, 'CA');
  * if (!validation.isValid) {
