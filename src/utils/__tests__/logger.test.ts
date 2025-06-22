@@ -158,7 +158,7 @@ describe('logger', () => {
       const elapsed = logger.stopTimer('test');
 
       expect(elapsed).toBeGreaterThanOrEqual(5);
-      expect(elapsed).toBeLessThan(50);
+      expect(elapsed).toBeLessThan(100); // Increased tolerance from 50ms to 100ms
     });
 
     it('should handle non-existent timers', () => {

@@ -250,50 +250,70 @@ export class FallbackController {
   private async performBarcodeScan(barcodeData: string): Promise<LicenseData> {
     this.updateState('barcode');
 
-    // Use logger's retry functionality with timeout enforcement
-    return await logger.withRetry(
-      'barcode-scan',
-      async () => {
-        this.barcodeAttempts++;
-        this.notifyProgress();
+    try {
+      // Use logger's retry functionality with timeout enforcement
+      return await logger.withRetry(
+        'barcode-scan',
+        async () => {
+          this.barcodeAttempts++;
+          this.notifyProgress();
 
-        // Enforce memory limit during barcode scanning
-        logger.enforceMemoryLimit('barcode_scan');
+          // Enforce memory limit during barcode scanning
+          logger.enforceMemoryLimit('barcode_scan');
 
-        // Add timeout wrapper
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => {
-            reject(
-              new ScanError({
-                code: 'BARCODE_TIMEOUT',
-                message: `Barcode scanning timeout after ${this.config.barcodeTimeoutMs}ms`,
-                userMessage:
-                  'Barcode scanning is taking too long. Trying text recognition...',
-                recoverable: true,
-              })
-            );
-          }, this.config.barcodeTimeoutMs);
-        });
+          // Add timeout wrapper
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => {
+              reject(
+                new ScanError({
+                  code: 'BARCODE_TIMEOUT',
+                  message: `Barcode scanning timeout after ${this.config.barcodeTimeoutMs}ms`,
+                  userMessage:
+                    'Barcode scanning is taking too long. Trying text recognition...',
+                  recoverable: true,
+                })
+              );
+            }, this.config.barcodeTimeoutMs);
+          });
 
-        const scanPromise = logger.measureTime(
-          'barcode_processing',
-          async () => {
-            return scanLicense(barcodeData);
-          }
-        );
+          const scanPromise = logger.measureTime(
+            'barcode_processing',
+            async () => {
+              return scanLicense(barcodeData);
+            }
+          );
 
-        const result = await Promise.race([scanPromise, timeoutPromise]);
+          const result = await Promise.race([scanPromise, timeoutPromise]);
 
-        this.updateState('completed');
-        return result;
-      },
-      {
-        maxAttempts: 3,
-        initialDelayMs: 100,
-        maxDelayMs: 1000,
-        backoffMultiplier: 2,
+          this.updateState('completed');
+          this.notifyMetrics({
+            success: true,
+            finalMode: 'barcode',
+            barcodeAttemptTime:
+              logger.getPerformanceMetrics().barcode_processing_time || 0,
+          });
+          return result;
+        },
+        {
+          maxAttempts: 3,
+          initialDelayMs: 100,
+          maxDelayMs: 1000,
+          backoffMultiplier: 2,
+        }
+      );
+    } catch (error) {
+      // Wrap unknown errors in ScanError
+      if (error instanceof ScanError) {
+        throw error;
       }
-    );
+
+      throw new ScanError({
+        code: 'BARCODE_SCAN_ERROR',
+        message: 'Barcode scanning failed',
+        userMessage: 'Unable to scan barcode. Please try again.',
+        recoverable: true,
+      });
+    }
   }
 
   /**
@@ -364,6 +384,13 @@ export class FallbackController {
         logger.info('OCR confidence score', { confidenceScore, fieldsFound });
 
         this.updateState('completed');
+        this.notifyMetrics({
+          success: true,
+          finalMode: 'ocr',
+          confidenceScore: confidenceScore,
+          ocrProcessingTime:
+            logger.getPerformanceMetrics().ocr_processing_time || 0,
+        });
         return result;
       },
       {

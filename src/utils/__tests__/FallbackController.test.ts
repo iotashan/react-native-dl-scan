@@ -31,6 +31,17 @@ jest.mock('../logger', () => ({
     info: jest.fn(),
     error: jest.fn(),
     debug: jest.fn(),
+    warn: jest.fn(),
+    startTimer: jest.fn(),
+    stopTimer: jest.fn().mockReturnValue(100), // Mock returns 100ms elapsed time
+    clearPerformanceMetrics: jest.fn(),
+    getPerformanceMetrics: jest.fn().mockReturnValue({}),
+    trackMemory: jest.fn(),
+    enforceMemoryLimit: jest.fn(),
+    measureTime: jest.fn().mockImplementation(async (_name, fn) => await fn()),
+    withRetry: jest
+      .fn()
+      .mockImplementation(async (_operation, fn) => await fn()),
   },
 }));
 
