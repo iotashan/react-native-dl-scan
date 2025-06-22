@@ -1,4 +1,4 @@
-# Milestone 05: MIDV-500 Dataset Integration
+# Milestone 06: MIDV-500 Dataset Integration
 
 ## Overview
 Integrate the MIDV-500 dataset (500 video clips of 50 identity document types) to enhance OCR accuracy and establish comprehensive automated testing for identity document scanning.

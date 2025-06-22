@@ -1,10 +1,10 @@
 ---
 project_name: React Native DL Scan
 current_milestone_id: M03
-highest_sprint_in_milestone: S05
+highest_sprint_in_milestone: S19
 current_sprint_id: S03
 status: in_progress
-last_updated: 2025-06-21 19:44:00
+last_updated: 2025-06-22 10:30:00
 ---
 
 # Project Manifest: React Native DL Scan
@@ -54,7 +54,40 @@ This project follows a milestone-based development approach.
 📋 Create seamless user experience with progress indicators (UX Integration - PLANNED)
 📋 Validate performance targets across both scanning modes (Performance Validation - PLANNED)
 
-## 4. Key Documentation
+## 4. Sprint Summary
+
+### M02 Sprints - PDF417 Scanning (Completed)
+- **S02** PDF417 Frame Processing ✅ COMPLETED
+
+### M03 Sprints - Front-side OCR Fallback (Current)
+- **S03** Vision Framework OCR Setup 📋 PLANNED
+- **S04** Field Parsing Engine 📋 PLANNED  
+- **S05** Fallback Integration 📋 PLANNED
+
+### M04 Sprints - Dual-Mode UI Integration
+- **S06** UI Components and User Experience 📋 PLANNED
+- **S07** Integration Testing and Polish 📋 PLANNED
+
+### M05 Sprints - Testing, Optimization & Documentation
+- **S08** Performance Optimization and Benchmarking 📋 PLANNED
+- **S09** Documentation and Final Testing 📋 PLANNED
+
+### M06 Sprints - MIDV-500 Dataset Integration
+**Phase 1: Foundation and Testing Framework (Can start immediately)**
+- **S10** MIDV-500 Dataset Setup and Infrastructure 📋 PLANNED
+- **S11** Video Processing Pipeline Development 📋 PLANNED
+- **S12** Baseline Testing Framework Implementation 📋 PLANNED
+- **S13** Initial Performance Benchmarking 📋 PLANNED
+
+**Phase 2: Automated Testing and OCR Enhancement (After M03 completion)**
+- **S14** Automated Testing Pipeline Integration 📋 PLANNED
+- **S15** OCR Accuracy Enhancement Using Dataset 📋 PLANNED
+- **S16** Field Extraction Optimization 📋 PLANNED
+- **S17** Performance Tuning and Validation 📋 PLANNED
+- **S18** Comprehensive Testing and Error Analysis 📋 PLANNED
+- **S19** Final Integration and Documentation 📋 PLANNED
+
+## 5. Key Documentation
 
 - [Architecture Diagrams](../docs/ARCHITECTURE_DIAGRAMS.md)
 - [AAMVA Implementation Strategy](../docs/AAMVA_IMPLEMENTATION.md)
@@ -62,15 +95,16 @@ This project follows a milestone-based development approach.
 - [Error Handling](../docs/ERROR_HANDLING.md)
 - [Current Milestone Requirements](./02_REQUIREMENTS/M03_Front_Side_OCR_Fallback/)
 
-## 5. Milestone Roadmap
+## 6. Milestone Roadmap
 
 - **M01:** Module Foundation (setup/scaffolding)
 - **M02:** Core PDF417 Scanning (Weeks 1-2) ✅ COMPLETED
 - **M03:** Front-side OCR Fallback (Week 3) 📋 CURRENT
 - **M04:** Dual-Mode UI Integration (Week 4) - 2 sprints planned (S06, S07)
 - **M05:** Testing, Optimization & Documentation (Week 5) - 2 sprints planned (S08, S09)
+- **M06:** MIDV-500 Dataset Integration (Weeks 6-8) - Enhance OCR accuracy and establish automated testing using MIDV-500 dataset (500 identity document videos)
 
-## 6. Quick Links
+## 7. Quick Links
 
 - **Current Sprint:** [S03 Sprint Folder](./03_SPRINTS/S03_M03_Vision_Framework_OCR_Setup/)
 - **Active Tasks:** Check sprint folder for T##_S03_*.md files
