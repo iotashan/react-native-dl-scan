@@ -22,6 +22,7 @@ import os.log
     private let textPreprocessor = TextPreprocessor()
     private let confidenceCalculator = ConfidenceCalculator()
     private let fieldValidator = FieldValidator()
+    private let stateRuleEngine = StateRuleEngine()
     
     // Performance tracking
     private var lastProcessingTime: TimeInterval = 0
@@ -73,20 +74,40 @@ import os.log
         // Step 1: Preprocess and normalize text observations
         let normalizedObservations = textPreprocessor.normalizeObservations(observations)
         
-        // Step 2: Extract individual fields using hybrid approach
-        let extractedFields = performFieldExtraction(from: normalizedObservations)
+        // Step 2: Detect state from license content
+        let detectedState = stateRuleEngine.detectState(from: normalizedObservations)
         
-        // Step 3: Calculate confidence scores for each field
+        // Step 3: Extract individual fields using hybrid approach
+        var extractedFields = performFieldExtraction(from: normalizedObservations)
+        
+        // Step 4: Apply state-specific parsing rules if state detected
+        if let state = detectedState {
+            os_log(.debug, log: logger, "Applying state-specific rules for: %@", state)
+            extractedFields = stateRuleEngine.applyStateSpecificRules(
+                for: state,
+                to: extractedFields,
+                from: normalizedObservations
+            )
+        } else {
+            os_log(.debug, log: logger, "No state detected, using generic parsing rules")
+        }
+        
+        // Step 5: Calculate confidence scores for each field
+        let confidenceWeights = detectedState != nil ? 
+            stateRuleEngine.getStateConfidenceWeights(for: detectedState!) : 
+            stateRuleEngine.getStateConfidenceWeights(for: "generic")
+        
         let fieldsWithConfidence = confidenceCalculator.calculateConfidenceScores(
             for: extractedFields,
-            from: normalizedObservations
+            from: normalizedObservations,
+            using: confidenceWeights
         )
         
-        // Step 4: Validate and clean extracted data
+        // Step 6: Validate and clean extracted data
         let validatedFields = fieldValidator.validateAndCleanFields(fieldsWithConfidence)
         
-        // Step 5: Assemble final license data structure
-        return assembleOCRLicenseData(from: validatedFields)
+        // Step 7: Assemble final license data structure
+        return assembleOCRLicenseData(from: validatedFields, detectedState: detectedState)
     }
     
     /**
@@ -686,7 +707,33 @@ import os.log
             restrictions: fields["restrictions"]?.value,
             endorsements: fields["endorsements"]?.value,
             address: fields["address"]?.value,
-            confidence: calculateOverallConfidence(from: fields)
+            confidence: calculateOverallConfidence(from: fields),
+            detectedState: nil
+        )
+    }
+    
+    /**
+     * Assemble final OCR license data structure with detected state
+     */
+    private func assembleOCRLicenseData(from fields: [String: ValidatedField], detectedState: String?) -> OCRLicenseData {
+        return OCRLicenseData(
+            firstName: fields["firstName"]?.value,
+            lastName: fields["lastName"]?.value,
+            licenseNumber: fields["licenseNumber"]?.value,
+            dateOfBirth: fields["dateOfBirth"]?.value,
+            expirationDate: fields["expirationDate"]?.value,
+            issueDate: fields["issueDate"]?.value,
+            sex: fields["sex"]?.value,
+            height: fields["height"]?.value,
+            weight: fields["weight"]?.value,
+            eyeColor: fields["eyeColor"]?.value,
+            hairColor: fields["hairColor"]?.value,
+            licenseClass: fields["licenseClass"]?.value,
+            restrictions: fields["restrictions"]?.value,
+            endorsements: fields["endorsements"]?.value,
+            address: fields["address"]?.value,
+            confidence: calculateOverallConfidence(from: fields),
+            detectedState: detectedState
         )
     }
     
@@ -784,6 +831,14 @@ import os.log
         result["processingTime"] = lastProcessingTime
         result["extractionMethod"] = "OCR"
         
+        // State detection metadata
+        if let detectedState = data.detectedState {
+            result["detectedState"] = detectedState
+            result["stateSpecificRulesApplied"] = true
+        } else {
+            result["stateSpecificRulesApplied"] = false
+        }
+        
         return result
     }
 }
@@ -838,6 +893,7 @@ struct OCRLicenseData {
     let endorsements: String?
     let address: String?
     let confidence: Float
+    let detectedState: String?
 }
 
 /**
@@ -912,6 +968,26 @@ class ConfidenceCalculator {
         // For now, return the same confidence scores
         // Future implementation will use multi-factor scoring
         return fields
+    }
+    
+    func calculateConfidenceScores(for fields: [String: FieldExtractionResult], from observations: [NormalizedTextObservation], using weights: [String: Float]) -> [String: FieldExtractionResult] {
+        // Enhanced confidence calculation using state-specific weights
+        var enhancedFields = fields
+        
+        for (fieldName, field) in fields {
+            if let weight = weights[fieldName] {
+                // Apply weight-based confidence adjustment
+                let adjustedConfidence = min(field.confidence * (1.0 + weight), 1.0)
+                enhancedFields[fieldName] = FieldExtractionResult(
+                    value: field.value,
+                    confidence: adjustedConfidence,
+                    extractionMethod: field.extractionMethod,
+                    boundingBox: field.boundingBox
+                )
+            }
+        }
+        
+        return enhancedFields
     }
 }
 
