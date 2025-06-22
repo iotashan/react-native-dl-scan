@@ -1,7 +1,7 @@
 # T03_S01 - Create React Native Bridge
 
 **Sprint:** S01 - Foundation & DLParser-Swift Integration  
-**Milestone:** M01 - Core PDF417 Barcode Scanning  
+**Milestone:** M02 - Core PDF417 Barcode Scanning  
 **Status:** ✅ COMPLETED  
 **Updated:** 2025-06-21 10:50  
 **Priority:** HIGH  

@@ -1,7 +1,7 @@
 # T02_S01 - Integrate DLParser-Swift Library
 
 **Sprint:** S01 - Foundation & DLParser-Swift Integration  
-**Milestone:** M01 - Core PDF417 Barcode Scanning  
+**Milestone:** M02 - Core PDF417 Barcode Scanning  
 **Status:** ✅ COMPLETED  
 **Updated:** 2025-06-21 10:39  
 **Priority:** HIGH  

@@ -24,6 +24,13 @@ enum ScanErrorCode: String {
     case ocrProcessingTimeout = "OCR_PROCESSING_TIMEOUT"
     case ocrInsufficientQuality = "OCR_INSUFFICIENT_QUALITY"
     case ocrPartialExtraction = "OCR_PARTIAL_EXTRACTION"
+    // Document detection specific error codes
+    case documentDetectionFailed = "DOCUMENT_DETECTION_FAILED"
+    case documentBoundariesInvalid = "DOCUMENT_BOUNDARIES_INVALID"
+    case documentTooSmall = "DOCUMENT_TOO_SMALL"
+    case documentAspectRatioInvalid = "DOCUMENT_ASPECT_RATIO_INVALID"
+    case perspectiveCorrectionFailed = "PERSPECTIVE_CORRECTION_FAILED"
+    case documentLowConfidence = "DOCUMENT_LOW_CONFIDENCE"
 }
 
 @objc class ErrorTranslator: NSObject {
@@ -206,6 +213,91 @@ enum ScanErrorCode: String {
         
         return [
             "code": ScanErrorCode.ocrInsufficientQuality.rawValue,
+            "message": message,
+            "userMessage": userMessage,
+            "recoverable": true,
+            "qualityIssues": qualityIssues
+        ]
+    }
+    
+    // MARK: - Document Detection error methods
+    
+    @objc static func createDocumentDetectionError(reason: String) -> [String: Any] {
+        let errorCode: ScanErrorCode
+        let userMessage: String
+        
+        switch reason {
+        case "detection_failed":
+            errorCode = .documentDetectionFailed
+            userMessage = "Unable to detect document boundaries. Please ensure the entire license is visible and well-lit."
+            
+        case "boundaries_invalid":
+            errorCode = .documentBoundariesInvalid
+            userMessage = "Document boundaries are unclear. Please position the license flat and ensure all corners are visible."
+            
+        case "too_small":
+            errorCode = .documentTooSmall
+            userMessage = "Document appears too small in the frame. Please move closer to the license."
+            
+        case "aspect_ratio_invalid":
+            errorCode = .documentAspectRatioInvalid
+            userMessage = "Document shape doesn't match a driver's license. Please ensure the entire license is visible."
+            
+        case "low_confidence":
+            errorCode = .documentLowConfidence
+            userMessage = "Document detection confidence is low. Please improve lighting and ensure the license is flat."
+            
+        case "perspective_correction_failed":
+            errorCode = .perspectiveCorrectionFailed
+            userMessage = "Unable to correct document perspective. Please try scanning at a different angle."
+            
+        default:
+            errorCode = .documentDetectionFailed
+            userMessage = "Document detection failed. Please ensure the license is clearly visible and try again."
+        }
+        
+        return [
+            "code": errorCode.rawValue,
+            "message": "Document detection error: \(reason)",
+            "userMessage": userMessage,
+            "recoverable": true
+        ]
+    }
+    
+    @objc static func createDocumentQualityError(qualityIssues: [String: Any]) -> [String: Any] {
+        var message = "Document detection quality issues:"
+        var suggestions: [String] = []
+        
+        if let tooSmall = qualityIssues["tooSmall"] as? Bool, tooSmall {
+            message += " document too small"
+            suggestions.append("Move closer to the license")
+        }
+        
+        if let wrongAspectRatio = qualityIssues["wrongAspectRatio"] as? Bool, wrongAspectRatio {
+            message += " incorrect dimensions"
+            suggestions.append("Ensure entire license is visible")
+        }
+        
+        if let boundaries = qualityIssues["invalidBoundaries"] as? Bool, boundaries {
+            message += " unclear boundaries"
+            suggestions.append("Position license flat with all corners visible")
+        }
+        
+        if let lighting = qualityIssues["lighting"] as? String {
+            if lighting == "dark" {
+                message += " insufficient lighting"
+                suggestions.append("Improve lighting conditions")
+            } else if lighting == "bright" {
+                message += " excessive glare"
+                suggestions.append("Avoid direct light reflection")
+            }
+        }
+        
+        let userMessage = suggestions.isEmpty ? "Please try again with better conditions." : 
+                         suggestions.joined(separator: ". ") + "."
+        
+        return [
+            "code": ScanErrorCode.documentDetectionFailed.rawValue,
             "message": message,
             "userMessage": userMessage,
             "recoverable": true,

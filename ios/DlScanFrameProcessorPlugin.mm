@@ -6,9 +6,11 @@
 @interface DlScanFrameProcessorPlugin : FrameProcessorPlugin
 @property (nonatomic, strong) PDF417Detector *detector;
 @property (nonatomic, strong) OCRTextDetector *ocrDetector;
+@property (nonatomic, strong) DocumentDetector *documentDetector;
 @property (nonatomic, strong) LicenseParser *parser;
 @property (nonatomic, strong) NSDate *lastDetectionTime;
 @property (nonatomic, strong) NSDate *lastOCRTime;
+@property (nonatomic, strong) NSDate *lastDocumentDetectionTime;
 @end
 
 @implementation DlScanFrameProcessorPlugin
@@ -19,9 +21,11 @@
     if (self) {
         _detector = [[PDF417Detector alloc] init];
         _ocrDetector = [[OCRTextDetector alloc] init];
+        _documentDetector = [[DocumentDetector alloc] init];
         _parser = [[LicenseParser alloc] init];
         _lastDetectionTime = nil;
         _lastOCRTime = nil;
+        _lastDocumentDetectionTime = nil;
     }
     return self;
 }
@@ -44,7 +48,51 @@
         };
     }
     
-    if ([mode isEqualToString:@"ocr"]) {
+    if ([mode isEqualToString:@"document"]) {
+        // Document detection mode - process at moderate frequency (max 5 frames per second)
+        if (_lastDocumentDetectionTime && [now timeIntervalSinceDate:_lastDocumentDetectionTime] < 0.2) {
+            return nil; // Skip this frame
+        }
+        
+        // Detect document boundaries
+        NSDictionary *documentResult = [_documentDetector detectDocumentIn:pixelBuffer];
+        
+        // Check for document detection errors
+        NSError *documentError = [_documentDetector getLastError];
+        if (documentError) {
+            // Use ErrorTranslator to get proper document detection error details
+            NSDictionary *errorDetails = [ErrorTranslator translate:documentError];
+            return @{
+                @"success": @NO,
+                @"error": errorDetails
+            };
+        }
+        
+        // If no document found, return with specific error
+        if (!documentResult) {
+            NSDictionary *noDocumentError = [ErrorTranslator createDocumentDetectionError:@"detection_failed"];
+            return @{
+                @"success": @NO,
+                @"error": noDocumentError
+            };
+        }
+        
+        // Update last document detection time
+        _lastDocumentDetectionTime = now;
+        
+        // Return document detection result
+        return @{
+            @"success": @YES,
+            @"mode": @"document",
+            @"documentData": documentResult,
+            @"frameInfo": @{
+                @"width": @(frame.width),
+                @"height": @(frame.height),
+                @"timestamp": @([now timeIntervalSince1970] * 1000), // milliseconds
+                @"processingTime": @([_documentDetector getLastProcessingTime] * 1000) // milliseconds
+            }
+        };
+    } else if ([mode isEqualToString:@"ocr"]) {
         // OCR mode - process at lower frequency (max 2 frames per second)
         if (_lastOCRTime && [now timeIntervalSinceDate:_lastOCRTime] < 0.5) {
             return nil; // Skip this frame
