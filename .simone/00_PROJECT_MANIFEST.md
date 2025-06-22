@@ -1,10 +1,10 @@
 ---
 project_name: React Native DL Scan
 current_milestone_id: M03
-highest_sprint_in_milestone: S19
+highest_sprint_in_milestone: S31
 current_sprint_id: S03
 status: in_progress
-last_updated: 2025-06-22 10:30:00
+last_updated: 2025-06-22 11:45:00
 ---
 
 # Project Manifest: React Native DL Scan
@@ -87,6 +87,25 @@ This project follows a milestone-based development approach.
 - **S18** Comprehensive Testing and Error Analysis 📋 PLANNED
 - **S19** Final Integration and Documentation 📋 PLANNED
 
+### M07 Sprints - Advanced Identity Document Analysis with MIDV-500 + IDNet Integration
+**Phase 1: IDNet Foundation & Integration (4 weeks)**
+- **S20** IDNet Dataset Setup and Infrastructure 📋 PLANNED
+- **S21** Fraud Pattern Recognition Engine 📋 PLANNED
+- **S22** Combined MIDV-500 + IDNet Pipeline 📋 PLANNED
+- **S23** Initial Security Model Training 📋 PLANNED
+
+**Phase 2: Enhanced Security Engine (4 weeks)**
+- **S24** Advanced Fraud Detection Implementation 📋 PLANNED
+- **S25** Multi-Layer Security Validation 📋 PLANNED
+- **S26** Real-time Performance Optimization 📋 PLANNED
+- **S27** Security Confidence Scoring System 📋 PLANNED
+
+**Phase 3: Production Integration (4 weeks)**
+- **S28** Production-Ready Security Framework 📋 PLANNED
+- **S29** Comprehensive Security Testing Suite 📋 PLANNED
+- **S30** Performance Benchmarking and Optimization 📋 PLANNED
+- **S31** Final Integration and Documentation 📋 PLANNED
+
 ## 5. Key Documentation
 
 - [Architecture Diagrams](../docs/ARCHITECTURE_DIAGRAMS.md)
@@ -103,6 +122,7 @@ This project follows a milestone-based development approach.
 - **M04:** Dual-Mode UI Integration (Week 4) - 2 sprints planned (S06, S07)
 - **M05:** Testing, Optimization & Documentation (Week 5) - 2 sprints planned (S08, S09)
 - **M06:** MIDV-500 Dataset Integration (Weeks 6-8) - Enhance OCR accuracy and establish automated testing using MIDV-500 dataset (500 identity document videos)
+- **M07:** Advanced Identity Document Analysis with MIDV-500 + IDNet Integration (Weeks 9-24) - Enhanced security & accuracy framework combining real-world MIDV-500 validation with synthetic IDNet fraud detection (837K documents, 6 fraud patterns)
 
 ## 7. Quick Links
 
