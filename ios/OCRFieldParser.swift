@@ -130,7 +130,14 @@ import os.log
         
         for pattern in patterns {
             if let result = extractUsingPattern(pattern, from: observations, field: "firstName") {
-                return result
+                // Apply name-specific OCR corrections (safe for names)
+                let correctedName = applyNameOCRCorrections(result.value)
+                return FieldExtractionResult(
+                    value: correctedName,
+                    confidence: result.confidence,
+                    extractionMethod: result.extractionMethod,
+                    boundingBox: result.boundingBox
+                )
             }
         }
         
@@ -150,7 +157,14 @@ import os.log
         
         for pattern in patterns {
             if let result = extractUsingPattern(pattern, from: observations, field: "lastName") {
-                return result
+                // Apply name-specific OCR corrections (safe for names)
+                let correctedName = applyNameOCRCorrections(result.value)
+                return FieldExtractionResult(
+                    value: correctedName,
+                    confidence: result.confidence,
+                    extractionMethod: result.extractionMethod,
+                    boundingBox: result.boundingBox
+                )
             }
         }
         
@@ -584,8 +598,10 @@ import os.log
         }
         
         if let bestMatch = sortedNames.first {
+            // Apply name-specific OCR corrections
+            let correctedName = applyNameOCRCorrections(bestMatch.text)
             return FieldExtractionResult(
-                value: bestMatch.text,
+                value: correctedName,
                 confidence: bestMatch.confidence,
                 extractionMethod: .positionalAnalysis,
                 boundingBox: bestMatch.boundingBox
@@ -682,6 +698,22 @@ import os.log
         guard !validFields.isEmpty else { return 0.0 }
         
         return validFields.reduce(0.0, +) / Float(validFields.count)
+    }
+    
+    /**
+     * Apply name-specific OCR corrections
+     * Safe to convert 0 to O and 1 to I in name contexts
+     */
+    private func applyNameOCRCorrections(_ name: String) -> String {
+        var corrected = name
+        
+        // Common OCR errors in names (safe conversions)
+        corrected = corrected.replacingOccurrences(of: "0", with: "O")  // 0 → O (e.g., J0HN → JOHN)
+        corrected = corrected.replacingOccurrences(of: "1", with: "I")  // 1 → I (e.g., MAR1A → MARIA)
+        corrected = corrected.replacingOccurrences(of: "5", with: "S")  // 5 → S (e.g., JE55ICA → JESSICA)
+        corrected = corrected.replacingOccurrences(of: "8", with: "B")  // 8 → B (less common but possible)
+        
+        return corrected
     }
     
     /**
@@ -861,11 +893,14 @@ class TextPreprocessor {
     private func normalizeOCRText(_ text: String) -> String {
         var normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        // Common OCR error corrections
-        normalized = normalized.replacingOccurrences(of: "0", with: "O", options: [], range: nil)
-        normalized = normalized.replacingOccurrences(of: "1", with: "I", options: [], range: nil)
+        // Convert to uppercase first
+        normalized = normalized.uppercased()
         
-        return normalized.uppercased()
+        // Note: OCR error correction should be context-aware and done at the field level,
+        // not globally. Global replacements can corrupt valid data like license numbers.
+        // Field-specific corrections are handled in the respective extraction methods.
+        
+        return normalized
     }
 }
 
