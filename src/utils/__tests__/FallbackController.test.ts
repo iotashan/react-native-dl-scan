@@ -86,7 +86,7 @@ describe('FallbackController', () => {
     test('should use default configuration when none provided', () => {
       const config = controller.getConfig();
 
-      expect(config.barcodeTimeoutMs).toBe(3500);
+      expect(config.barcodeTimeoutMs).toBe(3000);
       expect(config.maxBarcodeAttempts).toBe(5);
       expect(config.maxFallbackProcessingTimeMs).toBe(4000);
       expect(config.enableQualityAssessment).toBe(true);

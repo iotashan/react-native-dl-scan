@@ -100,10 +100,22 @@ export interface ScanProgress {
 
 export interface ScanMetrics {
   totalProcessingTime: number;
-  barcodeAttemptTime: number;
-  ocrProcessingTime: number;
+  barcodeAttemptTime?: number;
+  ocrProcessingTime?: number;
+  modeTransitionTime?: number;
   fallbackTriggered: boolean;
   fallbackReason?: 'timeout' | 'failure' | 'quality' | 'manual';
   finalMode: ScanMode;
   success: boolean;
+  // Performance metrics
+  barcodeAttempts?: number;
+  ocrAttempts?: number;
+  retryAttempts?: number;
+  peakMemoryUsageMB?: number;
+  averageMemoryUsageMB?: number;
+  frameQualityScore?: number;
+  confidenceScore?: number;
+  performanceRating?: 'excellent' | 'good' | 'acceptable' | 'poor' | 'critical';
+  bottlenecks?: string[];
+  recommendations?: string[];
 }

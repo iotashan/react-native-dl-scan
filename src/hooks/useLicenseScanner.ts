@@ -10,7 +10,10 @@ import type {
 } from '../types/license';
 import { logger } from '../utils/logger';
 import { FallbackController } from '../utils/FallbackController';
-import type { FallbackControllerEvents } from '../utils/FallbackController';
+import type {
+  FallbackControllerEvents,
+  PerformanceAlert,
+} from '../utils/FallbackController';
 
 export interface LicenseScannerOptions {
   mode?: 'auto' | 'barcode' | 'ocr';
@@ -87,6 +90,23 @@ export function useLicenseScanner(
           (prev) => ({ ...prev, ...metrics }) as ScanMetrics
         );
         logger.debug('Scan metrics update', metrics);
+      },
+      onPerformanceAlert: (alert: PerformanceAlert) => {
+        logger.warn('Performance alert', alert);
+
+        // Show user-friendly message based on alert type
+        if (alert.type === 'critical') {
+          setError(
+            new ScanError({
+              code: 'PERFORMANCE_CRITICAL',
+              message: alert.message,
+              userMessage:
+                'Performance issue detected. ' +
+                (alert.message || 'Please try again.'),
+              recoverable: true,
+            })
+          );
+        }
       },
     };
 

@@ -18,7 +18,10 @@ export type { ScanLicenseResult } from './frameProcessors/scanLicense';
 export { CameraScanner } from './components/CameraScanner';
 export type { CameraScannerProps } from './components/CameraScanner';
 export { FallbackController } from './utils/FallbackController';
-export type { FallbackControllerEvents } from './utils/FallbackController';
+export type {
+  FallbackControllerEvents,
+  PerformanceAlert,
+} from './utils/FallbackController';
 
 /**
  * Parse OCR text observations into structured license data

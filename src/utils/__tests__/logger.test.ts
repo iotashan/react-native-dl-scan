@@ -142,4 +142,98 @@ describe('logger', () => {
     expect(console.warn).toHaveBeenCalled();
     expect(console.error).toHaveBeenCalled();
   });
+
+  describe('Performance tracking', () => {
+    beforeEach(() => {
+      logger.clearPerformanceMetrics();
+    });
+
+    it('should start and stop timers', () => {
+      logger.startTimer('test');
+
+      // Wait a bit
+      const start = Date.now();
+      while (Date.now() - start < 10) {} // Busy wait for 10ms
+
+      const elapsed = logger.stopTimer('test');
+
+      expect(elapsed).toBeGreaterThanOrEqual(5);
+      expect(elapsed).toBeLessThan(50);
+    });
+
+    it('should handle non-existent timers', () => {
+      const elapsed = logger.stopTimer('nonexistent');
+      expect(elapsed).toBeNull();
+    });
+
+    it('should measure function execution time', async () => {
+      const result = await logger.measureTime('testFunction', async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return 'result';
+      });
+
+      expect(result).toBe('result');
+
+      const metrics = logger.getPerformanceMetrics();
+      expect(metrics.testFunction_time).toBeGreaterThanOrEqual(5);
+    });
+
+    it('should retry operations with exponential backoff', async () => {
+      let attempts = 0;
+
+      const result = await logger.withRetry(
+        'test-operation',
+        async () => {
+          attempts++;
+          if (attempts < 3) {
+            throw new Error('Test error');
+          }
+          return 'success';
+        },
+        {
+          maxAttempts: 3,
+          initialDelayMs: 1,
+          maxDelayMs: 5,
+          backoffMultiplier: 2,
+        }
+      );
+
+      expect(result).toBe('success');
+      expect(attempts).toBe(3);
+    });
+
+    it('should track memory usage', () => {
+      logger.trackMemory('test_operation');
+
+      const metrics = logger.getPerformanceMetrics();
+      expect(metrics.test_operation_memory).toBeGreaterThan(0);
+    });
+
+    it('should enforce memory limits', () => {
+      // Mock high memory usage
+      const originalTrackMemory = logger.trackMemory;
+      logger.trackMemory = jest.fn().mockImplementation((operation: string) => {
+        (logger as any).performanceMetrics.set(`${operation}_memory`, 250); // 250MB
+      });
+
+      expect(() => {
+        logger.enforceMemoryLimit('high_memory_operation', 200);
+      }).toThrow('Memory limit exceeded');
+
+      logger.trackMemory = originalTrackMemory;
+    });
+
+    it('should clear performance metrics', () => {
+      logger.startTimer('test');
+      logger.trackMemory('test');
+
+      expect(
+        Object.keys(logger.getPerformanceMetrics()).length
+      ).toBeGreaterThan(0);
+
+      logger.clearPerformanceMetrics();
+
+      expect(Object.keys(logger.getPerformanceMetrics()).length).toBe(0);
+    });
+  });
 });
