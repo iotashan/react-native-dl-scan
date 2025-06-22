@@ -4,7 +4,7 @@ current_milestone_id: M03
 highest_sprint_in_milestone: S31
 current_sprint_id: S03
 status: in_progress
-last_updated: 2025-06-22 11:45:00
+last_updated: 2025-06-22 09:42
 ---
 
 # Project Manifest: React Native DL Scan
@@ -106,7 +106,11 @@ This project follows a milestone-based development approach.
 - **S30** Performance Benchmarking and Optimization 📋 PLANNED
 - **S31** Final Integration and Documentation 📋 PLANNED
 
-## 5. Key Documentation
+## 5. General Tasks
+
+- [x] T001: [Fix Failing Test Infrastructure](04_GENERAL_TASKS/T001_Fix_Failing_Test_Infrastructure.md) - Status: In Progress
+
+## 6. Key Documentation
 
 - [Architecture Diagrams](../docs/ARCHITECTURE_DIAGRAMS.md)
 - [AAMVA Implementation Strategy](../docs/AAMVA_IMPLEMENTATION.md)
@@ -114,7 +118,7 @@ This project follows a milestone-based development approach.
 - [Error Handling](../docs/ERROR_HANDLING.md)
 - [Current Milestone Requirements](./02_REQUIREMENTS/M03_Front_Side_OCR_Fallback/)
 
-## 6. Milestone Roadmap
+## 7. Milestone Roadmap
 
 - **M01:** Module Foundation (setup/scaffolding)
 - **M02:** Core PDF417 Scanning (Weeks 1-2) ✅ COMPLETED
@@ -124,7 +128,7 @@ This project follows a milestone-based development approach.
 - **M06:** MIDV-500 Dataset Integration (Weeks 6-8) - Enhance OCR accuracy and establish automated testing using MIDV-500 dataset (500 identity document videos)
 - **M07:** Advanced Identity Document Analysis with MIDV-500 + IDNet Integration (Weeks 9-24) - Enhanced security & accuracy framework combining real-world MIDV-500 validation with synthetic IDNet fraud detection (837K documents, 6 fraud patterns)
 
-## 7. Quick Links
+## 8. Quick Links
 
 - **Current Sprint:** [S03 Sprint Folder](./03_SPRINTS/S03_M03_Vision_Framework_OCR_Setup/)
 - **Active Tasks:** Check sprint folder for T##_S03_*.md files
