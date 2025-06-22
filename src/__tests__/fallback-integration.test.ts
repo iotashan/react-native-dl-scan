@@ -331,6 +331,7 @@ describe('Fallback Integration Pipeline', () => {
 
       const { result } = renderHook(() => useLicenseScanner());
 
+      // Start scan without awaiting to check progress state
       act(() => {
         result.current.scanBarcode('test-barcode');
       });
@@ -403,6 +404,7 @@ describe('Fallback Integration Pipeline', () => {
 
       const { result } = renderHook(() => useLicenseScanner());
 
+      // Start scan without awaiting to check cancellation
       act(() => {
         result.current.scanBarcode('test-barcode');
       });
