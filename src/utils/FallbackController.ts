@@ -177,6 +177,8 @@ export class FallbackController {
       this.notifyMetrics({
         barcodeAttemptTime: processingTime,
         finalMode: 'barcode',
+        success: true,
+        fallbackTriggered: false,
       });
 
       return result;
@@ -216,6 +218,8 @@ export class FallbackController {
       this.notifyMetrics({
         ocrProcessingTime: processingTime,
         finalMode: 'ocr',
+        success: true,
+        fallbackTriggered: this.barcodeAttempts > 0,
       });
 
       return result;

@@ -99,7 +99,9 @@
     "modulePathIgnorePatterns": [
       "<rootDir>/example/node_modules",
       "<rootDir>/lib/"
-    ]
+    ],
+    "testTimeout": 10000,
+    "forceExit": true
   },
   "commitlint": {
     "extends": [

@@ -85,6 +85,8 @@ export interface FallbackConfig {
   maxBarcodeAttempts: number;
   maxFallbackProcessingTimeMs: number;
   enableQualityAssessment: boolean;
+  enableFallback?: boolean;
+  confidenceThreshold?: number;
 }
 
 export interface ScanProgress {

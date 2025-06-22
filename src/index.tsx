@@ -8,6 +8,11 @@ import type {
 
 export * from './types/license';
 export { useLicenseScanner } from './hooks/useLicenseScanner';
+export type {
+  LicenseScannerOptions,
+  LicenseScannerState,
+  LicenseScannerActions,
+} from './hooks/useLicenseScanner';
 export { scanLicense as scanLicenseFrame } from './frameProcessors/scanLicense';
 export type { ScanLicenseResult } from './frameProcessors/scanLicense';
 export { CameraScanner } from './components/CameraScanner';

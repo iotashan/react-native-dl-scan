@@ -12,13 +12,22 @@ import { logger } from '../utils/logger';
 import { FallbackController } from '../utils/FallbackController';
 import type { FallbackControllerEvents } from '../utils/FallbackController';
 
+export interface LicenseScannerOptions {
+  mode?: 'auto' | 'barcode' | 'ocr';
+  barcodeTimeout?: number;
+  enableFallback?: boolean;
+  confidenceThreshold?: number;
+}
+
 export interface LicenseScannerState {
   licenseData: LicenseData | null;
   isScanning: boolean;
   error: ScanError | null;
   scanMode: ScanMode;
+  currentMode: 'barcode' | 'ocr' | 'switching';
   scanProgress: ScanProgress | null;
   scanMetrics: ScanMetrics | null;
+  performanceMetrics: ScanMetrics | null;
 }
 
 export interface LicenseScannerActions {
@@ -35,14 +44,20 @@ export interface LicenseScannerActions {
   updateFallbackConfig: (config: Partial<FallbackConfig>) => void;
 }
 
-export function useLicenseScanner(): LicenseScannerState &
-  LicenseScannerActions {
+export function useLicenseScanner(
+  options: LicenseScannerOptions = {}
+): LicenseScannerState & LicenseScannerActions {
   const [licenseData, setLicenseData] = useState<LicenseData | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<ScanError | null>(null);
-  const [scanMode, setScanMode] = useState<ScanMode>('auto');
+  const [scanMode, setScanMode] = useState<ScanMode>(options.mode || 'auto');
+  const [currentMode, setCurrentMode] = useState<
+    'barcode' | 'ocr' | 'switching'
+  >('barcode');
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
   const [scanMetrics, setScanMetrics] = useState<ScanMetrics | null>(null);
+  const [performanceMetrics, setPerformanceMetrics] =
+    useState<ScanMetrics | null>(null);
 
   const fallbackControllerRef = useRef<FallbackController | null>(null);
 
@@ -51,30 +66,63 @@ export function useLicenseScanner(): LicenseScannerState &
     const events: FallbackControllerEvents = {
       onProgressUpdate: (progress: ScanProgress) => {
         setScanProgress(progress);
+        // Update currentMode based on progress state
+        if (progress.state === 'barcode') {
+          setCurrentMode('barcode');
+        } else if (progress.state === 'ocr') {
+          setCurrentMode('ocr');
+        } else if (progress.state === 'fallback_transition') {
+          setCurrentMode('switching');
+        }
         logger.debug('Scan progress update', progress);
       },
       onModeSwitch: (fromMode: ScanMode, toMode: ScanMode, reason: string) => {
         setScanMode(toMode);
+        setCurrentMode('switching');
         logger.info('Scan mode switched', { fromMode, toMode, reason });
       },
       onMetricsUpdate: (metrics: Partial<ScanMetrics>) => {
         setScanMetrics((prev) => ({ ...prev, ...metrics }) as ScanMetrics);
+        setPerformanceMetrics(
+          (prev) => ({ ...prev, ...metrics }) as ScanMetrics
+        );
         logger.debug('Scan metrics update', metrics);
       },
     };
 
-    fallbackControllerRef.current = new FallbackController({}, events);
+    // Initialize with configuration from options
+    const fallbackConfig: Partial<FallbackConfig> = {
+      ...(options.barcodeTimeout && {
+        barcodeTimeoutMs: options.barcodeTimeout,
+      }),
+      ...(options.enableFallback !== undefined && {
+        enableFallback: options.enableFallback,
+      }),
+      ...(options.confidenceThreshold && {
+        confidenceThreshold: options.confidenceThreshold,
+      }),
+    };
+
+    fallbackControllerRef.current = new FallbackController(
+      fallbackConfig,
+      events
+    );
 
     return () => {
       if (fallbackControllerRef.current) {
         fallbackControllerRef.current.cancel();
       }
     };
-  }, []);
+  }, [
+    options.barcodeTimeout,
+    options.enableFallback,
+    options.confidenceThreshold,
+  ]);
 
   // Main scan function with fallback support
   const scan = useCallback(
-    async (input: string | OCRTextObservation[], mode: ScanMode = 'auto') => {
+    async (input: string | OCRTextObservation[], mode?: ScanMode) => {
+      const effectiveMode = mode || options.mode || 'auto';
       if (!fallbackControllerRef.current) {
         throw new ScanError({
           code: 'CONTROLLER_NOT_INITIALIZED',
@@ -86,19 +134,30 @@ export function useLicenseScanner(): LicenseScannerState &
 
       setIsScanning(true);
       setError(null);
-      setScanMode(mode);
+      setScanMode(effectiveMode);
       setScanProgress(null);
       setScanMetrics(null);
+      setPerformanceMetrics(null);
 
       const inputType = typeof input === 'string' ? 'barcode' : 'ocr';
+      // Set initial currentMode based on effective mode and input type
+      if (effectiveMode === 'ocr' || inputType === 'ocr') {
+        setCurrentMode('ocr');
+      } else {
+        setCurrentMode('barcode');
+      }
+
       logger.info('Starting license scan with fallback', {
-        mode,
+        mode: effectiveMode,
         inputType,
         inputLength: typeof input === 'string' ? input.length : input.length,
       });
 
       try {
-        const data = await fallbackControllerRef.current.scan(input, mode);
+        const data = await fallbackControllerRef.current.scan(
+          input,
+          effectiveMode
+        );
         setLicenseData(data);
 
         logger.info('License scan successful', {
@@ -131,7 +190,7 @@ export function useLicenseScanner(): LicenseScannerState &
         setIsScanning(false);
       }
     },
-    []
+    [options.mode]
   );
 
   // Legacy barcode-only scan for backward compatibility
@@ -183,13 +242,15 @@ export function useLicenseScanner(): LicenseScannerState &
     setLicenseData(null);
     setError(null);
     setIsScanning(false);
-    setScanMode('auto');
+    setScanMode(options.mode || 'auto');
+    setCurrentMode('barcode');
     setScanProgress(null);
     setScanMetrics(null);
+    setPerformanceMetrics(null);
     if (fallbackControllerRef.current) {
       fallbackControllerRef.current.cancel();
     }
-  }, []);
+  }, [options.mode]);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -200,8 +261,10 @@ export function useLicenseScanner(): LicenseScannerState &
     isScanning,
     error,
     scanMode,
+    currentMode,
     scanProgress,
     scanMetrics,
+    performanceMetrics,
     scan,
     scanBarcode,
     scanOCR,

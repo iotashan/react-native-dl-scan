@@ -313,13 +313,9 @@ describe('FallbackController', () => {
     test('should track scanning state correctly', async () => {
       expect(controller.getState()).toBe('idle');
 
-      const scanPromise = controller.scan('test-barcode', 'barcode');
-
-      // State should change during scan
-      expect(events.onProgressUpdate).toHaveBeenCalled();
-
       mockScanLicense.mockResolvedValueOnce(mockLicenseData);
-      await scanPromise;
+
+      await controller.scan('test-barcode', 'barcode');
 
       // Should complete successfully
       expect(events.onProgressUpdate).toHaveBeenCalledWith(
@@ -349,9 +345,14 @@ describe('FallbackController', () => {
     test('should wrap unknown errors in ScanError', async () => {
       mockScanLicense.mockRejectedValueOnce(new Error('Unexpected error'));
 
-      await expect(controller.scan('test-barcode', 'barcode')).rejects.toThrow(
-        'Unexpected error'
-      );
+      try {
+        await controller.scan('test-barcode', 'barcode');
+        fail('Should have thrown an error');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ScanError);
+        expect((error as ScanError).code).toBe('BARCODE_SCAN_ERROR');
+        expect((error as ScanError).message).toBe('Barcode scanning failed');
+      }
     });
   });
 

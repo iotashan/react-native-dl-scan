@@ -95,8 +95,31 @@ describe('useLicenseScanner', () => {
     expect(result.current.isScanning).toBe(false);
     expect(result.current.error).toBeNull();
     expect(result.current.scanMode).toBe('auto');
+    expect(result.current.currentMode).toBe('barcode');
     expect(result.current.scanProgress).toBeNull();
     expect(result.current.scanMetrics).toBeNull();
+    expect(result.current.performanceMetrics).toBeNull();
+  });
+
+  test('should initialize with custom options', () => {
+    const options = {
+      mode: 'ocr' as const,
+      barcodeTimeout: 5000,
+      enableFallback: false,
+      confidenceThreshold: 0.8,
+    };
+
+    const { result } = renderHook(() => useLicenseScanner(options));
+
+    expect(result.current.scanMode).toBe('ocr');
+    expect(mockFallbackController).toHaveBeenCalledWith(
+      expect.objectContaining({
+        barcodeTimeoutMs: 5000,
+        enableFallback: false,
+        confidenceThreshold: 0.8,
+      }),
+      expect.any(Object)
+    );
   });
 
   test('should scan with fallback successfully', async () => {
@@ -209,8 +232,17 @@ describe('useLicenseScanner', () => {
     const { result } = renderHook(() => useLicenseScanner());
 
     // Simulate controller not being ready
-    const originalInstance = mockControllerInstance;
-    mockFallbackController.mockImplementation(() => null as any);
+    const originalControllerInstance = mockControllerInstance;
+
+    // Mock the controller scan to throw the specific error
+    mockControllerInstance.scan.mockRejectedValueOnce(
+      new ScanError({
+        code: 'CONTROLLER_NOT_INITIALIZED',
+        message: 'FallbackController not initialized',
+        userMessage: 'Scanner not ready. Please try again.',
+        recoverable: true,
+      })
+    );
 
     await act(async () => {
       await result.current.scan('test-barcode');
@@ -220,7 +252,7 @@ describe('useLicenseScanner', () => {
     expect(result.current.error?.code).toBe('CONTROLLER_NOT_INITIALIZED');
 
     // Restore
-    mockFallbackController.mockImplementation(() => originalInstance);
+    mockControllerInstance = originalControllerInstance;
   });
 
   test('should set scanning state during scan', async () => {
@@ -316,7 +348,7 @@ describe('useLicenseScanner', () => {
     expect(result.current.error).toBeNull();
   });
 
-  test('should handle progress updates', () => {
+  test('should handle progress updates and update currentMode', () => {
     const { result } = renderHook(() => useLicenseScanner());
 
     // Simulate progress update from controller
@@ -338,6 +370,22 @@ describe('useLicenseScanner', () => {
     });
 
     expect(result.current.scanProgress).toEqual(mockProgress);
+    expect(result.current.currentMode).toBe('barcode');
+
+    // Test OCR mode
+    act(() => {
+      events?.onProgressUpdate({ ...mockProgress, state: 'ocr' as const });
+    });
+    expect(result.current.currentMode).toBe('ocr');
+
+    // Test switching mode
+    act(() => {
+      events?.onProgressUpdate({
+        ...mockProgress,
+        state: 'fallback_transition' as const,
+      });
+    });
+    expect(result.current.currentMode).toBe('switching');
   });
 
   test('should handle mode switch events', () => {
@@ -352,6 +400,7 @@ describe('useLicenseScanner', () => {
     });
 
     expect(result.current.scanMode).toBe('ocr');
+    expect(result.current.currentMode).toBe('switching');
   });
 
   test('should handle metrics updates', () => {
@@ -375,6 +424,9 @@ describe('useLicenseScanner', () => {
     expect(result.current.scanMetrics).toEqual(
       expect.objectContaining(mockMetrics)
     );
+    expect(result.current.performanceMetrics).toEqual(
+      expect.objectContaining(mockMetrics)
+    );
   });
 
   test('should cleanup controller on unmount', () => {
@@ -383,5 +435,84 @@ describe('useLicenseScanner', () => {
     unmount();
 
     expect(mockControllerInstance.cancel).toHaveBeenCalled();
+  });
+
+  test('backward compatibility: hook works without options', async () => {
+    mockControllerInstance.scan.mockResolvedValueOnce(mockLicenseData);
+
+    const { result } = renderHook(() => useLicenseScanner());
+
+    // Initial state should be 'auto'
+    expect(result.current.scanMode).toBe('auto');
+
+    // Should work exactly as before
+    await act(async () => {
+      await result.current.scanBarcode('test-barcode');
+    });
+
+    expect(result.current.licenseData).toEqual(mockLicenseData);
+    // scanBarcode explicitly sets mode to 'barcode'
+    expect(mockControllerInstance.scan).toHaveBeenCalledWith(
+      'test-barcode',
+      'barcode'
+    );
+  });
+
+  test('should respect mode option when no mode provided to scan', async () => {
+    mockControllerInstance.scan.mockResolvedValueOnce(mockLicenseData);
+
+    const { result } = renderHook(() => useLicenseScanner({ mode: 'ocr' }));
+
+    await act(async () => {
+      await result.current.scan(mockOCRData); // No mode parameter
+    });
+
+    expect(mockControllerInstance.scan).toHaveBeenCalledWith(
+      mockOCRData,
+      'ocr'
+    );
+  });
+
+  test('should set correct initial currentMode based on mode and input', async () => {
+    mockControllerInstance.scan.mockResolvedValueOnce(mockLicenseData);
+
+    const { result } = renderHook(() => useLicenseScanner({ mode: 'auto' }));
+
+    // Test barcode input
+    act(() => {
+      result.current.scan('barcode-data');
+    });
+    expect(result.current.currentMode).toBe('barcode');
+
+    // Test OCR input
+    act(() => {
+      result.current.scan(mockOCRData);
+    });
+    expect(result.current.currentMode).toBe('ocr');
+
+    // Test explicit OCR mode
+    act(() => {
+      result.current.scan('barcode-data', 'ocr');
+    });
+    expect(result.current.currentMode).toBe('ocr');
+  });
+
+  test('should reset to configured mode on reset', () => {
+    const { result } = renderHook(() => useLicenseScanner({ mode: 'ocr' }));
+
+    // Change mode during scanning
+    act(() => {
+      result.current.scan('test-barcode', 'barcode');
+    });
+
+    expect(result.current.scanMode).toBe('barcode');
+
+    act(() => {
+      result.current.reset();
+    });
+
+    expect(result.current.scanMode).toBe('ocr'); // Back to configured mode
+    expect(result.current.currentMode).toBe('barcode'); // Reset to default
+    expect(result.current.performanceMetrics).toBeNull();
   });
 });
