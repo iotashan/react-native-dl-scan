@@ -98,10 +98,10 @@
             return nil; // Skip this frame
         }
         
-        // Detect text using OCR
+        // Detect text using enhanced OCR with quality assessment
         NSDictionary *ocrResult = [_ocrDetector detectTextIn:pixelBuffer];
         
-        // Check for OCR errors
+        // Check for OCR errors first
         NSError *ocrError = [_ocrDetector getLastError];
         if (ocrError) {
             // Use ErrorTranslator to get proper OCR error details
@@ -112,7 +112,7 @@
             };
         }
         
-        // If no text found, return with specific error
+        // If no result returned, return with specific error
         if (!ocrResult) {
             NSDictionary *noTextError = [ErrorTranslator createOCRError:@"no_text"];
             return @{
@@ -121,20 +121,39 @@
             };
         }
         
+        // Check if OCR result contains error (quality assessment failure)
+        NSNumber *success = ocrResult[@"success"];
+        if (success && ![success boolValue]) {
+            // OCR failed due to quality issues - return the detailed error
+            return @{
+                @"success": @NO,
+                @"error": ocrResult[@"error"],
+                @"qualityAssessment": ocrResult[@"qualityAssessment"] ?: @{}
+            };
+        }
+        
         // Update last OCR time
         _lastOCRTime = now;
         
-        // Return OCR result (text extraction will be handled in later tasks)
-        return @{
+        // Return enhanced OCR result with quality metrics
+        NSMutableDictionary *result = [@{
             @"success": @YES,
             @"mode": @"ocr",
             @"ocrData": ocrResult,
             @"frameInfo": @{
                 @"width": @(frame.width),
                 @"height": @(frame.height),
-                @"timestamp": @([now timeIntervalSince1970] * 1000) // milliseconds
+                @"timestamp": @([now timeIntervalSince1970] * 1000), // milliseconds
+                @"processingTime": @([_ocrDetector getLastProcessingTime] * 1000) // milliseconds
             }
-        };
+        } mutableCopy];
+        
+        // Include quality assessment data if available
+        if (ocrResult[@"qualityAssessment"]) {
+            result[@"qualityAssessment"] = ocrResult[@"qualityAssessment"];
+        }
+        
+        return result;
     } else {
         // Barcode mode - existing implementation
         // Implement frame rate limiting (process max 10 frames per second)
