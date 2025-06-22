@@ -2,6 +2,9 @@ import DLParser
 import Foundation
 
 @objc class LicenseParser: NSObject {
+    
+    // OCR field parser for text-based extraction
+    private static let ocrFieldParser = OCRFieldParser()
     @objc static func parse(_ barcodeData: String, error: NSErrorPointer) -> [String: Any]? {
         do {
             let licenseData = try DLParser.parse(barcodeData)
@@ -112,5 +115,20 @@ import Foundation
         result["rawData"] = data.rawData ?? ""
         
         return result
+    }
+    
+    /**
+     * Parse OCR text observations into structured license data
+     * New method for OCR-based parsing following existing pattern
+     */
+    @objc static func parseOCR(_ textObservations: [[String: Any]], error: NSErrorPointer) -> [String: Any]? {
+        return ocrFieldParser.parseOCRFields(from: textObservations, error: error)
+    }
+    
+    /**
+     * Get OCR parsing performance metrics
+     */
+    @objc static func getOCRParsingTime() -> TimeInterval {
+        return ocrFieldParser.getLastProcessingTime()
     }
 }

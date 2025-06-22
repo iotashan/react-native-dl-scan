@@ -3,6 +3,7 @@ import type {
   LicenseData,
   LicenseResult,
   ScanError as ScanErrorType,
+  OCRTextObservation,
 } from './types/license';
 
 export * from './types/license';
@@ -11,6 +12,42 @@ export { scanLicense as scanLicenseFrame } from './frameProcessors/scanLicense';
 export type { ScanLicenseResult } from './frameProcessors/scanLicense';
 export { CameraScanner } from './components/CameraScanner';
 export type { CameraScannerProps } from './components/CameraScanner';
+
+/**
+ * Parse OCR text observations into structured license data
+ *
+ * @param textObservations Array of text observations from Vision Framework OCR
+ * @returns Promise<LicenseData> Structured license data
+ */
+export async function parseOCRText(
+  textObservations: OCRTextObservation[]
+): Promise<LicenseData> {
+  try {
+    const result: LicenseResult =
+      await DlScanModule.parseOCRText(textObservations);
+
+    if (result.success && result.data) {
+      return result.data;
+    } else if (result.error) {
+      throw new ScanError(result.error);
+    } else {
+      throw new Error('No license data could be extracted from OCR text');
+    }
+  } catch (error) {
+    if (error instanceof ScanError) {
+      throw error;
+    }
+
+    // Handle native errors
+    throw new ScanError({
+      code: 'OCR_PARSING_ERROR',
+      message: (error as Error).message || 'OCR parsing failed',
+      userMessage:
+        'Unable to process the license image. Please try again with better lighting.',
+      recoverable: true,
+    });
+  }
+}
 
 /**
  * Scan a PDF417 barcode string and extract license data

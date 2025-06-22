@@ -50,6 +50,12 @@ import CoreImage
     // Track if we're currently processing to avoid overlapping requests
     private var isProcessing = false
     
+    // Performance metrics tracking
+    private var lastProcessingTime: TimeInterval = 0
+    
+    // Quality assessment and preprocessing
+    private let qualityAssessment = OCRQualityAssessment()
+    
     @objc public override init() {
         super.init()
     }
@@ -94,22 +100,48 @@ import CoreImage
         // Skip if already processing
         guard !isProcessing else { return nil }
         
-        // Check frame quality before processing
-        guard isFrameQualityAcceptableForOCR(pixelBuffer) else { return nil }
-        
         isProcessing = true
         defer { isProcessing = false }
+        
+        // Track processing time
+        let startTime = CFAbsoluteTimeGetCurrent()
+        defer {
+            lastProcessingTime = CFAbsoluteTimeGetCurrent() - startTime
+            os_log(.debug, log: .default, "OCR text detection took %.3f seconds", lastProcessingTime)
+        }
         
         // Clear previous error
         lastError = nil
         
         // Use autoreleasepool for memory management
         return autoreleasepool { () -> [String: Any]? in
-            // First, detect document boundaries
-            let documentBounds = detectDocumentBounds(in: pixelBuffer)
+            // Step 1: Enhanced quality assessment
+            let qualityResult = qualityAssessment.assessImageQuality(in: pixelBuffer)
+            guard let suitable = qualityResult["suitable"] as? Bool, suitable else {
+                // Return quality assessment error for detailed user feedback
+                return [
+                    "success": false,
+                    "error": ErrorTranslator.createEnhancedQualityError(qualityMetrics: qualityResult),
+                    "qualityAssessment": qualityResult
+                ]
+            }
             
-            // Create Vision handler
-            let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
+            // Step 2: Image preprocessing for OCR optimization
+            guard let preprocessedBuffer = qualityAssessment.preprocessForOCR(
+                pixelBuffer: pixelBuffer, 
+                qualityMetrics: qualityResult
+            ) else {
+                return [
+                    "success": false,
+                    "error": ErrorTranslator.createQualityAssessmentError(reason: "preprocessing_failed")
+                ]
+            }
+            
+            // Step 3: Detect document boundaries on preprocessed image
+            let documentBounds = detectDocumentBounds(in: preprocessedBuffer)
+            
+            // Step 4: Create Vision handler with preprocessed buffer for OCR
+            let handler = VNImageRequestHandler(cvPixelBuffer: preprocessedBuffer, options: [:])
             
             do {
                 // Perform text recognition
@@ -143,12 +175,22 @@ import CoreImage
                 }
                 
                 guard !highConfidenceResults.isEmpty else {
-                    return nil
+                    // Text was detected but confidence was too low
+                    return [
+                        "success": false,
+                        "error": ErrorTranslator.createOCRError(reason: "low_confidence"),
+                        "qualityAssessment": qualityResult,
+                        "textObservations": textObservations, // Include all detected text for debugging
+                        "processingTime": lastProcessingTime
+                    ]
                 }
                 
                 var result: [String: Any] = [
+                    "success": true,
                     "textObservations": highConfidenceResults,
-                    "totalTextBlocks": highConfidenceResults.count
+                    "totalTextBlocks": highConfidenceResults.count,
+                    "qualityAssessment": qualityResult,
+                    "processingTime": lastProcessingTime
                 ]
                 
                 // Add document bounds if detected
@@ -387,5 +429,12 @@ import CoreImage
         
         let contrast = ((maxLuminance - minLuminance) / denominator) * 100
         return contrast
+    }
+    
+    /**
+     * Get last processing time for performance monitoring
+     */
+    @objc public func getLastProcessingTime() -> TimeInterval {
+        return lastProcessingTime
     }
 }

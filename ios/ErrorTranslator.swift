@@ -24,6 +24,20 @@ enum ScanErrorCode: String {
     case ocrProcessingTimeout = "OCR_PROCESSING_TIMEOUT"
     case ocrInsufficientQuality = "OCR_INSUFFICIENT_QUALITY"
     case ocrPartialExtraction = "OCR_PARTIAL_EXTRACTION"
+    // Document detection specific error codes
+    case documentDetectionFailed = "DOCUMENT_DETECTION_FAILED"
+    case documentBoundariesInvalid = "DOCUMENT_BOUNDARIES_INVALID"
+    case documentTooSmall = "DOCUMENT_TOO_SMALL"
+    case documentAspectRatioInvalid = "DOCUMENT_ASPECT_RATIO_INVALID"
+    case perspectiveCorrectionFailed = "PERSPECTIVE_CORRECTION_FAILED"
+    case documentLowConfidence = "DOCUMENT_LOW_CONFIDENCE"
+    // Quality assessment specific error codes
+    case qualityAssessmentFailed = "QUALITY_ASSESSMENT_FAILED"
+    case imagePreprocessingFailed = "IMAGE_PREPROCESSING_FAILED"
+    case qualityBelowThreshold = "QUALITY_BELOW_THRESHOLD"
+    case qualityInsufficientSharpness = "QUALITY_INSUFFICIENT_SHARPNESS"
+    case qualityInsufficientContrast = "QUALITY_INSUFFICIENT_CONTRAST"
+    case qualityInsufficientGradient = "QUALITY_INSUFFICIENT_GRADIENT"
 }
 
 @objc class ErrorTranslator: NSObject {
@@ -210,6 +224,186 @@ enum ScanErrorCode: String {
             "userMessage": userMessage,
             "recoverable": true,
             "qualityIssues": qualityIssues
+        ]
+    }
+    
+    // MARK: - Document Detection error methods
+    
+    @objc static func createDocumentDetectionError(reason: String) -> [String: Any] {
+        let errorCode: ScanErrorCode
+        let userMessage: String
+        
+        switch reason {
+        case "detection_failed":
+            errorCode = .documentDetectionFailed
+            userMessage = "Unable to detect document boundaries. Please ensure the entire license is visible and well-lit."
+            
+        case "boundaries_invalid":
+            errorCode = .documentBoundariesInvalid
+            userMessage = "Document boundaries are unclear. Please position the license flat and ensure all corners are visible."
+            
+        case "too_small":
+            errorCode = .documentTooSmall
+            userMessage = "Document appears too small in the frame. Please move closer to the license."
+            
+        case "aspect_ratio_invalid":
+            errorCode = .documentAspectRatioInvalid
+            userMessage = "Document shape doesn't match a driver's license. Please ensure the entire license is visible."
+            
+        case "low_confidence":
+            errorCode = .documentLowConfidence
+            userMessage = "Document detection confidence is low. Please improve lighting and ensure the license is flat."
+            
+        case "perspective_correction_failed":
+            errorCode = .perspectiveCorrectionFailed
+            userMessage = "Unable to correct document perspective. Please try scanning at a different angle."
+            
+        default:
+            errorCode = .documentDetectionFailed
+            userMessage = "Document detection failed. Please ensure the license is clearly visible and try again."
+        }
+        
+        return [
+            "code": errorCode.rawValue,
+            "message": "Document detection error: \(reason)",
+            "userMessage": userMessage,
+            "recoverable": true
+        ]
+    }
+    
+    @objc static func createDocumentQualityError(qualityIssues: [String: Any]) -> [String: Any] {
+        var message = "Document detection quality issues:"
+        var suggestions: [String] = []
+        
+        if let tooSmall = qualityIssues["tooSmall"] as? Bool, tooSmall {
+            message += " document too small"
+            suggestions.append("Move closer to the license")
+        }
+        
+        if let wrongAspectRatio = qualityIssues["wrongAspectRatio"] as? Bool, wrongAspectRatio {
+            message += " incorrect dimensions"
+            suggestions.append("Ensure entire license is visible")
+        }
+        
+        if let boundaries = qualityIssues["invalidBoundaries"] as? Bool, boundaries {
+            message += " unclear boundaries"
+            suggestions.append("Position license flat with all corners visible")
+        }
+        
+        if let lighting = qualityIssues["lighting"] as? String {
+            if lighting == "dark" {
+                message += " insufficient lighting"
+                suggestions.append("Improve lighting conditions")
+            } else if lighting == "bright" {
+                message += " excessive glare"
+                suggestions.append("Avoid direct light reflection")
+            }
+        }
+        
+        let userMessage = suggestions.isEmpty ? "Please try again with better conditions." : 
+                         suggestions.joined(separator: ". ") + "."
+        
+        return [
+            "code": ScanErrorCode.documentDetectionFailed.rawValue,
+            "message": message,
+            "userMessage": userMessage,
+            "recoverable": true,
+            "qualityIssues": qualityIssues
+        ]
+    }
+    
+    // MARK: - Quality Assessment error methods
+    
+    @objc static func createQualityAssessmentError(reason: String) -> [String: Any] {
+        let errorCode: ScanErrorCode
+        let userMessage: String
+        
+        switch reason {
+        case "assessment_failed":
+            errorCode = .qualityAssessmentFailed
+            userMessage = "Unable to assess image quality. Please try scanning again."
+            
+        case "preprocessing_failed":
+            errorCode = .imagePreprocessingFailed
+            userMessage = "Image enhancement failed. Please try scanning with better lighting."
+            
+        case "below_threshold":
+            errorCode = .qualityBelowThreshold
+            userMessage = "Image quality is insufficient for text recognition. Please improve lighting and hold steady."
+            
+        case "insufficient_sharpness":
+            errorCode = .qualityInsufficientSharpness
+            userMessage = "Image is too blurry for text recognition. Please hold the device steady and ensure the license is in focus."
+            
+        case "insufficient_contrast":
+            errorCode = .qualityInsufficientContrast
+            userMessage = "Text contrast is too low. Please adjust lighting to improve text visibility."
+            
+        case "insufficient_gradient":
+            errorCode = .qualityInsufficientGradient
+            userMessage = "Text edges are not clear enough. Please ensure good lighting and sharp focus."
+            
+        default:
+            errorCode = .qualityAssessmentFailed
+            userMessage = "Image quality assessment failed. Please try again with better conditions."
+        }
+        
+        return [
+            "code": errorCode.rawValue,
+            "message": "Quality assessment error: \(reason)",
+            "userMessage": userMessage,
+            "recoverable": true
+        ]
+    }
+    
+    @objc static func createEnhancedQualityError(qualityMetrics: [String: Any]) -> [String: Any] {
+        var message = "Image quality issues detected:"
+        var suggestions: [String] = []
+        var primaryIssue: ScanErrorCode = .qualityBelowThreshold
+        
+        if let issues = qualityMetrics["issues"] as? [String: Bool] {
+            if issues["blur"] == true {
+                message += " blur"
+                suggestions.append("Hold the device steady and ensure sharp focus")
+                primaryIssue = .qualityInsufficientSharpness
+            }
+            
+            if issues["lowContrast"] == true {
+                message += " low contrast"
+                suggestions.append("Adjust lighting to improve text visibility")
+                if primaryIssue == .qualityBelowThreshold {
+                    primaryIssue = .qualityInsufficientContrast
+                }
+            }
+            
+            if issues["lowSharpness"] == true {
+                message += " insufficient sharpness"
+                suggestions.append("Ensure text edges are clearly visible")
+                if primaryIssue == .qualityBelowThreshold {
+                    primaryIssue = .qualityInsufficientGradient
+                }
+            }
+            
+            if issues["dark"] == true {
+                message += " insufficient lighting"
+                suggestions.append("Move to a well-lit area or enable flash")
+            }
+            
+            if issues["bright"] == true {
+                message += " overexposure"
+                suggestions.append("Avoid direct light reflection on the license")
+            }
+        }
+        
+        let userMessage = suggestions.isEmpty ? "Please try again with better conditions." : 
+                         suggestions.joined(separator: ". ") + "."
+        
+        return [
+            "code": primaryIssue.rawValue,
+            "message": message,
+            "userMessage": userMessage,
+            "recoverable": true,
+            "qualityMetrics": qualityMetrics
         ]
     }
 }

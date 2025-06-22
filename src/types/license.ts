@@ -56,4 +56,16 @@ export interface LicenseResult {
   success: boolean;
   data?: LicenseData;
   error?: ScanError;
+  processingTime?: number;
+}
+
+export interface OCRTextObservation {
+  text: string;
+  confidence: number;
+  boundingBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
