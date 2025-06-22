@@ -31,13 +31,17 @@ jest.mock('react-native', () => {
 });
 
 // Mock react-native-vision-camera
-jest.mock('react-native-vision-camera', () => ({
-  VisionCameraProxy: {
-    initFrameProcessorPlugin: jest.fn(() => ({
-      call: jest.fn(),
-    })),
-  },
-}));
+jest.mock('react-native-vision-camera', () => {
+  const mockPlugin = {
+    call: jest.fn(),
+  };
+
+  return {
+    VisionCameraProxy: {
+      initFrameProcessorPlugin: jest.fn(() => mockPlugin),
+    },
+  };
+});
 
 import { scanLicense, ScanError } from '../src/index';
 import { scanLicense as scanLicenseFrame } from '../src/frameProcessors/scanLicense';

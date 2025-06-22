@@ -15,7 +15,12 @@ export function useErrorHandler(options?: ErrorHandlerOptions) {
     (error: ScanError | Error) => {
       const scanError: ScanError =
         'code' in error
-          ? (error as ScanError)
+          ? {
+              code: (error as ScanError).code,
+              message: (error as ScanError).message,
+              userMessage: (error as ScanError).userMessage,
+              recoverable: (error as ScanError).recoverable,
+            }
           : {
               code: 'UNKNOWN_ERROR',
               message: error.message,
@@ -24,71 +29,37 @@ export function useErrorHandler(options?: ErrorHandlerOptions) {
             };
 
       setLastError(scanError);
-      setErrorCount((prev) => prev + 1);
 
-      // Show appropriate alert based on error type
-      switch (scanError.code) {
-        case 'CAMERA_PERMISSION_DENIED':
-          Alert.alert(
-            'Camera Permission Required',
-            scanError.userMessage,
-            [
-              {
-                text: 'Cancel',
-                style: 'cancel',
-                onPress: options?.onDismiss,
-              },
-              {
-                text: 'Open Settings',
-                onPress: () => {
-                  Linking.openSettings();
-                  options?.onDismiss?.();
-                },
-              },
-            ],
-            { cancelable: false }
-          );
-          break;
+      setErrorCount((prev) => {
+        const newCount = prev + 1;
 
-        case 'DETECTION_TIMEOUT':
-          Alert.alert(
-            'Scanning Timeout',
-            scanError.userMessage,
-            [
-              {
-                text: 'Cancel',
-                style: 'cancel',
-                onPress: options?.onDismiss,
-              },
-              {
-                text: 'Try Again',
-                onPress: options?.onRetry,
-              },
-            ],
-            { cancelable: false }
-          );
-          break;
-
-        case 'SYSTEM_ERROR':
-        case 'VISION_ERROR':
-          Alert.alert(
-            'System Error',
-            scanError.userMessage,
-            [
-              {
-                text: 'OK',
-                onPress: options?.onDismiss,
-              },
-            ],
-            { cancelable: false }
-          );
-          break;
-
-        default:
-          // For other errors, show if they're not recoverable or if error count is high
-          if (!scanError.recoverable || errorCount > 5) {
+        // Show appropriate alert based on error type
+        switch (scanError.code) {
+          case 'CAMERA_PERMISSION_DENIED':
             Alert.alert(
-              'Scanning Error',
+              'Camera Permission Required',
+              scanError.userMessage,
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                  onPress: options?.onDismiss,
+                },
+                {
+                  text: 'Open Settings',
+                  onPress: () => {
+                    Linking.openSettings();
+                    options?.onDismiss?.();
+                  },
+                },
+              ],
+              { cancelable: false }
+            );
+            break;
+
+          case 'DETECTION_TIMEOUT':
+            Alert.alert(
+              'Scanning Timeout',
               scanError.userMessage,
               [
                 {
@@ -98,18 +69,57 @@ export function useErrorHandler(options?: ErrorHandlerOptions) {
                 },
                 {
                   text: 'Try Again',
-                  onPress: () => {
-                    setErrorCount(0);
-                    options?.onRetry?.();
-                  },
+                  onPress: options?.onRetry,
                 },
               ],
-              { cancelable: true }
+              { cancelable: false }
             );
-          }
-      }
+            break;
+
+          case 'SYSTEM_ERROR':
+          case 'VISION_ERROR':
+            Alert.alert(
+              'System Error',
+              scanError.userMessage,
+              [
+                {
+                  text: 'OK',
+                  onPress: options?.onDismiss,
+                },
+              ],
+              { cancelable: false }
+            );
+            break;
+
+          default:
+            // For other errors, show if they're not recoverable or if error count is high
+            if (!scanError.recoverable || newCount > 5) {
+              Alert.alert(
+                'Scanning Error',
+                scanError.userMessage,
+                [
+                  {
+                    text: 'Cancel',
+                    style: 'cancel',
+                    onPress: options?.onDismiss,
+                  },
+                  {
+                    text: 'Try Again',
+                    onPress: () => {
+                      setErrorCount(0);
+                      options?.onRetry?.();
+                    },
+                  },
+                ],
+                { cancelable: true }
+              );
+            }
+        }
+
+        return newCount;
+      });
     },
-    [errorCount, options]
+    [options]
   );
 
   const clearError = useCallback(() => {

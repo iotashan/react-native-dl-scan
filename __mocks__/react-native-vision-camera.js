@@ -1,8 +1,10 @@
 // Mock for react-native-vision-camera
+const mockPlugin = {
+  call: jest.fn(),
+};
+
 export const VisionCameraProxy = {
-  initFrameProcessorPlugin: jest.fn(() => ({
-    call: jest.fn(() => null),
-  })),
+  initFrameProcessorPlugin: jest.fn(() => mockPlugin),
 };
 
 export const Camera = {
