@@ -47,7 +47,9 @@ jest.mock('../../utils/logger', () => ({
 
 import { FallbackController } from '../../utils/FallbackController';
 
-const mockFallbackController = FallbackController as jest.MockedClass<typeof FallbackController>;
+const mockFallbackController = FallbackController as jest.MockedClass<
+  typeof FallbackController
+>;
 
 describe('useLicenseScanner', () => {
   const mockLicenseData = {
@@ -74,7 +76,7 @@ describe('useLicenseScanner', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     mockControllerInstance = {
       scan: jest.fn(),
       cancel: jest.fn(),
@@ -109,7 +111,10 @@ describe('useLicenseScanner', () => {
     expect(result.current.licenseData).toEqual(mockLicenseData);
     expect(result.current.isScanning).toBe(false);
     expect(result.current.error).toBeNull();
-    expect(mockControllerInstance.scan).toHaveBeenCalledWith('mock-barcode-data', 'auto');
+    expect(mockControllerInstance.scan).toHaveBeenCalledWith(
+      'mock-barcode-data',
+      'auto'
+    );
   });
 
   test('should scan barcode only', async () => {
@@ -122,7 +127,10 @@ describe('useLicenseScanner', () => {
     });
 
     expect(result.current.licenseData).toEqual(mockLicenseData);
-    expect(mockControllerInstance.scan).toHaveBeenCalledWith('mock-barcode-data', 'barcode');
+    expect(mockControllerInstance.scan).toHaveBeenCalledWith(
+      'mock-barcode-data',
+      'barcode'
+    );
   });
 
   test('should scan OCR only', async () => {
@@ -135,7 +143,10 @@ describe('useLicenseScanner', () => {
     });
 
     expect(result.current.licenseData).toEqual(mockLicenseData);
-    expect(mockControllerInstance.scan).toHaveBeenCalledWith(mockOCRData, 'ocr');
+    expect(mockControllerInstance.scan).toHaveBeenCalledWith(
+      mockOCRData,
+      'ocr'
+    );
   });
 
   test('should scan with automatic fallback', async () => {
@@ -148,7 +159,10 @@ describe('useLicenseScanner', () => {
     });
 
     expect(result.current.licenseData).toEqual(mockLicenseData);
-    expect(mockControllerInstance.scan).toHaveBeenCalledWith('mock-barcode-data', 'auto');
+    expect(mockControllerInstance.scan).toHaveBeenCalledWith(
+      'mock-barcode-data',
+      'auto'
+    );
   });
 
   test('should handle scan errors', async () => {
@@ -173,7 +187,9 @@ describe('useLicenseScanner', () => {
   });
 
   test('should handle unknown errors', async () => {
-    mockControllerInstance.scan.mockRejectedValueOnce(new Error('Network error'));
+    mockControllerInstance.scan.mockRejectedValueOnce(
+      new Error('Network error')
+    );
 
     const { result } = renderHook(() => useLicenseScanner());
 
@@ -191,7 +207,7 @@ describe('useLicenseScanner', () => {
   test('should handle controller not initialized error', async () => {
     // Create a new hook instance with no controller
     const { result } = renderHook(() => useLicenseScanner());
-    
+
     // Simulate controller not being ready
     const originalInstance = mockControllerInstance;
     mockFallbackController.mockImplementation(() => null as any);
@@ -315,10 +331,10 @@ describe('useLicenseScanner', () => {
 
     // Access the events handler passed to the controller
     const controllerCall = mockFallbackController.mock.calls[0];
-    const events = controllerCall[1];
+    const events = controllerCall?.[1];
 
     act(() => {
-      events.onProgressUpdate(mockProgress);
+      events?.onProgressUpdate(mockProgress);
     });
 
     expect(result.current.scanProgress).toEqual(mockProgress);
@@ -329,10 +345,10 @@ describe('useLicenseScanner', () => {
 
     // Access the events handler passed to the controller
     const controllerCall = mockFallbackController.mock.calls[0];
-    const events = controllerCall[1];
+    const events = controllerCall?.[1];
 
     act(() => {
-      events.onModeSwitch('barcode', 'ocr', 'Fallback triggered');
+      events?.onModeSwitch('barcode', 'ocr', 'Fallback triggered');
     });
 
     expect(result.current.scanMode).toBe('ocr');
@@ -343,7 +359,7 @@ describe('useLicenseScanner', () => {
 
     // Access the events handler passed to the controller
     const controllerCall = mockFallbackController.mock.calls[0];
-    const events = controllerCall[1];
+    const events = controllerCall?.[1];
 
     const mockMetrics = {
       totalProcessingTime: 2000,
@@ -353,10 +369,12 @@ describe('useLicenseScanner', () => {
     };
 
     act(() => {
-      events.onMetricsUpdate(mockMetrics);
+      events?.onMetricsUpdate(mockMetrics);
     });
 
-    expect(result.current.scanMetrics).toEqual(expect.objectContaining(mockMetrics));
+    expect(result.current.scanMetrics).toEqual(
+      expect.objectContaining(mockMetrics)
+    );
   });
 
   test('should cleanup controller on unmount', () => {

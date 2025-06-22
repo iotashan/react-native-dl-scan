@@ -28,8 +28,24 @@ Research iOS AI SDK capabilities, evaluate commercial OCR options, and analyze M
 - Development environment requirements documented
 - Clear recommendation on OCR enhancement approach (Apple Vision vs Commercial SDK vs Custom ML)
 
+## Task List
+
+### Foundation Research (Days 1-2)
+- **T01_S10**: iOS AI SDK Research & Capabilities Analysis (Medium Complexity)
+- **T02_S10**: Commercial OCR SDK Evaluation Study (Medium Complexity)
+
+### Dataset & Environment (Days 2-4)
+- **T03_S10**: MIDV-500 Dataset Download & Analysis (Medium Complexity)
+- **T07_S10**: Data Ingestion Pipeline Development (Medium Complexity)
+
+### Synthesis & Planning (Days 4-7)
+- **T04_S10**: Technical Requirements & Architecture Planning (Medium Complexity)
+- **T05_S10**: Research Synthesis & Recommendations Documentation (Medium Complexity)
+- **T06_S10**: Preliminary Test Case Framework (Medium Complexity)
+
 ## Notes / Retrospective Points
 - This sprint focuses on research and analysis to inform technical decisions for subsequent sprints
 - Timeline: 1 week
 - Dependencies: None
 - Risk: Ensure thorough evaluation to avoid rework in later sprints
+- Tasks designed with zen consensus for comprehensive coverage and practical implementation guidance

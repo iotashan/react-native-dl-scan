@@ -36,3 +36,9 @@ Optimize OCR enhancement for production deployment, complete full MIDV-500 valid
 - Timeline: 1 week
 - Dependencies: S17 (OCR Implementation must be completed)
 - Critical to validate performance meets mobile device constraints before deployment
+
+## Tasks
+- [T01_S18_Mobile_Performance_Optimization.md](T01_S18_Mobile_Performance_Optimization.md) - Mobile Performance Optimization
+- [T02_S18_Full_MIDV500_Dataset_Validation.md](T02_S18_Full_MIDV500_Dataset_Validation.md) - Full MIDV-500 Dataset Validation
+- [T03_S18_Production_Error_Handling_Telemetry.md](T03_S18_Production_Error_Handling_Telemetry.md) - Production Error Handling & Telemetry
+- [T04_S18_Deployment_Strategy_Documentation.md](T04_S18_Deployment_Strategy_Documentation.md) - Deployment Strategy & Documentation

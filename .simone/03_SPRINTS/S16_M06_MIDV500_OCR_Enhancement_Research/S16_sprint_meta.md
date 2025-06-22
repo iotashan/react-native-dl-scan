@@ -35,3 +35,9 @@ Research and prototype OCR enhancement approaches using Apple Vision framework a
 - Timeline: 1 week
 - Dependencies: S15 (CI Integration must be completed to have baseline metrics)
 - Critical sprint for making informed technical decisions about OCR enhancement path
+
+## Tasks
+- [T01_S16_Apple_Vision_Framework_Research_Prototyping.md](T01_S16_Apple_Vision_Framework_Research_Prototyping.md) - Apple Vision Framework Research & Prototyping
+- [T02_S16_Commercial_OCR_SDK_Evaluation.md](T02_S16_Commercial_OCR_SDK_Evaluation.md) - Commercial OCR SDK Evaluation
+- [T03_S16_Comparative_Analysis_MIDV500_Validation.md](T03_S16_Comparative_Analysis_MIDV500_Validation.md) - Comparative Analysis & MIDV-500 Validation
+- [T04_S16_Technical_Recommendation_Documentation.md](T04_S16_Technical_Recommendation_Documentation.md) - Technical Recommendation & Documentation

@@ -36,3 +36,8 @@ Implement the selected OCR enhancement approach and integrate with existing scan
 - Timeline: 1 week
 - Dependencies: S16 (OCR Enhancement Research must be completed with clear recommendation)
 - Focus on maintaining existing functionality while adding enhancement capabilities
+
+## Tasks
+- [T01_S17_Selected_OCR_Enhancement_Implementation.md](T01_S17_Selected_OCR_Enhancement_Implementation.md) - Selected OCR Enhancement Implementation
+- [T02_S17_React_Native_Bridge_Integration.md](T02_S17_React_Native_Bridge_Integration.md) - React Native Bridge Integration
+- [T03_S17_Error_Handling_Validation.md](T03_S17_Error_Handling_Validation.md) - Error Handling & Validation

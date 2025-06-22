@@ -35,3 +35,10 @@ Implement comprehensive automated testing suite with OCR accuracy validation, do
 - Timeline: 1 week
 - Dependencies: S13 (Framework Integration must be completed)
 - Focus on comprehensive metrics collection to inform OCR enhancement decisions
+
+## Tasks
+- [T01_S14_OCR_Accuracy_Validation_Suite.md](T01_S14_OCR_Accuracy_Validation_Suite.md) - OCR Accuracy Validation Suite
+- [T02_S14_Document_Boundary_Detection_Testing.md](T02_S14_Document_Boundary_Detection_Testing.md) - Document Boundary Detection Testing
+- [T03_S14_Performance_Benchmarking_Suite.md](T03_S14_Performance_Benchmarking_Suite.md) - Performance Benchmarking Suite
+- [T04_S14_Regression_Testing_Framework.md](T04_S14_Regression_Testing_Framework.md) - Regression Testing Framework
+- [T05_S14_Test_Analytics_Reporting_Dashboard.md](T05_S14_Test_Analytics_Reporting_Dashboard.md) - Test Analytics & Reporting Dashboard

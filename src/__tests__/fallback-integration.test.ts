@@ -55,7 +55,9 @@ jest.mock('../utils/logger', () => ({
 }));
 
 const mockScanLicense = scanLicense as jest.MockedFunction<typeof scanLicense>;
-const mockParseOCRText = parseOCRText as jest.MockedFunction<typeof parseOCRText>;
+const mockParseOCRText = parseOCRText as jest.MockedFunction<
+  typeof parseOCRText
+>;
 
 describe('Fallback Integration Pipeline', () => {
   const mockLicenseData = {
@@ -132,7 +134,7 @@ describe('Fallback Integration Pipeline', () => {
       expect(result.current.error).toBeNull();
       expect(mockScanLicense).toHaveBeenCalledWith('invalid-barcode');
       expect(mockParseOCRText).toHaveBeenCalled();
-      
+
       // Should have triggered mode switch
       expect(result.current.scanMetrics?.fallbackTriggered).toBe(true);
       expect(result.current.scanMetrics?.fallbackReason).toBe('failure');
@@ -144,12 +146,14 @@ describe('Fallback Integration Pipeline', () => {
         () =>
           new Promise((_, reject) => {
             setTimeout(() => {
-              reject(new ScanError({
-                code: 'TIMEOUT_ERROR',
-                message: 'Barcode scan timeout',
-                userMessage: 'Scanning took too long',
-                recoverable: true,
-              }));
+              reject(
+                new ScanError({
+                  code: 'TIMEOUT_ERROR',
+                  message: 'Barcode scan timeout',
+                  userMessage: 'Scanning took too long',
+                  recoverable: true,
+                })
+              );
             }, 100);
           })
       );
@@ -291,7 +295,9 @@ describe('Fallback Integration Pipeline', () => {
 
       expect(result.current.licenseData).toEqual(mockLicenseData);
       expect(totalTime).toBeLessThan(4000); // Should complete within 4 seconds
-      expect(result.current.scanMetrics?.totalProcessingTime).toBeLessThan(4000);
+      expect(result.current.scanMetrics?.totalProcessingTime).toBeLessThan(
+        4000
+      );
     });
 
     test('should track performance metrics accurately', async () => {
