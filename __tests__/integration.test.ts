@@ -7,7 +7,7 @@
 jest.mock('react-native', () => {
   const mockScanLicense = jest.fn();
   (global as any).__mockScanLicense = mockScanLicense;
-  
+
   return {
     TurboModuleRegistry: {
       getEnforcing: jest.fn(() => ({
@@ -43,7 +43,10 @@ import { scanLicense, ScanError } from '../src/index';
 import { scanLicense as scanLicenseFrame } from '../src/frameProcessors/scanLicense';
 import { useErrorHandler } from '../src/hooks/useErrorHandler';
 import { renderHook, act } from '@testing-library/react-native';
-import type { LicenseData, ScanError as ScanErrorType } from '../src/types/license';
+import type {
+  LicenseData,
+  ScanError as ScanErrorType,
+} from '../src/types/license';
 
 const mockScanLicenseFunction = (global as any).__mockScanLicense;
 
@@ -65,7 +68,7 @@ describe('Integration Tests - Complete Workflows', () => {
         expirationDate: new Date('2026-01-15'),
         sex: 'M',
         eyeColor: 'BRO',
-        hairColor: 'BRN', 
+        hairColor: 'BRN',
         height: '5-10',
         weight: '180',
         address: {
@@ -92,7 +95,8 @@ describe('Integration Tests - Complete Workflows', () => {
       });
 
       // Simulate complete AAMVA barcode data
-      const aamvaBarcode = '@\n\x1e\rANSI 636014080000DAQD12345678DCSDOE DACJOHN DADQ DBB01151990DBA01152026DBD01012020DBC1 DAU510DAG123 MAIN ST DAILOS ANGELES DAJCA DAK90210';
+      const aamvaBarcode =
+        '@\n\x1e\rANSI 636014080000DAQD12345678DCSDOE DACJOHN DADQ DBB01151990DBA01152026DBD01012020DBC1 DAU510DAG123 MAIN ST DAILOS ANGELES DAJCA DAK90210';
 
       // Execute the scanning workflow
       const result = await scanLicense(aamvaBarcode);
@@ -130,7 +134,13 @@ describe('Integration Tests - Complete Workflows', () => {
         bytesPerRow: 7680,
         pixelFormat: 'yuv',
         planarImage: true,
-      };
+        isValid: true,
+        planesCount: 1,
+        isMirrored: false,
+        timestamp: Date.now(),
+        orientation: 'portrait',
+        pixelBuffer: null,
+      } as any;
 
       const result = scanLicenseFrame(mockFrame);
 
@@ -143,7 +153,7 @@ describe('Integration Tests - Complete Workflows', () => {
       const mockError: ScanErrorType = {
         code: 'PARSING_FAILED',
         message: 'Invalid AAMVA format detected',
-        userMessage: 'This doesn\'t appear to be a valid driver\'s license',
+        userMessage: "This doesn't appear to be a valid driver's license",
         recoverable: true,
       };
 
@@ -153,10 +163,12 @@ describe('Integration Tests - Complete Workflows', () => {
       });
 
       // Setup error handler
-      const { result: errorHandler } = renderHook(() => useErrorHandler({
-        onRetry: jest.fn(),
-        onDismiss: jest.fn(),
-      }));
+      const { result: errorHandler } = renderHook(() =>
+        useErrorHandler({
+          onRetry: jest.fn(),
+          onDismiss: jest.fn(),
+        })
+      );
 
       // Execute scanning with invalid data
       try {
@@ -164,7 +176,7 @@ describe('Integration Tests - Complete Workflows', () => {
         fail('Should have thrown an error');
       } catch (error) {
         expect(error).toBeInstanceOf(ScanError);
-        
+
         // Handle error through error handler
         act(() => {
           errorHandler.current.handleError(error as ScanError);
@@ -184,13 +196,15 @@ describe('Integration Tests - Complete Workflows', () => {
       { code: 'FL', iin: '636010', name: 'Florida' },
     ];
 
-    testStates.forEach(state => {
+    testStates.forEach((state) => {
       it(`should process ${state.name} (${state.code}) licenses`, async () => {
         const mockData: LicenseData = {
           firstName: 'Test',
           lastName: 'User',
           licenseNumber: `${state.code}123456789`,
-          state: state.code,
+          address: {
+            state: state.code,
+          },
           issuerIdentificationNumber: state.iin,
           dateOfBirth: new Date('1985-03-20'),
           expirationDate: new Date('2025-03-20'),
@@ -205,7 +219,7 @@ describe('Integration Tests - Complete Workflows', () => {
         const stateBarcode = `@\n\x1e\rANSI ${state.iin}080000DAQ${state.code}123456789`;
         const result = await scanLicense(stateBarcode);
 
-        expect(result.state).toBe(state.code);
+        expect(result.address?.state).toBe(state.code);
         expect(result.issuerIdentificationNumber).toBe(state.iin);
         expect(result.licenseNumber).toBe(`${state.code}123456789`);
       });
@@ -215,7 +229,7 @@ describe('Integration Tests - Complete Workflows', () => {
   describe('Performance Integration Tests', () => {
     it('should handle rapid sequential scanning calls', async () => {
       const scanPromises: Promise<LicenseData>[] = [];
-      
+
       // Mock successful responses
       mockScanLicenseFunction.mockResolvedValue({
         success: true,
@@ -238,9 +252,9 @@ describe('Integration Tests - Complete Workflows', () => {
 
       expect(results).toHaveLength(10);
       expect(mockScanLicenseFunction).toHaveBeenCalledTimes(10);
-      
+
       // Verify all calls completed successfully
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result.firstName).toBe('Speed');
         expect(result.lastName).toBe('Test');
       });
@@ -257,7 +271,19 @@ describe('Integration Tests - Complete Workflows', () => {
         processingTime: 0.05, // 50ms - meets 2 FPS requirement
       });
 
-      const mockFrame = { width: 1280, height: 720 };
+      const mockFrame = {
+        width: 1280,
+        height: 720,
+        isValid: true,
+        bytesPerRow: 5120,
+        planesCount: 1,
+        isMirrored: false,
+        timestamp: Date.now(),
+        orientation: 'portrait',
+        pixelFormat: 'yuv',
+        planarImage: true,
+        pixelBuffer: null,
+      } as any;
       const results: any[] = [];
 
       // Process 30 frames rapidly (simulating 2 FPS for 15 seconds)
@@ -268,9 +294,9 @@ describe('Integration Tests - Complete Workflows', () => {
 
       expect(results).toHaveLength(30);
       expect(mockPlugin.call).toHaveBeenCalledTimes(30);
-      
+
       // Verify all frames processed successfully
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result?.success).toBe(true);
         expect(result?.processingTime).toBeLessThan(0.5); // Under 500ms for 2 FPS
       });
@@ -282,8 +308,10 @@ describe('Integration Tests - Complete Workflows', () => {
       const { result } = renderHook(() => useErrorHandler());
 
       // First call fails
-      mockScanLicenseFunction.mockRejectedValueOnce(new Error('Network timeout'));
-      
+      mockScanLicenseFunction.mockRejectedValueOnce(
+        new Error('Network timeout')
+      );
+
       // Second call succeeds
       mockScanLicenseFunction.mockResolvedValueOnce({
         success: true,
@@ -315,10 +343,12 @@ describe('Integration Tests - Complete Workflows', () => {
     });
 
     it('should escalate repeated failures appropriately', async () => {
-      const { result } = renderHook(() => useErrorHandler({
-        onRetry: jest.fn(),
-        onDismiss: jest.fn(),
-      }));
+      const { result } = renderHook(() =>
+        useErrorHandler({
+          onRetry: jest.fn(),
+          onDismiss: jest.fn(),
+        })
+      );
 
       const failureError: ScanErrorType = {
         code: 'DETECTION_FAILED',
@@ -335,7 +365,7 @@ describe('Integration Tests - Complete Workflows', () => {
       }
 
       expect(result.current.errorCount).toBe(6);
-      
+
       // After 6 failures, should show escalated error dialog
       const { Alert } = require('react-native');
       expect(Alert.alert).toHaveBeenCalledWith(
@@ -368,7 +398,7 @@ describe('Integration Tests - Complete Workflows', () => {
       // Verify data is returned (validation may happen at app level)
       expect(result.expirationDate).toEqual(new Date('2020-01-01'));
       expect(result.firstName).toBe('Expired');
-      
+
       // Application layer should handle expiration validation
     });
 
@@ -420,9 +450,9 @@ describe('Integration Tests - Complete Workflows', () => {
 
       expect(results).toHaveLength(iterations);
       expect(mockScanLicenseFunction).toHaveBeenCalledTimes(iterations);
-      
+
       // Verify consistent behavior across all iterations
-      results.forEach((result, index) => {
+      results.forEach((result) => {
         expect(result.firstName).toBe('Memory');
         expect(result.licenseNumber).toBe('MEM123');
       });
@@ -433,13 +463,14 @@ describe('Integration Tests - Complete Workflows', () => {
     it('should work correctly on iOS platform', () => {
       const { Platform } = require('react-native');
       expect(Platform.OS).toBe('ios');
-      
+
       // Platform-specific functionality should be accessible
-      expect(Platform.select({ ios: 'ios-specific', default: 'other' })).toBe('ios-specific');
+      expect(Platform.select({ ios: 'ios-specific', default: 'other' })).toBe(
+        'ios-specific'
+      );
     });
 
     it('should handle camera permissions on iOS', async () => {
-      const { Linking } = require('react-native');
       const { result } = renderHook(() => useErrorHandler());
 
       const permissionError: ScanErrorType = {
@@ -459,7 +490,7 @@ describe('Integration Tests - Complete Workflows', () => {
         'Camera Permission Required',
         permissionError.userMessage,
         expect.arrayContaining([
-          expect.objectContaining({ text: 'Open Settings' })
+          expect.objectContaining({ text: 'Open Settings' }),
         ]),
         { cancelable: false }
       );

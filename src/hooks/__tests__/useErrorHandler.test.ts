@@ -1,6 +1,7 @@
 import { renderHook, act } from '@testing-library/react-native';
 import { Alert, Linking } from 'react-native';
-import { useErrorHandler, ErrorHandlerOptions } from '../useErrorHandler';
+import { useErrorHandler } from '../useErrorHandler';
+import type { ErrorHandlerOptions } from '../useErrorHandler';
 import type { ScanError } from '../../types/license';
 
 // Mock React Native modules
@@ -14,7 +15,9 @@ jest.mock('react-native', () => ({
 }));
 
 const mockAlert = Alert.alert as jest.MockedFunction<typeof Alert.alert>;
-const mockOpenSettings = Linking.openSettings as jest.MockedFunction<typeof Linking.openSettings>;
+const mockOpenSettings = Linking.openSettings as jest.MockedFunction<
+  typeof Linking.openSettings
+>;
 
 describe('useErrorHandler', () => {
   let mockOptions: ErrorHandlerOptions;
@@ -48,7 +51,7 @@ describe('useErrorHandler', () => {
   describe('handleError', () => {
     it('should handle ScanError with camera permission denied', () => {
       const { result } = renderHook(() => useErrorHandler(mockOptions));
-      
+
       const error: ScanError = {
         code: 'CAMERA_PERMISSION_DENIED',
         message: 'Camera permission is required',
@@ -82,11 +85,12 @@ describe('useErrorHandler', () => {
 
     it('should handle detection timeout errors', () => {
       const { result } = renderHook(() => useErrorHandler(mockOptions));
-      
+
       const error: ScanError = {
         code: 'DETECTION_TIMEOUT',
         message: 'Barcode detection timed out',
-        userMessage: 'Unable to detect license. Please ensure good lighting and hold steady.',
+        userMessage:
+          'Unable to detect license. Please ensure good lighting and hold steady.',
         recoverable: true,
       };
 
@@ -114,7 +118,7 @@ describe('useErrorHandler', () => {
 
     it('should handle system errors', () => {
       const { result } = renderHook(() => useErrorHandler(mockOptions));
-      
+
       const error: ScanError = {
         code: 'SYSTEM_ERROR',
         message: 'System failure',
@@ -141,7 +145,7 @@ describe('useErrorHandler', () => {
 
     it('should handle vision framework errors', () => {
       const { result } = renderHook(() => useErrorHandler(mockOptions));
-      
+
       const error: ScanError = {
         code: 'VISION_ERROR',
         message: 'Vision framework error',
@@ -168,7 +172,7 @@ describe('useErrorHandler', () => {
 
     it('should handle generic Error objects', () => {
       const { result } = renderHook(() => useErrorHandler(mockOptions));
-      
+
       const error = new Error('Generic error message');
 
       act(() => {
@@ -186,7 +190,7 @@ describe('useErrorHandler', () => {
 
     it('should show alert for non-recoverable errors', () => {
       const { result } = renderHook(() => useErrorHandler(mockOptions));
-      
+
       const error: ScanError = {
         code: 'FATAL_ERROR',
         message: 'Fatal error occurred',
@@ -218,7 +222,7 @@ describe('useErrorHandler', () => {
 
     it('should show alert after multiple recoverable errors (>5)', () => {
       const { result } = renderHook(() => useErrorHandler(mockOptions));
-      
+
       const error: ScanError = {
         code: 'PARSING_FAILED',
         message: 'Parse error',
@@ -254,7 +258,7 @@ describe('useErrorHandler', () => {
 
     it('should not show alert for recoverable errors under threshold', () => {
       const { result } = renderHook(() => useErrorHandler(mockOptions));
-      
+
       const error: ScanError = {
         code: 'PARSING_FAILED',
         message: 'Parse error',
@@ -272,7 +276,7 @@ describe('useErrorHandler', () => {
 
     it('should reset error count when retry is pressed after threshold', () => {
       const { result } = renderHook(() => useErrorHandler(mockOptions));
-      
+
       const error: ScanError = {
         code: 'PARSING_FAILED',
         message: 'Parse error',
@@ -288,11 +292,12 @@ describe('useErrorHandler', () => {
       });
 
       expect(mockAlert).toHaveBeenCalled();
-      
+
       // Get the retry callback from the last Alert.alert call
-      const lastAlertCall = mockAlert.mock.calls[mockAlert.mock.calls.length - 1];
-      const retryButton = lastAlertCall[2]?.[1];
-      
+      const lastAlertCall =
+        mockAlert.mock.calls[mockAlert.mock.calls.length - 1];
+      const retryButton = lastAlertCall?.[2]?.[1];
+
       act(() => {
         retryButton?.onPress?.();
       });
@@ -305,7 +310,7 @@ describe('useErrorHandler', () => {
   describe('clearError', () => {
     it('should clear error and reset count', () => {
       const { result } = renderHook(() => useErrorHandler(mockOptions));
-      
+
       const error: ScanError = {
         code: 'TEST_ERROR',
         message: 'Test error',
@@ -333,7 +338,7 @@ describe('useErrorHandler', () => {
   describe('camera permission settings integration', () => {
     it('should open settings when Open Settings is pressed', () => {
       const { result } = renderHook(() => useErrorHandler(mockOptions));
-      
+
       const error: ScanError = {
         code: 'CAMERA_PERMISSION_DENIED',
         message: 'Camera permission denied',
@@ -347,8 +352,8 @@ describe('useErrorHandler', () => {
 
       // Get the "Open Settings" button callback
       const alertCall = mockAlert.mock.calls[0];
-      const openSettingsButton = alertCall[2]?.[1];
-      
+      const openSettingsButton = alertCall?.[2]?.[1];
+
       act(() => {
         openSettingsButton?.onPress?.();
       });
@@ -360,12 +365,15 @@ describe('useErrorHandler', () => {
 
   describe('hook stability', () => {
     it('should maintain function references across re-renders when options unchanged', () => {
-      const { result, rerender } = renderHook(() => useErrorHandler(mockOptions));
-      
+      const { result, rerender } = renderHook(
+        ({ options }) => useErrorHandler(options),
+        { initialProps: { options: mockOptions } }
+      );
+
       const initialHandleError = result.current.handleError;
       const initialClearError = result.current.clearError;
 
-      rerender();
+      rerender({ options: mockOptions });
 
       expect(result.current.handleError).toBe(initialHandleError);
       expect(result.current.clearError).toBe(initialClearError);
@@ -376,7 +384,7 @@ describe('useErrorHandler', () => {
         ({ options }) => useErrorHandler(options),
         { initialProps: { options: mockOptions } }
       );
-      
+
       const initialHandleError = result.current.handleError;
 
       const newOptions = {

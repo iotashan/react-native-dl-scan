@@ -49,10 +49,14 @@ describe('Main Index Module', () => {
         data: mockLicenseData,
       });
 
-      const result = await scanLicense('@\n\x1e\rANSI 636014080000DAQD12345678...');
-      
+      const result = await scanLicense(
+        '@\n\x1e\rANSI 636014080000DAQD12345678...'
+      );
+
       expect(result).toEqual(mockLicenseData);
-      expect(mockScanLicenseFunction).toHaveBeenCalledWith('@\n\x1e\rANSI 636014080000DAQD12345678...');
+      expect(mockScanLicenseFunction).toHaveBeenCalledWith(
+        '@\n\x1e\rANSI 636014080000DAQD12345678...'
+      );
     });
 
     it('should handle empty barcode data', async () => {
@@ -75,7 +79,7 @@ describe('Main Index Module', () => {
       const mockError: ScanErrorType = {
         code: 'PARSING_FAILED',
         message: 'Invalid AAMVA format',
-        userMessage: 'This doesn\'t appear to be a valid license',
+        userMessage: "This doesn't appear to be a valid license",
         recoverable: true,
       };
 
@@ -110,7 +114,9 @@ describe('Main Index Module', () => {
         // Missing error field
       });
 
-      await expect(scanLicense('test-data')).rejects.toThrow('Unknown scanning error');
+      await expect(scanLicense('test-data')).rejects.toThrow(
+        'Unknown scanning error'
+      );
     });
 
     it('should handle native module failures', async () => {
@@ -132,13 +138,15 @@ describe('Main Index Module', () => {
 
     it('should handle different state license formats', async () => {
       const states = ['CA', 'TX', 'NY', 'FL'];
-      
+
       for (const state of states) {
         const mockData: LicenseData = {
           firstName: 'Test',
           lastName: 'User',
           licenseNumber: `${state}123456`,
-          state,
+          address: {
+            state,
+          },
           dateOfBirth: new Date('1990-01-01'),
           expirationDate: new Date('2026-01-01'),
           sex: 'M',
@@ -150,7 +158,7 @@ describe('Main Index Module', () => {
         });
 
         const result = await scanLicense(`mock-${state}-barcode`);
-        expect(result.state).toBe(state);
+        expect(result.address?.state).toBe(state);
         expect(result.licenseNumber).toBe(`${state}123456`);
       }
     });
@@ -217,7 +225,7 @@ describe('Main Index Module', () => {
   describe('Module exports', () => {
     it('should export all required functions and types', () => {
       const indexModule = require('../index');
-      
+
       expect(typeof indexModule.scanLicense).toBe('function');
       expect(typeof indexModule.ScanError).toBe('function');
       expect(typeof indexModule.useLicenseScanner).toBe('function');

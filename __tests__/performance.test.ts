@@ -8,7 +8,7 @@ jest.mock('react-native-vision-camera', () => {
   const mockPlugin = {
     call: jest.fn(() => null), // Default to null, will be overridden in tests
   };
-  
+
   return {
     VisionCameraProxy: {
       initFrameProcessorPlugin: jest.fn(() => mockPlugin),
@@ -20,7 +20,7 @@ jest.mock('react-native-vision-camera', () => {
 jest.mock('react-native', () => {
   const mockScanLicense = jest.fn();
   (global as any).__mockScanLicense = mockScanLicense;
-  
+
   return {
     TurboModuleRegistry: {
       getEnforcing: jest.fn(() => ({
@@ -56,8 +56,8 @@ describe('Performance Tests', () => {
       };
 
       // Mock processing time of 100ms (well under 2 FPS requirement)
-      mockScanLicenseFunction.mockImplementation(async (data: string) => {
-        await new Promise(resolve => setTimeout(resolve, 100));
+      mockScanLicenseFunction.mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
         return {
           success: true,
           data: mockLicenseData,
@@ -68,7 +68,7 @@ describe('Performance Tests', () => {
       const startTime = performance.now();
 
       // Process multiple barcodes
-      const promises = Array.from({ length: iterations }, (_, i) => 
+      const promises = Array.from({ length: iterations }, (_, i) =>
         scanLicense(`PERFORMANCE_TEST_${i}`)
       );
 
@@ -79,8 +79,10 @@ describe('Performance Tests', () => {
 
       expect(results).toHaveLength(iterations);
       expect(averageTime).toBeLessThan(500); // Should average under 500ms (2 FPS)
-      
-      console.log(`Barcode processing average time: ${averageTime.toFixed(2)}ms`);
+
+      console.log(
+        `Barcode processing average time: ${averageTime.toFixed(2)}ms`
+      );
     });
 
     it('should handle burst processing without degradation', async () => {
@@ -95,7 +97,9 @@ describe('Performance Tests', () => {
 
       // Add a small realistic delay to the mock
       mockScanLicenseFunction.mockImplementation(async () => {
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 10 + 5)); // 5-15ms
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.random() * 10 + 5)
+        ); // 5-15ms
         return {
           success: true,
           data: mockData,
@@ -116,20 +120,22 @@ describe('Performance Tests', () => {
       // Check that processing time doesn't degrade significantly
       const firstHalf = times.slice(0, burstSize / 2);
       const secondHalf = times.slice(burstSize / 2);
-      
+
       const firstAvg = firstHalf.reduce((a, b) => a + b) / firstHalf.length;
       const secondAvg = secondHalf.reduce((a, b) => a + b) / secondHalf.length;
-      
+
       // Ensure we have meaningful times to compare
       if (firstAvg > 0 && secondAvg > 0) {
         // Second half should not be more than 50% slower than first half
         expect(secondAvg).toBeLessThan(firstAvg * 1.5);
       } else {
         // If times are too fast to measure meaningfully, just verify they're reasonable
-        expect(times.every(t => t >= 0 && t < 1000)).toBe(true); // All times reasonable
+        expect(times.every((t) => t >= 0 && t < 1000)).toBe(true); // All times reasonable
       }
-      
-      console.log(`Burst test - First half avg: ${firstAvg.toFixed(2)}ms, Second half avg: ${secondAvg.toFixed(2)}ms`);
+
+      console.log(
+        `Burst test - First half avg: ${firstAvg.toFixed(2)}ms, Second half avg: ${secondAvg.toFixed(2)}ms`
+      );
     });
   });
 
@@ -137,21 +143,30 @@ describe('Performance Tests', () => {
     it('should meet 2 FPS processing requirement for OCR mode', () => {
       const { VisionCameraProxy } = require('react-native-vision-camera');
       const mockPlugin = VisionCameraProxy.initFrameProcessorPlugin();
-      
+
       // Mock OCR processing time (should be under 500ms for 2 FPS)
       const ocrProcessingTimes = [
-        0.320, 0.480, 0.350, 0.420, 0.390, // Realistic OCR times
-        0.310, 0.450, 0.380, 0.440, 0.360
+        0.32,
+        0.48,
+        0.35,
+        0.42,
+        0.39, // Realistic OCR times
+        0.31,
+        0.45,
+        0.38,
+        0.44,
+        0.36,
       ];
-      
+
       let callIndex = 0;
       mockPlugin.call.mockImplementation(() => {
-        const processingTime = ocrProcessingTimes[callIndex % ocrProcessingTimes.length];
+        const processingTime =
+          ocrProcessingTimes[callIndex % ocrProcessingTimes.length];
         callIndex++;
-        
+
         return {
           success: true,
-          data: { 
+          data: {
             firstName: 'OCR',
             lastName: 'Test',
             licenseNumber: `OCR${callIndex}`,
@@ -164,7 +179,20 @@ describe('Performance Tests', () => {
         };
       });
 
-      const mockFrame = { width: 1280, height: 720, mode: 'ocr' };
+      const mockFrame = {
+        width: 1280,
+        height: 720,
+        mode: 'ocr',
+        isValid: true,
+        bytesPerRow: 5120,
+        planesCount: 1,
+        isMirrored: false,
+        timestamp: Date.now(),
+        orientation: 'portrait',
+        pixelFormat: 'yuv',
+        planarImage: true,
+        pixelBuffer: null,
+      } as any;
       const results: any[] = [];
 
       // Process frames for OCR mode
@@ -176,33 +204,48 @@ describe('Performance Tests', () => {
       // Verify all frames meet 2 FPS requirement (500ms max)
       results.forEach((result, index) => {
         expect(result?.processingTime).toBeLessThan(0.5);
-        console.log(`OCR Frame ${index + 1}: ${(result?.processingTime * 1000).toFixed(0)}ms`);
+        console.log(
+          `OCR Frame ${index + 1}: ${(result?.processingTime * 1000).toFixed(0)}ms`
+        );
       });
 
-      const avgTime = results.reduce((sum, r) => sum + (r?.processingTime || 0), 0) / results.length;
+      const avgTime =
+        results.reduce((sum, r) => sum + (r?.processingTime || 0), 0) /
+        results.length;
       expect(avgTime).toBeLessThan(0.5);
-      
-      console.log(`OCR average processing time: ${(avgTime * 1000).toFixed(0)}ms (Target: <500ms)`);
+
+      console.log(
+        `OCR average processing time: ${(avgTime * 1000).toFixed(0)}ms (Target: <500ms)`
+      );
     });
 
     it('should meet 10 FPS processing requirement for barcode mode', () => {
       const { VisionCameraProxy } = require('react-native-vision-camera');
       const mockPlugin = VisionCameraProxy.initFrameProcessorPlugin();
-      
+
       // Mock barcode processing time (should be under 100ms for 10 FPS)
       const barcodeProcessingTimes = [
-        0.050, 0.080, 0.060, 0.070, 0.055, // Realistic barcode times
-        0.045, 0.085, 0.065, 0.075, 0.058
+        0.05,
+        0.08,
+        0.06,
+        0.07,
+        0.055, // Realistic barcode times
+        0.045,
+        0.085,
+        0.065,
+        0.075,
+        0.058,
       ];
-      
+
       let callIndex = 0;
       mockPlugin.call.mockImplementation(() => {
-        const processingTime = barcodeProcessingTimes[callIndex % barcodeProcessingTimes.length];
+        const processingTime =
+          barcodeProcessingTimes[callIndex % barcodeProcessingTimes.length];
         callIndex++;
-        
+
         return {
           success: true,
-          data: { 
+          data: {
             firstName: 'Barcode',
             lastName: 'Test',
             licenseNumber: `BAR${callIndex}`,
@@ -215,7 +258,20 @@ describe('Performance Tests', () => {
         };
       });
 
-      const mockFrame = { width: 1920, height: 1080, mode: 'barcode' };
+      const mockFrame = {
+        width: 1920,
+        height: 1080,
+        mode: 'barcode',
+        isValid: true,
+        bytesPerRow: 7680,
+        planesCount: 1,
+        isMirrored: false,
+        timestamp: Date.now(),
+        orientation: 'portrait',
+        pixelFormat: 'yuv',
+        planarImage: true,
+        pixelBuffer: null,
+      } as any;
       const results: any[] = [];
 
       // Process frames for barcode mode
@@ -227,19 +283,25 @@ describe('Performance Tests', () => {
       // Verify all frames meet 10 FPS requirement (100ms max)
       results.forEach((result, index) => {
         expect(result?.processingTime).toBeLessThan(0.1);
-        console.log(`Barcode Frame ${index + 1}: ${(result?.processingTime * 1000).toFixed(0)}ms`);
+        console.log(
+          `Barcode Frame ${index + 1}: ${(result?.processingTime * 1000).toFixed(0)}ms`
+        );
       });
 
-      const avgTime = results.reduce((sum, r) => sum + (r?.processingTime || 0), 0) / results.length;
+      const avgTime =
+        results.reduce((sum, r) => sum + (r?.processingTime || 0), 0) /
+        results.length;
       expect(avgTime).toBeLessThan(0.1);
-      
-      console.log(`Barcode average processing time: ${(avgTime * 1000).toFixed(0)}ms (Target: <100ms)`);
+
+      console.log(
+        `Barcode average processing time: ${(avgTime * 1000).toFixed(0)}ms (Target: <100ms)`
+      );
     });
 
     it('should handle frame rate limiting correctly', () => {
       const { VisionCameraProxy } = require('react-native-vision-camera');
       const mockPlugin = VisionCameraProxy.initFrameProcessorPlugin();
-      
+
       // Mock frame processor that tracks timing
       const frameTimes: number[] = [];
       let lastFrameTime = 0;
@@ -253,7 +315,7 @@ describe('Performance Tests', () => {
 
         return {
           success: true,
-          data: { 
+          data: {
             firstName: 'Frame',
             lastName: 'Test',
             licenseNumber: 'FRAME123',
@@ -265,12 +327,24 @@ describe('Performance Tests', () => {
         };
       });
 
-      const mockFrame = { width: 1280, height: 720 };
+      const mockFrame = {
+        width: 1280,
+        height: 720,
+        isValid: true,
+        bytesPerRow: 5120,
+        planesCount: 1,
+        isMirrored: false,
+        timestamp: Date.now(),
+        orientation: 'portrait',
+        pixelFormat: 'yuv',
+        planarImage: true,
+        pixelBuffer: null,
+      } as any;
 
       // Simulate rapid frame processing
       for (let i = 0; i < 20; i++) {
         scanLicenseFrame(mockFrame);
-        
+
         // Small delay to simulate real frame timing
         const start = performance.now();
         while (performance.now() - start < 16); // ~60 FPS input rate
@@ -278,10 +352,11 @@ describe('Performance Tests', () => {
 
       // Should have meaningful timing data (at least some frames processed)
       expect(frameTimes.length).toBeGreaterThan(0);
-      
+
       // Log frame intervals for analysis
       if (frameTimes.length > 0) {
-        const avgInterval = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
+        const avgInterval =
+          frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
         console.log(`Average frame interval: ${avgInterval.toFixed(2)}ms`);
       }
     });
@@ -309,7 +384,7 @@ describe('Performance Tests', () => {
       // Measure memory at intervals during processing
       for (let i = 0; i < iterations; i++) {
         await scanLicense(`MEMORY_STABILITY_${i}`);
-        
+
         // Take memory snapshot every 10 iterations
         if (i % 10 === 0 && global.gc && process.memoryUsage) {
           global.gc();
@@ -320,18 +395,27 @@ describe('Performance Tests', () => {
 
       if (memorySnapshots.length > 2) {
         // Check for memory growth pattern
-        const firstQuarter = memorySnapshots.slice(0, Math.floor(memorySnapshots.length / 4));
-        const lastQuarter = memorySnapshots.slice(-Math.floor(memorySnapshots.length / 4));
-        
-        const avgFirst = firstQuarter.reduce((a, b) => a + b) / firstQuarter.length;
-        const avgLast = lastQuarter.reduce((a, b) => a + b) / lastQuarter.length;
-        
+        const firstQuarter = memorySnapshots.slice(
+          0,
+          Math.floor(memorySnapshots.length / 4)
+        );
+        const lastQuarter = memorySnapshots.slice(
+          -Math.floor(memorySnapshots.length / 4)
+        );
+
+        const avgFirst =
+          firstQuarter.reduce((a, b) => a + b) / firstQuarter.length;
+        const avgLast =
+          lastQuarter.reduce((a, b) => a + b) / lastQuarter.length;
+
         const growth = (avgLast - avgFirst) / avgFirst;
-        
+
         // Memory growth should be minimal (less than 20%)
         expect(growth).toBeLessThan(0.2);
-        
-        console.log(`Memory growth during ${iterations} iterations: ${(growth * 100).toFixed(1)}%`);
+
+        console.log(
+          `Memory growth during ${iterations} iterations: ${(growth * 100).toFixed(1)}%`
+        );
       }
     });
 
@@ -384,7 +468,7 @@ describe('Performance Tests', () => {
 
       // Process large license data multiple times
       const results = await Promise.all(
-        Array.from({ length: iterations }, (_, i) => 
+        Array.from({ length: iterations }, (_, i) =>
           scanLicense(`LARGE_LICENSE_${i}`)
         )
       );
@@ -394,15 +478,19 @@ describe('Performance Tests', () => {
 
       expect(results).toHaveLength(iterations);
       expect(avgTime).toBeLessThan(1000); // Should still be fast with large data
-      
+
       // Verify data integrity
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result.firstName).toBe('VeryLongFirstNameForTesting');
         expect(result.lastName).toBe('VeryLongLastNameForTesting');
-        expect(result.address?.street).toBe('1234 Very Long Street Name That Goes On And On Avenue');
+        expect(result.address?.street).toBe(
+          '1234 Very Long Street Name That Goes On And On Avenue'
+        );
       });
 
-      console.log(`Large data processing average time: ${avgTime.toFixed(2)}ms`);
+      console.log(
+        `Large data processing average time: ${avgTime.toFixed(2)}ms`
+      );
     });
   });
 
@@ -419,7 +507,9 @@ describe('Performance Tests', () => {
 
       // Add realistic processing delay
       mockScanLicenseFunction.mockImplementation(async (data: string) => {
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 100 + 50));
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.random() * 100 + 50)
+        );
         return {
           success: true,
           data: { ...mockData, processedData: data },
@@ -430,7 +520,7 @@ describe('Performance Tests', () => {
       const startTime = performance.now();
 
       // Launch concurrent requests
-      const promises = Array.from({ length: concurrency }, (_, i) => 
+      const promises = Array.from({ length: concurrency }, (_, i) =>
         scanLicense(`CONCURRENT_${i}`)
       );
 
@@ -439,30 +529,32 @@ describe('Performance Tests', () => {
       const totalTime = endTime - startTime;
 
       expect(results).toHaveLength(concurrency);
-      
+
       // With proper concurrency, total time should be much less than sequential
       // Sequential would be ~concurrency * averageProcessingTime
       // Concurrent should be closer to max individual processing time
       expect(totalTime).toBeLessThan(concurrency * 100);
 
-      console.log(`Concurrent processing (${concurrency} requests): ${totalTime.toFixed(2)}ms total`);
+      console.log(
+        `Concurrent processing (${concurrency} requests): ${totalTime.toFixed(2)}ms total`
+      );
     });
 
     it('should handle mixed barcode and OCR processing', () => {
       const { VisionCameraProxy } = require('react-native-vision-camera');
       const mockPlugin = VisionCameraProxy.initFrameProcessorPlugin();
-      
+
       let barcodeCount = 0;
       let ocrCount = 0;
 
       mockPlugin.call.mockImplementation((frame: any) => {
         const mode = frame.mode || (Math.random() > 0.5 ? 'barcode' : 'ocr');
-        
+
         if (mode === 'barcode') {
           barcodeCount++;
           return {
             success: true,
-            data: { 
+            data: {
               firstName: 'Mixed',
               lastName: 'Barcode',
               licenseNumber: `BAR${barcodeCount}`,
@@ -477,7 +569,7 @@ describe('Performance Tests', () => {
           ocrCount++;
           return {
             success: true,
-            data: { 
+            data: {
               firstName: 'Mixed',
               lastName: 'OCR',
               licenseNumber: `OCR${ocrCount}`,
@@ -496,24 +588,39 @@ describe('Performance Tests', () => {
       // Process mixed frame types
       for (let i = 0; i < 20; i++) {
         const mode = i % 3 === 0 ? 'ocr' : 'barcode'; // 1/3 OCR, 2/3 barcode
-        const frame = { width: 1280, height: 720, mode };
+        const frame = {
+          width: 1280,
+          height: 720,
+          mode,
+          isValid: true,
+          bytesPerRow: 5120,
+          planesCount: 1,
+          isMirrored: false,
+          timestamp: Date.now(),
+          orientation: 'portrait',
+          pixelFormat: 'yuv',
+          planarImage: true,
+          pixelBuffer: null,
+        } as any;
         const result = scanLicenseFrame(frame);
         results.push(result);
       }
 
       // Verify processing times are appropriate for each mode
-      const barcodeResults = results.filter(r => r?.mode === 'barcode');
-      const ocrResults = results.filter(r => r?.mode === 'ocr');
+      const barcodeResults = results.filter((r) => r?.mode === 'barcode');
+      const ocrResults = results.filter((r) => r?.mode === 'ocr');
 
-      barcodeResults.forEach(result => {
+      barcodeResults.forEach((result) => {
         expect(result?.processingTime).toBeLessThan(0.1); // 10 FPS
       });
 
-      ocrResults.forEach(result => {
+      ocrResults.forEach((result) => {
         expect(result?.processingTime).toBeLessThan(0.5); // 2 FPS
       });
 
-      console.log(`Mixed processing - Barcode: ${barcodeCount}, OCR: ${ocrCount}`);
+      console.log(
+        `Mixed processing - Barcode: ${barcodeCount}, OCR: ${ocrCount}`
+      );
     });
   });
 });
