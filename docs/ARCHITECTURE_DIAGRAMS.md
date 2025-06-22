@@ -20,6 +20,8 @@ graph TB
         VP[Vision Processor]
         CM[Camera Manager]
         DLP[DLParser-Swift Library]
+        OCR[OCR Text Detector]
+        PDF[PDF417 Detector]
     end
     
     subgraph "Hardware Layer"
@@ -30,7 +32,10 @@ graph TB
     UI --> Hook
     Hook --> Bridge
     Bridge --> FP
-    FP --> VP
+    FP --> PDF
+    FP --> OCR
+    PDF --> VP
+    OCR --> VP
     FP --> DLP
     VP --> NE
     CM --> Camera
@@ -43,6 +48,8 @@ graph TB
     style VP fill:#FF6B6B
     style CM fill:#FF6B6B
     style DLP fill:#FF6B6B
+    style OCR fill:#FF6B6B
+    style PDF fill:#FF6B6B
     style Camera fill:#95E1D3
     style NE fill:#95E1D3
 ```

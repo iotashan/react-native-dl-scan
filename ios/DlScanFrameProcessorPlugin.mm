@@ -5,8 +5,10 @@
 
 @interface DlScanFrameProcessorPlugin : FrameProcessorPlugin
 @property (nonatomic, strong) PDF417Detector *detector;
+@property (nonatomic, strong) OCRTextDetector *ocrDetector;
 @property (nonatomic, strong) LicenseParser *parser;
 @property (nonatomic, strong) NSDate *lastDetectionTime;
+@property (nonatomic, strong) NSDate *lastOCRTime;
 @end
 
 @implementation DlScanFrameProcessorPlugin
@@ -16,18 +18,19 @@
     self = [super initWithProxy:proxy withOptions:options];
     if (self) {
         _detector = [[PDF417Detector alloc] init];
+        _ocrDetector = [[OCRTextDetector alloc] init];
         _parser = [[LicenseParser alloc] init];
         _lastDetectionTime = nil;
+        _lastOCRTime = nil;
     }
     return self;
 }
 
 - (id)callback:(Frame*)frame withArguments:(NSDictionary*)arguments {
-    // Implement frame rate limiting (process max 10 frames per second)
     NSDate *now = [NSDate date];
-    if (_lastDetectionTime && [now timeIntervalSinceDate:_lastDetectionTime] < 0.1) {
-        return nil; // Skip this frame
-    }
+    
+    // Get scanning mode from arguments (default to 'barcode')
+    NSString *mode = arguments[@"mode"] ?: @"barcode";
     
     // Get the pixel buffer from the frame
     CVPixelBufferRef pixelBuffer = [frame pixelBuffer];
@@ -41,51 +44,103 @@
         };
     }
     
-    // Detect PDF417 barcode
-    NSString *barcodeData = [_detector detectPDF417In:pixelBuffer];
-    
-    // Check for detection errors
-    NSError *detectionError = [_detector getLastError];
-    if (detectionError) {
+    if ([mode isEqualToString:@"ocr"]) {
+        // OCR mode - process at lower frequency (max 2 frames per second)
+        if (_lastOCRTime && [now timeIntervalSinceDate:_lastOCRTime] < 0.5) {
+            return nil; // Skip this frame
+        }
+        
+        // Detect text using OCR
+        NSDictionary *ocrResult = [_ocrDetector detectTextIn:pixelBuffer];
+        
+        // Check for OCR errors
+        NSError *ocrError = [_ocrDetector getLastError];
+        if (ocrError) {
+            // Use ErrorTranslator to get proper OCR error details
+            NSDictionary *errorDetails = [ErrorTranslator translate:ocrError];
+            return @{
+                @"success": @NO,
+                @"error": errorDetails
+            };
+        }
+        
+        // If no text found, return with specific error
+        if (!ocrResult) {
+            NSDictionary *noTextError = [ErrorTranslator createOCRError:@"no_text"];
+            return @{
+                @"success": @NO,
+                @"error": noTextError
+            };
+        }
+        
+        // Update last OCR time
+        _lastOCRTime = now;
+        
+        // Return OCR result (text extraction will be handled in later tasks)
         return @{
-            @"success": @NO,
-            @"error": @{
-                @"code": @"DETECTION_ERROR",
-                @"message": detectionError.localizedDescription
+            @"success": @YES,
+            @"mode": @"ocr",
+            @"ocrData": ocrResult,
+            @"frameInfo": @{
+                @"width": @(frame.width),
+                @"height": @(frame.height),
+                @"timestamp": @([now timeIntervalSince1970] * 1000) // milliseconds
+            }
+        };
+    } else {
+        // Barcode mode - existing implementation
+        // Implement frame rate limiting (process max 10 frames per second)
+        if (_lastDetectionTime && [now timeIntervalSinceDate:_lastDetectionTime] < 0.1) {
+            return nil; // Skip this frame
+        }
+        
+        // Detect PDF417 barcode
+        NSString *barcodeData = [_detector detectPDF417In:pixelBuffer];
+        
+        // Check for detection errors
+        NSError *detectionError = [_detector getLastError];
+        if (detectionError) {
+            return @{
+                @"success": @NO,
+                @"error": @{
+                    @"code": @"DETECTION_ERROR",
+                    @"message": detectionError.localizedDescription
+                }
+            };
+        }
+        
+        // If no barcode found, return nil (don't report as error)
+        if (!barcodeData) {
+            return nil;
+        }
+        
+        // Update last detection time
+        _lastDetectionTime = now;
+        
+        // Parse the barcode data using existing LicenseParser
+        NSDictionary *parseResult = [_parser parseLicenseData:barcodeData];
+        
+        // Check if parsing was successful
+        BOOL success = [parseResult[@"success"] boolValue];
+        if (!success) {
+            return @{
+                @"success": @NO,
+                @"error": parseResult[@"error"]
+            };
+        }
+        
+        // Return successful result
+        return @{
+            @"success": @YES,
+            @"mode": @"barcode",
+            @"data": parseResult[@"data"],
+            @"frameInfo": @{
+                @"width": @(frame.width),
+                @"height": @(frame.height),
+                @"timestamp": @([now timeIntervalSince1970] * 1000) // milliseconds
             }
         };
     }
-    
-    // If no barcode found, return nil (don't report as error)
-    if (!barcodeData) {
-        return nil;
-    }
-    
-    // Update last detection time
-    _lastDetectionTime = now;
-    
-    // Parse the barcode data using existing LicenseParser
-    NSDictionary *parseResult = [_parser parseLicenseData:barcodeData];
-    
-    // Check if parsing was successful
-    BOOL success = [parseResult[@"success"] boolValue];
-    if (!success) {
-        return @{
-            @"success": @NO,
-            @"error": parseResult[@"error"]
-        };
-    }
-    
-    // Return successful result
-    return @{
-        @"success": @YES,
-        @"data": parseResult[@"data"],
-        @"frameInfo": @{
-            @"width": @(frame.width),
-            @"height": @(frame.height),
-            @"timestamp": @([now timeIntervalSince1970] * 1000) // milliseconds
-        }
-    };
 }
 
 VISION_EXPORT_FRAME_PROCESSOR(DlScanFrameProcessorPlugin, scanLicense)

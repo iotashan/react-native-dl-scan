@@ -16,6 +16,14 @@ enum ScanErrorCode: String {
     case poorQuality = "POOR_QUALITY"
     case detectionTimeout = "DETECTION_TIMEOUT"
     case cameraPermissionDenied = "CAMERA_PERMISSION_DENIED"
+    // OCR-specific error codes
+    case ocrFailed = "OCR_FAILED"
+    case ocrNoTextDetected = "OCR_NO_TEXT_DETECTED"
+    case ocrLowConfidence = "OCR_LOW_CONFIDENCE"
+    case ocrDocumentNotFound = "OCR_DOCUMENT_NOT_FOUND"
+    case ocrProcessingTimeout = "OCR_PROCESSING_TIMEOUT"
+    case ocrInsufficientQuality = "OCR_INSUFFICIENT_QUALITY"
+    case ocrPartialExtraction = "OCR_PARTIAL_EXTRACTION"
 }
 
 @objc class ErrorTranslator: NSObject {
@@ -123,6 +131,85 @@ enum ScanErrorCode: String {
             "message": "Camera permission not granted",
             "userMessage": "Camera access is required to scan licenses. Please enable camera permissions in Settings.",
             "recoverable": false
+        ]
+    }
+    
+    // MARK: - OCR-specific error methods
+    
+    @objc static func createOCRError(reason: String) -> [String: Any] {
+        let errorCode: ScanErrorCode
+        let userMessage: String
+        
+        switch reason {
+        case "no_text":
+            errorCode = .ocrNoTextDetected
+            userMessage = "No text detected. Please ensure the license is clearly visible and well-lit."
+            
+        case "low_confidence":
+            errorCode = .ocrLowConfidence
+            userMessage = "Text recognition confidence is low. Please hold the device steady and ensure good lighting."
+            
+        case "document_not_found":
+            errorCode = .ocrDocumentNotFound
+            userMessage = "Unable to detect license boundaries. Please ensure the entire license is visible in the frame."
+            
+        case "insufficient_quality":
+            errorCode = .ocrInsufficientQuality
+            userMessage = "Image quality is insufficient for text recognition. Please improve lighting and hold steady."
+            
+        case "partial_extraction":
+            errorCode = .ocrPartialExtraction
+            userMessage = "Only partial information could be extracted. Please try scanning the barcode on the back instead."
+            
+        case "timeout":
+            errorCode = .ocrProcessingTimeout
+            userMessage = "Text recognition timed out. Please try again with better lighting conditions."
+            
+        default:
+            errorCode = .ocrFailed
+            userMessage = "Text recognition failed. Please try scanning the barcode on the back of the license."
+        }
+        
+        return [
+            "code": errorCode.rawValue,
+            "message": "OCR processing error: \(reason)",
+            "userMessage": userMessage,
+            "recoverable": true
+        ]
+    }
+    
+    @objc static func createOCRQualityError(qualityIssues: [String: Any]) -> [String: Any] {
+        var message = "Image quality issues detected:"
+        var suggestions: [String] = []
+        
+        if let blur = qualityIssues["blur"] as? Bool, blur {
+            message += " blur"
+            suggestions.append("Hold the device steady")
+        }
+        
+        if let lighting = qualityIssues["lighting"] as? String {
+            if lighting == "dark" {
+                message += " insufficient lighting"
+                suggestions.append("Move to a well-lit area")
+            } else if lighting == "bright" {
+                message += " overexposure"
+                suggestions.append("Avoid direct light reflection")
+            }
+        }
+        
+        if let contrast = qualityIssues["lowContrast"] as? Bool, contrast {
+            message += " low contrast"
+            suggestions.append("Adjust angle to reduce glare")
+        }
+        
+        let userMessage = suggestions.joined(separator: ". ") + "."
+        
+        return [
+            "code": ScanErrorCode.ocrInsufficientQuality.rawValue,
+            "message": message,
+            "userMessage": userMessage,
+            "recoverable": true,
+            "qualityIssues": qualityIssues
         ]
     }
 }
