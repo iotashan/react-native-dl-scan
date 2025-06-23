@@ -14,6 +14,7 @@ import type {
   FallbackControllerEvents,
   PerformanceAlert,
 } from '../utils/FallbackController';
+import { getPersistedScanMode, persistScanMode } from '../utils/storage';
 
 export interface LicenseScannerOptions {
   mode?: 'auto' | 'barcode' | 'ocr';
@@ -45,6 +46,7 @@ export interface LicenseScannerActions {
   clearError: () => void;
   cancel: () => void;
   updateFallbackConfig: (config: Partial<FallbackConfig>) => void;
+  setScanMode: (mode: ScanMode) => void;
 }
 
 export function useLicenseScanner(
@@ -63,6 +65,18 @@ export function useLicenseScanner(
     useState<ScanMetrics | null>(null);
 
   const fallbackControllerRef = useRef<FallbackController | null>(null);
+
+  // Load persisted scan mode on mount if no mode is explicitly provided
+  useEffect(() => {
+    if (!options.mode) {
+      getPersistedScanMode().then((persistedMode) => {
+        if (persistedMode) {
+          setScanMode(persistedMode);
+          logger.info('Loaded persisted scan mode', { mode: persistedMode });
+        }
+      });
+    }
+  }, [options.mode]);
 
   // Initialize FallbackController
   useEffect(() => {
@@ -276,6 +290,15 @@ export function useLicenseScanner(
     setError(null);
   }, []);
 
+  // Set scan mode manually
+  const setScanModeManual = useCallback((mode: ScanMode) => {
+    setScanMode(mode);
+    persistScanMode(mode).catch((err) => {
+      logger.error('Failed to persist scan mode', err);
+    });
+    logger.info('Scan mode manually set', { mode });
+  }, []);
+
   return {
     licenseData,
     isScanning,
@@ -293,5 +316,6 @@ export function useLicenseScanner(
     clearError,
     cancel,
     updateFallbackConfig,
+    setScanMode: setScanModeManual,
   };
 }

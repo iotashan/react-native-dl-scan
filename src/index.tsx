@@ -17,6 +17,8 @@ export { scanLicense as scanLicenseFrame } from './frameProcessors/scanLicense';
 export type { ScanLicenseResult } from './frameProcessors/scanLicense';
 export { CameraScanner } from './components/CameraScanner';
 export type { CameraScannerProps } from './components/CameraScanner';
+export { ModeSelector } from './components/ModeSelector';
+export type { ModeSelectorProps } from './components/ModeSelector';
 export type {
   ScanModeConfig,
   FrameProcessorConfig,
@@ -28,6 +30,14 @@ export type {
   FallbackControllerEvents,
   PerformanceAlert,
 } from './utils/FallbackController';
+export {
+  initializeStorage,
+  getPersistedScanMode,
+  persistScanMode,
+  clearPersistedScanMode,
+  InMemoryStorageAdapter,
+} from './utils/storage';
+export type { StorageAdapter } from './utils/storage';
 
 /**
  * Parse OCR text observations into structured license data
