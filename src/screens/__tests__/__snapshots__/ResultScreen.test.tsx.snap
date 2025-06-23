@@ -1,0 +1,1954 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ResultScreen Rendering renders correctly with complete data 1`] = `
+<RCTSafeAreaView
+  style={
+    {
+      "backgroundColor": "#FFFFFF",
+      "flex": 1,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "backgroundColor": "#4CAF50",
+        "paddingHorizontal": 16,
+        "paddingVertical": 20,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "alignItems": "center",
+        }
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "#FFFFFF",
+            "fontSize": 32,
+            "fontWeight": "bold",
+            "marginBottom": 8,
+          }
+        }
+      >
+        ✓
+      </Text>
+      <Text
+        style={
+          {
+            "color": "#FFFFFF",
+            "fontSize": 24,
+            "fontWeight": "bold",
+            "marginBottom": 4,
+          }
+        }
+      >
+        Scan Complete
+      </Text>
+      <Text
+        style={
+          {
+            "color": "#E8F5E8",
+            "fontSize": 16,
+          }
+        }
+      >
+        Scanned using 
+        pdf417
+         mode
+      </Text>
+    </View>
+  </View>
+  <RCTScrollView
+    contentContainerStyle={
+      {
+        "padding": 16,
+        "paddingBottom": 100,
+      }
+    }
+    showsVerticalScrollIndicator={false}
+    style={
+      {
+        "flex": 1,
+      }
+    }
+  >
+    <View>
+      <View
+        style={
+          {
+            "backgroundColor": "#F8F9FA",
+            "borderColor": "#E1E5E9",
+            "borderRadius": 12,
+            "borderWidth": 1,
+            "marginBottom": 16,
+            "padding": 16,
+          }
+        }
+      >
+        <Text
+          style={
+            {
+              "color": "#1A1A1A",
+              "fontSize": 18,
+              "fontWeight": "600",
+              "marginBottom": 16,
+            }
+          }
+        >
+          Personal Information
+        </Text>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Full Name
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            John Michael Doe
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Date of Birth
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            1985-06-15 (Age 40)
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Gender
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            M
+          </Text>
+        </View>
+      </View>
+      <View
+        style={
+          {
+            "backgroundColor": "#F8F9FA",
+            "borderColor": "#E1E5E9",
+            "borderRadius": 12,
+            "borderWidth": 1,
+            "marginBottom": 16,
+            "padding": 16,
+          }
+        }
+      >
+        <Text
+          style={
+            {
+              "color": "#1A1A1A",
+              "fontSize": 18,
+              "fontWeight": "600",
+              "marginBottom": 16,
+            }
+          }
+        >
+          Address
+        </Text>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Address
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                {
+                  "lineHeight": 24,
+                },
+                false,
+              ]
+            }
+          >
+            123 Main Street, Anytown, CA, 90210
+          </Text>
+        </View>
+      </View>
+      <View
+        style={
+          {
+            "backgroundColor": "#F8F9FA",
+            "borderColor": "#E1E5E9",
+            "borderRadius": 12,
+            "borderWidth": 1,
+            "marginBottom": 16,
+            "padding": 16,
+          }
+        }
+      >
+        <Text
+          style={
+            {
+              "color": "#1A1A1A",
+              "fontSize": 18,
+              "fontWeight": "600",
+              "marginBottom": 16,
+            }
+          }
+        >
+          License Details
+        </Text>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            License Number
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            D1234567
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Document ID
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            DL123456789
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Class
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            C
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Restrictions
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            None
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Endorsements
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            None
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Issue Date
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            6/14/2020
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Expiry Date
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                {
+                  "color": "#F44336",
+                },
+              ]
+            }
+          >
+            6/14/2025 (EXPIRED)
+          </Text>
+        </View>
+      </View>
+      <View
+        style={
+          {
+            "backgroundColor": "#F8F9FA",
+            "borderColor": "#E1E5E9",
+            "borderRadius": 12,
+            "borderWidth": 1,
+            "marginBottom": 16,
+            "padding": 16,
+          }
+        }
+      >
+        <View
+          accessibilityLabel="Physical Description, collapsed"
+          accessibilityRole="button"
+          accessibilityState={
+            {
+              "busy": undefined,
+              "checked": undefined,
+              "disabled": undefined,
+              "expanded": undefined,
+              "selected": undefined,
+            }
+          }
+          accessibilityValue={
+            {
+              "max": undefined,
+              "min": undefined,
+              "now": undefined,
+              "text": undefined,
+            }
+          }
+          accessible={true}
+          collapsable={false}
+          focusable={true}
+          onClick={[Function]}
+          onResponderGrant={[Function]}
+          onResponderMove={[Function]}
+          onResponderRelease={[Function]}
+          onResponderTerminate={[Function]}
+          onResponderTerminationRequest={[Function]}
+          onStartShouldSetResponder={[Function]}
+          style={
+            {
+              "alignItems": "center",
+              "flexDirection": "row",
+              "justifyContent": "space-between",
+              "marginBottom": 16,
+              "opacity": 1,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#1A1A1A",
+                "fontSize": 18,
+                "fontWeight": "600",
+                "marginBottom": 16,
+              }
+            }
+          >
+            Physical Description
+          </Text>
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 20,
+                "fontWeight": "bold",
+              }
+            }
+          >
+            +
+          </Text>
+        </View>
+      </View>
+      <View
+        style={
+          {
+            "backgroundColor": "#F8F9FA",
+            "borderColor": "#E1E5E9",
+            "borderRadius": 12,
+            "borderWidth": 1,
+            "marginBottom": 16,
+            "padding": 16,
+          }
+        }
+      >
+        <Text
+          style={
+            {
+              "color": "#1A1A1A",
+              "fontSize": 18,
+              "fontWeight": "600",
+              "marginBottom": 16,
+            }
+          }
+        >
+          Scan Information
+        </Text>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Scan Mode
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            PDF417 Barcode
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Scanned At
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            6/23/2025, 10:10:35 AM
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Issuing State
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            CA
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Document Type
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            Driver License
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Confidence
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            95%
+          </Text>
+        </View>
+      </View>
+    </View>
+  </RCTScrollView>
+  <View
+    style={
+      {
+        "backgroundColor": "#FFFFFF",
+        "borderTopColor": "#E1E5E9",
+        "borderTopWidth": 1,
+        "bottom": 0,
+        "flexDirection": "row",
+        "gap": 12,
+        "left": 0,
+        "paddingBottom": 32,
+        "paddingHorizontal": 16,
+        "paddingVertical": 16,
+        "position": "absolute",
+        "right": 0,
+      }
+    }
+  >
+    <View
+      accessibilityLabel="Scan another license"
+      accessibilityRole="button"
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      onClick={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        {
+          "alignItems": "center",
+          "backgroundColor": "#F8F9FA",
+          "borderColor": "#D1D5DB",
+          "borderRadius": 8,
+          "borderWidth": 1,
+          "flex": 1,
+          "justifyContent": "center",
+          "opacity": 1,
+          "paddingVertical": 14,
+        }
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "#374151",
+            "fontSize": 16,
+            "fontWeight": "500",
+          }
+        }
+      >
+        Rescan
+      </Text>
+    </View>
+    <View
+      accessibilityLabel="Finish and return"
+      accessibilityRole="button"
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      onClick={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        {
+          "alignItems": "center",
+          "backgroundColor": "#4CAF50",
+          "borderRadius": 8,
+          "flex": 1,
+          "justifyContent": "center",
+          "opacity": 1,
+          "paddingVertical": 14,
+        }
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "#FFFFFF",
+            "fontSize": 16,
+            "fontWeight": "600",
+          }
+        }
+      >
+        Done
+      </Text>
+    </View>
+    <View
+      accessibilityLabel="Report an issue with this scan"
+      accessibilityRole="button"
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      onClick={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        {
+          "alignItems": "center",
+          "backgroundColor": "transparent",
+          "borderRadius": 8,
+          "flex": 1,
+          "justifyContent": "center",
+          "opacity": 1,
+          "paddingVertical": 14,
+        }
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "#6B7280",
+            "fontSize": 14,
+            "fontWeight": "500",
+          }
+        }
+      >
+        Report Issue
+      </Text>
+    </View>
+  </View>
+</RCTSafeAreaView>
+`;
+
+exports[`ResultScreen Rendering renders correctly with partial data 1`] = `
+<RCTSafeAreaView
+  style={
+    {
+      "backgroundColor": "#FFFFFF",
+      "flex": 1,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "backgroundColor": "#4CAF50",
+        "paddingHorizontal": 16,
+        "paddingVertical": 20,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "alignItems": "center",
+        }
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "#FFFFFF",
+            "fontSize": 32,
+            "fontWeight": "bold",
+            "marginBottom": 8,
+          }
+        }
+      >
+        ✓
+      </Text>
+      <Text
+        style={
+          {
+            "color": "#FFFFFF",
+            "fontSize": 24,
+            "fontWeight": "bold",
+            "marginBottom": 4,
+          }
+        }
+      >
+        Scan Complete
+      </Text>
+      <Text
+        style={
+          {
+            "color": "#E8F5E8",
+            "fontSize": 16,
+          }
+        }
+      >
+        Scanned using 
+        ocr
+         mode
+      </Text>
+    </View>
+  </View>
+  <RCTScrollView
+    contentContainerStyle={
+      {
+        "padding": 16,
+        "paddingBottom": 100,
+      }
+    }
+    showsVerticalScrollIndicator={false}
+    style={
+      {
+        "flex": 1,
+      }
+    }
+  >
+    <View>
+      <View
+        style={
+          {
+            "backgroundColor": "#F8F9FA",
+            "borderColor": "#E1E5E9",
+            "borderRadius": 12,
+            "borderWidth": 1,
+            "marginBottom": 16,
+            "padding": 16,
+          }
+        }
+      >
+        <Text
+          style={
+            {
+              "color": "#1A1A1A",
+              "fontSize": 18,
+              "fontWeight": "600",
+              "marginBottom": 16,
+            }
+          }
+        >
+          Personal Information
+        </Text>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Full Name
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            Jane Smith
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Date of Birth
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                {
+                  "color": "#999999",
+                  "fontStyle": "italic",
+                },
+              ]
+            }
+          >
+            Not provided
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Gender
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                {
+                  "color": "#999999",
+                  "fontStyle": "italic",
+                },
+              ]
+            }
+          >
+            Not provided
+          </Text>
+        </View>
+      </View>
+      <View
+        style={
+          {
+            "backgroundColor": "#F8F9FA",
+            "borderColor": "#E1E5E9",
+            "borderRadius": 12,
+            "borderWidth": 1,
+            "marginBottom": 16,
+            "padding": 16,
+          }
+        }
+      >
+        <Text
+          style={
+            {
+              "color": "#1A1A1A",
+              "fontSize": 18,
+              "fontWeight": "600",
+              "marginBottom": 16,
+            }
+          }
+        >
+          Address
+        </Text>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Address
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                {
+                  "color": "#999999",
+                  "fontStyle": "italic",
+                },
+              ]
+            }
+          >
+            Not provided
+          </Text>
+        </View>
+      </View>
+      <View
+        style={
+          {
+            "backgroundColor": "#F8F9FA",
+            "borderColor": "#E1E5E9",
+            "borderRadius": 12,
+            "borderWidth": 1,
+            "marginBottom": 16,
+            "padding": 16,
+          }
+        }
+      >
+        <Text
+          style={
+            {
+              "color": "#1A1A1A",
+              "fontSize": 18,
+              "fontWeight": "600",
+              "marginBottom": 16,
+            }
+          }
+        >
+          License Details
+        </Text>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            License Number
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            D9876543
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Document ID
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                {
+                  "color": "#999999",
+                  "fontStyle": "italic",
+                },
+              ]
+            }
+          >
+            Not provided
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Class
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                {
+                  "color": "#999999",
+                  "fontStyle": "italic",
+                },
+              ]
+            }
+          >
+            Not provided
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Restrictions
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                {
+                  "color": "#999999",
+                  "fontStyle": "italic",
+                },
+              ]
+            }
+          >
+            Not provided
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Endorsements
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                {
+                  "color": "#999999",
+                  "fontStyle": "italic",
+                },
+              ]
+            }
+          >
+            Not provided
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Issue Date
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            3/9/2022
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Expiry Date
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                {
+                  "color": "#999999",
+                  "fontStyle": "italic",
+                },
+              ]
+            }
+          >
+            Not provided
+          </Text>
+        </View>
+      </View>
+      <View
+        style={
+          {
+            "backgroundColor": "#F8F9FA",
+            "borderColor": "#E1E5E9",
+            "borderRadius": 12,
+            "borderWidth": 1,
+            "marginBottom": 16,
+            "padding": 16,
+          }
+        }
+      >
+        <Text
+          style={
+            {
+              "color": "#1A1A1A",
+              "fontSize": 18,
+              "fontWeight": "600",
+              "marginBottom": 16,
+            }
+          }
+        >
+          Scan Information
+        </Text>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Scan Mode
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            OCR Text Recognition
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Scanned At
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            6/23/2025, 10:10:35 AM
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Issuing State
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                {
+                  "color": "#999999",
+                  "fontStyle": "italic",
+                },
+              ]
+            }
+          >
+            Not provided
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Document Type
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                {
+                  "color": "#999999",
+                  "fontStyle": "italic",
+                },
+              ]
+            }
+          >
+            Not provided
+          </Text>
+        </View>
+        <View
+          style={
+            {
+              "marginBottom": 12,
+            }
+          }
+        >
+          <Text
+            style={
+              {
+                "color": "#666666",
+                "fontSize": 14,
+                "fontWeight": "500",
+                "marginBottom": 4,
+              }
+            }
+          >
+            Confidence
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#1A1A1A",
+                  "fontSize": 16,
+                  "lineHeight": 22,
+                },
+                false,
+                false,
+              ]
+            }
+          >
+            75%
+          </Text>
+        </View>
+      </View>
+    </View>
+  </RCTScrollView>
+  <View
+    style={
+      {
+        "backgroundColor": "#FFFFFF",
+        "borderTopColor": "#E1E5E9",
+        "borderTopWidth": 1,
+        "bottom": 0,
+        "flexDirection": "row",
+        "gap": 12,
+        "left": 0,
+        "paddingBottom": 32,
+        "paddingHorizontal": 16,
+        "paddingVertical": 16,
+        "position": "absolute",
+        "right": 0,
+      }
+    }
+  >
+    <View
+      accessibilityLabel="Scan another license"
+      accessibilityRole="button"
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      onClick={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        {
+          "alignItems": "center",
+          "backgroundColor": "#F8F9FA",
+          "borderColor": "#D1D5DB",
+          "borderRadius": 8,
+          "borderWidth": 1,
+          "flex": 1,
+          "justifyContent": "center",
+          "opacity": 1,
+          "paddingVertical": 14,
+        }
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "#374151",
+            "fontSize": 16,
+            "fontWeight": "500",
+          }
+        }
+      >
+        Rescan
+      </Text>
+    </View>
+    <View
+      accessibilityLabel="Finish and return"
+      accessibilityRole="button"
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      onClick={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        {
+          "alignItems": "center",
+          "backgroundColor": "#4CAF50",
+          "borderRadius": 8,
+          "flex": 1,
+          "justifyContent": "center",
+          "opacity": 1,
+          "paddingVertical": 14,
+        }
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "#FFFFFF",
+            "fontSize": 16,
+            "fontWeight": "600",
+          }
+        }
+      >
+        Done
+      </Text>
+    </View>
+    <View
+      accessibilityLabel="Report an issue with this scan"
+      accessibilityRole="button"
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      onClick={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        {
+          "alignItems": "center",
+          "backgroundColor": "transparent",
+          "borderRadius": 8,
+          "flex": 1,
+          "justifyContent": "center",
+          "opacity": 1,
+          "paddingVertical": 14,
+        }
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "#6B7280",
+            "fontSize": 14,
+            "fontWeight": "500",
+          }
+        }
+      >
+        Report Issue
+      </Text>
+    </View>
+  </View>
+</RCTSafeAreaView>
+`;
