@@ -56,6 +56,8 @@ Completes M02 by integrating S01 (OCR) + S02 (Parsing) with M01 (Barcode):
 1. **T01_S05_Automatic_Fallback_Logic** - Intelligent switching from barcode to OCR on failure/timeout
 2. **T02_S05_Unified_Scanning_Hook** - Enhanced useLicenseScanner with dual-mode support
 3. **T03_S05_Performance_Integration** - Combined timeout handling and <2s processing validation
+4. **T04_S05_Seamless_User_Experience_Progress_Indicators** - Transparent mode switching with progress indicators
+5. **T05_S05_Performance_Validation** - Comprehensive performance validation and optimization
 
 ## Notes / Retrospective Points
 - Focus on user experience and performance optimization
