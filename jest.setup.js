@@ -3,11 +3,44 @@
 // Setup for React Native Testing Library
 // Mock native modules
 jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => ({
+  get: jest.fn(() => ({
+    scanLicense: jest.fn(),
+    parseOCRText: jest.fn(),
+    // Default feature flags mock
+    commonTestFlag_shouldUseNewFeature: jest.fn().mockReturnValue(false),
+  })),
   getEnforcing: jest.fn(() => ({
     scanLicense: jest.fn(),
     parseOCRText: jest.fn(),
+    commonTestFlag_shouldUseNewFeature: jest.fn().mockReturnValue(false),
   })),
 }));
+
+// Mock React Native Feature Flags
+jest.mock(
+  'react-native/src/private/featureflags/specs/NativeReactNativeFeatureFlags',
+  () => ({
+    get: jest.fn(() => ({})),
+    getEnforcing: jest.fn(() => ({})),
+  })
+);
+
+// Mock react-native-reanimated more comprehensively
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = require('react-native-reanimated/mock');
+
+  // Add any additional functions if needed
+  return {
+    ...Reanimated,
+    runOnJS: (fn) => fn,
+    runOnUI: (fn) => fn,
+    createAnimatedComponent: (component) => component,
+    useSharedValue: (initial) => ({ value: initial }),
+    useAnimatedStyle: (fn) => fn(),
+    withTiming: (value) => value,
+    withSpring: (value) => value,
+  };
+});
 
 // Global test configuration
 global.__DEV__ = true;
