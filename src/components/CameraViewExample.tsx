@@ -51,7 +51,7 @@ export const CameraViewExample: React.FC = () => {
         isActive={true}
         enableZoomGesture={true}
       />
-      
+
       <ScanningOverlayContainer
         mode={mode}
         isScanning={isScanning}

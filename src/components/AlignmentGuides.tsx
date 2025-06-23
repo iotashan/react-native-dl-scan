@@ -46,7 +46,10 @@ export const AlignmentGuides: React.FC<AlignmentGuidesProps> = ({
     if (animated) {
       opacity.value = withRepeat(
         withSequence(
-          withTiming(0.6, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.6, {
+            duration: 1500,
+            easing: Easing.inOut(Easing.ease),
+          }),
           withTiming(0.3, { duration: 1500, easing: Easing.inOut(Easing.ease) })
         ),
         -1
@@ -129,7 +132,10 @@ export const AlignmentGuides: React.FC<AlignmentGuidesProps> = ({
     </>
   );
 
-  const renderEdgeIndicator = (edge: 'top' | 'right' | 'bottom' | 'left', detected: boolean) => {
+  const renderEdgeIndicator = (
+    edge: 'top' | 'right' | 'bottom' | 'left',
+    detected: boolean
+  ) => {
     const indicatorColor = detected ? '#4CAF50' : color;
     const indicatorOpacity = detected ? 0.8 : 0.4;
 
@@ -161,7 +167,12 @@ export const AlignmentGuides: React.FC<AlignmentGuidesProps> = ({
       style={[styles.container, animated && animatedStyle]}
       pointerEvents="none"
     >
-      <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <Svg
+        width="100%"
+        height="100%"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
         {showGrid && renderGrid()}
         {showCenterCross && renderCenterCross()}
         {showEdgeIndicators && (
@@ -190,7 +201,12 @@ export const GridPattern: React.FC<GridPatternProps> = ({
 }) => {
   return (
     <View style={[styles.gridContainer, { opacity }]} pointerEvents="none">
-      <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <Svg
+        width="100%"
+        height="100%"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+      >
         <defs>
           <pattern
             id="grid"

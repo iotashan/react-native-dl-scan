@@ -1,5 +1,4 @@
-import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import { ScanningOverlay } from '../ScanningOverlay';
 
 // Mock react-native-reanimated
@@ -9,14 +8,14 @@ jest.mock('react-native-reanimated', () => {
   return Reanimated;
 });
 
-describe('ScanningOverlay', () => {
-  const defaultProps = {
-    mode: 'auto' as const,
-    isScanning: false,
-    detectionState: 'idle' as const,
-    orientation: 'portrait' as const,
-  };
+const defaultProps = {
+  mode: 'auto' as const,
+  isScanning: false,
+  detectionState: 'idle' as const,
+  orientation: 'portrait' as const,
+};
 
+describe('ScanningOverlay', () => {
   it('renders correctly in auto mode', () => {
     const { toJSON } = render(<ScanningOverlay {...defaultProps} />);
     expect(toJSON()).toMatchSnapshot();
@@ -39,10 +38,7 @@ describe('ScanningOverlay', () => {
   it('displays custom instruction text', () => {
     const instructionText = 'Custom instruction';
     const { getByText } = render(
-      <ScanningOverlay
-        {...defaultProps}
-        instructionText={instructionText}
-      />
+      <ScanningOverlay {...defaultProps} instructionText={instructionText} />
     );
     expect(getByText(instructionText)).toBeTruthy();
   });
@@ -86,13 +82,10 @@ describe('ScanningOverlay', () => {
 
   it('calls onOverlayPress when pressed', () => {
     const onOverlayPress = jest.fn();
-    const { getByTestId } = render(
-      <ScanningOverlay
-        {...defaultProps}
-        onOverlayPress={onOverlayPress}
-      />
+    render(
+      <ScanningOverlay {...defaultProps} onOverlayPress={onOverlayPress} />
     );
-    
+
     // Would need to add testID to the touchable area in the component
     // For now, this is a placeholder test
     expect(onOverlayPress).not.toHaveBeenCalled();
@@ -104,20 +97,16 @@ describe('ScanningOverlay animations', () => {
     const { rerender } = render(
       <ScanningOverlay {...defaultProps} isScanning={false} />
     );
-    
+
     rerender(<ScanningOverlay {...defaultProps} isScanning={true} />);
-    
+
     // Animation values would be tested here if we had access to the shared values
     // This is more of an integration test
   });
 
   it('shows sweep line in barcode mode when scanning', () => {
     const { toJSON } = render(
-      <ScanningOverlay
-        {...defaultProps}
-        mode="barcode"
-        isScanning={true}
-      />
+      <ScanningOverlay {...defaultProps} mode="barcode" isScanning={true} />
     );
     expect(toJSON()).toMatchSnapshot();
   });

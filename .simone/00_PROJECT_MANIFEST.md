@@ -68,7 +68,7 @@ This project follows a milestone-based development approach.
 ### M04 Sprints - Dual-Mode UI Integration
 - **S06** UI Components and User Experience 📋 IN PROGRESS (2/? tasks)
   - ✅ T02_S06 Mode Selector Implementation (COMPLETED - 2025-06-23 09:54)
-  - 📋 T03_S06 Scanning Overlay Components (IN PROGRESS - 2025-06-23 09:49)
+  - ✅ T03_S06 Scanning Overlay Components (COMPLETED - 2025-06-23 09:58)
 - **S07** Integration Testing and Polish 📋 PLANNED
 
 ### M05 Sprints - Testing, Optimization & Documentation

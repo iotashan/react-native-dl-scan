@@ -31,7 +31,9 @@ interface ScanningOverlayContainerProps {
   orientation?: 'portrait' | 'landscape';
 }
 
-export const ScanningOverlayContainer: React.FC<ScanningOverlayContainerProps> = ({
+export const ScanningOverlayContainer: React.FC<
+  ScanningOverlayContainerProps
+> = ({
   mode,
   isScanning,
   onModeChange,
@@ -53,7 +55,9 @@ export const ScanningOverlayContainer: React.FC<ScanningOverlayContainerProps> =
   showModeToggle = true,
   orientation = 'portrait',
 }) => {
-  const [detectionState, setDetectionState] = useState<'idle' | 'detecting' | 'success' | 'error'>('idle');
+  const [detectionState, setDetectionState] = useState<
+    'idle' | 'detecting' | 'success' | 'error'
+  >('idle');
   const [showGrid, setShowGrid] = useState(false);
 
   // Simulate detection states based on quality
@@ -73,7 +77,7 @@ export const ScanningOverlayContainer: React.FC<ScanningOverlayContainerProps> =
       barcode: 'ocr',
       ocr: 'auto',
     };
-    
+
     onModeChange(nextMode[mode]);
   }, [mode, onModeChange]);
 
@@ -106,10 +110,10 @@ export const ScanningOverlayContainer: React.FC<ScanningOverlayContainerProps> =
     }
   };
 
-  const hasGoodEdgeAlignment = 
-    edgeDetected.top && 
-    edgeDetected.right && 
-    edgeDetected.bottom && 
+  const hasGoodEdgeAlignment =
+    edgeDetected.top &&
+    edgeDetected.right &&
+    edgeDetected.bottom &&
     edgeDetected.left;
 
   return (

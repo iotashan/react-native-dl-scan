@@ -30,7 +30,8 @@ export const QualityIndicator: React.FC<QualityIndicatorProps> = ({
   const animatedProgress = useSharedValue(0);
 
   // Calculate overall quality score
-  const overallScore = (metrics.lighting + metrics.positioning + (1 - metrics.blur)) / 3;
+  const overallScore =
+    (metrics.lighting + metrics.positioning + (1 - metrics.blur)) / 3;
 
   useEffect(() => {
     animatedProgress.value = withSpring(overallScore, {

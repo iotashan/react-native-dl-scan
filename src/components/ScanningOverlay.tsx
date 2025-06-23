@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { ScanMode } from '../types/license';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // License card dimensions (3.375" × 2.125" = 1.588:1 ratio)
 const LICENSE_ASPECT_RATIO = 1.588;
@@ -50,7 +50,7 @@ export const ScanningOverlay: React.FC<ScanningOverlayProps> = ({
   isScanning,
   detectionState,
   orientation,
-  onOverlayPress,
+  _onOverlayPress,
   showGuides = true,
   instructionText,
   animateSuccess = true,
@@ -69,7 +69,10 @@ export const ScanningOverlay: React.FC<ScanningOverlayProps> = ({
     if (isScanning) {
       pulseOpacity.value = withRepeat(
         withSequence(
-          withTiming(0.8, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.8, {
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+          }),
           withTiming(0.3, { duration: 1000, easing: Easing.inOut(Easing.ease) })
         ),
         -1
@@ -114,7 +117,9 @@ export const ScanningOverlay: React.FC<ScanningOverlayProps> = ({
             withTiming(0, { duration: 500, easing: Easing.out(Easing.ease) })
           );
         }
-        AccessibilityInfo.announceForAccessibility('License detected successfully');
+        AccessibilityInfo.announceForAccessibility(
+          'License detected successfully'
+        );
         break;
       case 'error':
         if (animateError) {
@@ -125,14 +130,24 @@ export const ScanningOverlay: React.FC<ScanningOverlayProps> = ({
             withTiming(0, { duration: 50 })
           );
         }
-        AccessibilityInfo.announceForAccessibility('Detection error, please try again');
+        AccessibilityInfo.announceForAccessibility(
+          'Detection error, please try again'
+        );
         break;
       default:
         cornerScale.value = withTiming(1, { duration: 300 });
         frameScale.value = withTiming(1, { duration: 300 });
         break;
     }
-  }, [detectionState, cornerScale, frameScale, successScale, errorShake, animateSuccess, animateError]);
+  }, [
+    detectionState,
+    cornerScale,
+    frameScale,
+    successScale,
+    errorShake,
+    animateSuccess,
+    animateError,
+  ]);
 
   // Calculate frame dimensions based on orientation
   const frameWidth = orientation === 'portrait' ? FRAME_WIDTH : FRAME_HEIGHT;
@@ -159,10 +174,7 @@ export const ScanningOverlay: React.FC<ScanningOverlayProps> = ({
 
   // Animated styles
   const frameAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: frameScale.value },
-      { translateX: errorShake.value },
-    ],
+    transform: [{ scale: frameScale.value }, { translateX: errorShake.value }],
   }));
 
   const pulseAnimatedStyle = useAnimatedStyle(() => ({
@@ -221,11 +233,7 @@ export const ScanningOverlay: React.FC<ScanningOverlayProps> = ({
 
       {/* Scanning frame */}
       <Animated.View
-        style={[
-          styles.frameContainer,
-          getFrameStyle(),
-          frameAnimatedStyle,
-        ]}
+        style={[styles.frameContainer, getFrameStyle(), frameAnimatedStyle]}
         pointerEvents="none"
       >
         {/* Corner guides */}
