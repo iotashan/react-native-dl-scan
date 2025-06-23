@@ -112,7 +112,7 @@ This project follows a milestone-based development approach.
 ## 5. General Tasks
 
 - [x] T001: [Fix Failing Test Infrastructure](04_GENERAL_TASKS/T001_Fix_Failing_Test_Infrastructure.md) - Status: In Progress
-- [ ] T002: [Fix Critical Test Infrastructure - React act() warnings and async leaks in fallback integration](04_GENERAL_TASKS/T002_Fix_Critical_Test_Infrastructure_React_Act_Warnings_And_Async_Leaks_In_Fallback_Integration.md) - Status: Not Started
+- [x] T002: [Fix Critical Test Infrastructure - React act() warnings and async leaks in fallback integration](04_GENERAL_TASKS/TX002_COMPLETED_Fix_Critical_Test_Infrastructure_React_Act_Warnings_And_Async_Leaks_In_Fallback_Integration.md) - Status: Completed (2025-06-23 10:34)
 
 ## 6. Key Documentation
 

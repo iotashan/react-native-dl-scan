@@ -40,6 +40,8 @@ export class FallbackController {
   private events?: FallbackControllerEvents;
   private abortController?: AbortController;
   private ocrProcessorReady: boolean = false; // Used for parallel processing optimization
+  // Timer tracking for proper cleanup
+  private activeTimers: Set<NodeJS.Timeout> = new Set();
 
   constructor(
     config: Partial<FallbackConfig> = {},
@@ -208,13 +210,13 @@ export class FallbackController {
         const mockOCRData: OCRTextObservation[] = this.generateMockOCRData();
 
         // Simulate transition work (normally would involve actual OCR preparation)
-        setTimeout(() => {
+        this.createTimeout(() => {
           resolve(mockOCRData);
         }, 50); // Simulate fast transition
       });
 
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
+        this.createTimeout(() => {
           reject(
             new ScanError({
               code: 'TRANSITION_TIMEOUT',
@@ -296,7 +298,7 @@ export class FallbackController {
 
           // Add timeout wrapper
           const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => {
+            this.createTimeout(() => {
               reject(
                 new ScanError({
                   code: 'BARCODE_TIMEOUT',
@@ -375,7 +377,7 @@ export class FallbackController {
 
         // Add timeout wrapper for OCR (2 seconds as per requirement)
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => {
+          this.createTimeout(() => {
             reject(
               new ScanError({
                 code: 'OCR_TIMEOUT',
@@ -523,7 +525,7 @@ export class FallbackController {
    */
   private async prepareOCRProcessor(): Promise<void> {
     // Simulate OCR processor preparation in background
-    setTimeout(() => {
+    this.createTimeout(() => {
       this.ocrProcessorReady = true;
       logger.info('OCR processor ready for parallel processing');
     }, 500);
@@ -822,6 +824,7 @@ export class FallbackController {
       this.abortController.abort();
     }
     this.stopProgressInterval();
+    this.clearAllTimers();
     this.updateState('idle');
     logger.info('Scan cancelled by user');
   }
@@ -836,9 +839,32 @@ export class FallbackController {
     this.lastStateChangeTime = 0;
     this.lastProgressPercentage = 0;
     this.stopProgressInterval();
+    this.clearAllTimers();
     if (this.abortController) {
       this.abortController.abort();
     }
+  }
+
+  /**
+   * Helper method to track and create timeouts with proper cleanup
+   */
+  private createTimeout(callback: () => void, delay: number): NodeJS.Timeout {
+    const timeoutId = setTimeout(() => {
+      this.activeTimers.delete(timeoutId);
+      callback();
+    }, delay);
+    this.activeTimers.add(timeoutId);
+    return timeoutId;
+  }
+
+  /**
+   * Clear all active timers to prevent memory leaks
+   */
+  private clearAllTimers(): void {
+    this.activeTimers.forEach((timerId) => {
+      clearTimeout(timerId);
+    });
+    this.activeTimers.clear();
   }
 
   /**

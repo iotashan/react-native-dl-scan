@@ -1,5 +1,5 @@
 // React import is needed for JSX even if not directly used
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { Vibration, AccessibilityInfo } from 'react-native';
 import { ModeSelector } from '../ModeSelector';
 import type { ScanMode } from '../../types/license';
@@ -110,14 +110,18 @@ describe('ModeSelector', () => {
     fireEvent(getByText('Auto'), 'onLongPress');
 
     // Fast forward timers
-    jest.advanceTimersByTime(600);
+    act(() => {
+      jest.advanceTimersByTime(600);
+    });
 
     await waitFor(() => {
       expect(queryByText('Automatically selects best method')).toBeTruthy();
     });
 
     // Description should disappear after 2 seconds
-    jest.advanceTimersByTime(2100);
+    act(() => {
+      jest.advanceTimersByTime(2100);
+    });
 
     await waitFor(() => {
       expect(queryByText('Automatically selects best method')).toBeNull();

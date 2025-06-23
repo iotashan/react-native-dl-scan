@@ -201,6 +201,8 @@ describe('Fallback Integration Pipeline', () => {
   afterEach(() => {
     jest.clearAllTimers();
     jest.clearAllMocks();
+    // Ensure all promises are resolved and timers cleared
+    jest.runOnlyPendingTimers();
   });
 
   // Use shared mock data from test utilities

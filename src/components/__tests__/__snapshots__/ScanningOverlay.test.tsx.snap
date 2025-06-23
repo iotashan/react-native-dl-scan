@@ -1,0 +1,1269 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ScanningOverlay animations shows sweep line in barcode mode when scanning 1`] = `
+<View
+  pointerEvents="box-none"
+  style={
+    {
+      "alignItems": "center",
+      "bottom": 0,
+      "justifyContent": "center",
+      "left": 0,
+      "position": "absolute",
+      "right": 0,
+      "top": 0,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "bottom": 0,
+        "flexDirection": "column",
+        "left": 0,
+        "position": "absolute",
+        "right": 0,
+        "top": 0,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0.6)",
+          "flex": 1,
+        }
+      }
+    />
+    <View
+      style={
+        {
+          "flexDirection": "row",
+          "height": 401.448362720403,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(0, 0, 0, 0.6)",
+            "flex": 1,
+          }
+        }
+      />
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "transparent",
+            },
+            {
+              "height": 120.4345088161209,
+              "marginBottom": 281.0138539042821,
+              "width": 637.5,
+            },
+          ]
+        }
+      />
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(0, 0, 0, 0.6)",
+            "flex": 1,
+          }
+        }
+      />
+    </View>
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0.6)",
+          "flex": 1,
+        }
+      }
+    />
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      [
+        {
+          "alignItems": "center",
+          "justifyContent": "center",
+          "position": "absolute",
+        },
+        {
+          "height": 120.4345088161209,
+          "marginBottom": 281.0138539042821,
+          "width": 637.5,
+        },
+        {
+          "transform": [
+            {
+              "scale": 1,
+            },
+            {
+              "translateX": 0,
+            },
+          ],
+        },
+      ]
+    }
+  >
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomWidth": 0,
+            "borderRightWidth": 0,
+            "borderTopLeftRadius": 8,
+            "left": 0,
+            "top": 0,
+          },
+          {
+            "borderColor": "#FFFFFF",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomWidth": 0,
+            "borderLeftWidth": 0,
+            "borderTopRightRadius": 8,
+            "right": 0,
+            "top": 0,
+          },
+          {
+            "borderColor": "#FFFFFF",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomLeftRadius": 8,
+            "borderRightWidth": 0,
+            "borderTopWidth": 0,
+            "bottom": 0,
+            "left": 0,
+          },
+          {
+            "borderColor": "#FFFFFF",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomRightRadius": 8,
+            "borderLeftWidth": 0,
+            "borderTopWidth": 0,
+            "bottom": 0,
+            "right": 0,
+          },
+          {
+            "borderColor": "#FFFFFF",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderRadius": 12,
+            "borderWidth": 2,
+            "bottom": 0,
+            "left": 0,
+            "position": "absolute",
+            "right": 0,
+            "top": 0,
+          },
+          {
+            "borderColor": "#FFFFFF",
+          },
+          {
+            "opacity": 0.5,
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "height": 2,
+            "opacity": 0.8,
+            "position": "absolute",
+            "shadowColor": "#000",
+            "shadowOffset": {
+              "height": 0,
+              "width": 0,
+            },
+            "shadowOpacity": 0.5,
+            "shadowRadius": 5,
+            "width": "90%",
+          },
+          {
+            "backgroundColor": "#FFFFFF",
+          },
+          {
+            "transform": [
+              {
+                "translateY": undefined,
+              },
+            ],
+          },
+        ]
+      }
+    />
+  </View>
+  <View
+    style={
+      {
+        "paddingHorizontal": 40,
+        "position": "absolute",
+        "top": 125,
+      }
+    }
+  >
+    <Text
+      style={
+        {
+          "color": "#FFD700",
+          "fontSize": 14,
+          "fontWeight": "500",
+          "textAlign": "center",
+          "textShadowColor": "rgba(0, 0, 0, 0.75)",
+          "textShadowOffset": {
+            "height": 1,
+            "width": 0,
+          },
+          "textShadowRadius": 3,
+        }
+      }
+    >
+      Position the barcode on the back of your license
+    </Text>
+  </View>
+</View>
+`;
+
+exports[`ScanningOverlay renders correctly in auto mode 1`] = `
+<View
+  pointerEvents="box-none"
+  style={
+    {
+      "alignItems": "center",
+      "bottom": 0,
+      "justifyContent": "center",
+      "left": 0,
+      "position": "absolute",
+      "right": 0,
+      "top": 0,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "bottom": 0,
+        "flexDirection": "column",
+        "left": 0,
+        "position": "absolute",
+        "right": 0,
+        "top": 0,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0.6)",
+          "flex": 1,
+        }
+      }
+    />
+    <View
+      style={
+        {
+          "flexDirection": "row",
+          "height": 401.448362720403,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(0, 0, 0, 0.6)",
+            "flex": 1,
+          }
+        }
+      />
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "transparent",
+            },
+            {
+              "height": 401.448362720403,
+              "width": 637.5,
+            },
+          ]
+        }
+      />
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(0, 0, 0, 0.6)",
+            "flex": 1,
+          }
+        }
+      />
+    </View>
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0.6)",
+          "flex": 1,
+        }
+      }
+    />
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      [
+        {
+          "alignItems": "center",
+          "justifyContent": "center",
+          "position": "absolute",
+        },
+        {
+          "height": 401.448362720403,
+          "width": 637.5,
+        },
+        {
+          "transform": [
+            {
+              "scale": 1,
+            },
+            {
+              "translateX": 0,
+            },
+          ],
+        },
+      ]
+    }
+  >
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomWidth": 0,
+            "borderRightWidth": 0,
+            "borderTopLeftRadius": 8,
+            "left": 0,
+            "top": 0,
+          },
+          {
+            "borderColor": "#FFFFFF",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomWidth": 0,
+            "borderLeftWidth": 0,
+            "borderTopRightRadius": 8,
+            "right": 0,
+            "top": 0,
+          },
+          {
+            "borderColor": "#FFFFFF",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomLeftRadius": 8,
+            "borderRightWidth": 0,
+            "borderTopWidth": 0,
+            "bottom": 0,
+            "left": 0,
+          },
+          {
+            "borderColor": "#FFFFFF",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomRightRadius": 8,
+            "borderLeftWidth": 0,
+            "borderTopWidth": 0,
+            "bottom": 0,
+            "right": 0,
+          },
+          {
+            "borderColor": "#FFFFFF",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+  </View>
+</View>
+`;
+
+exports[`ScanningOverlay renders error state correctly 1`] = `
+<View
+  pointerEvents="box-none"
+  style={
+    {
+      "alignItems": "center",
+      "bottom": 0,
+      "justifyContent": "center",
+      "left": 0,
+      "position": "absolute",
+      "right": 0,
+      "top": 0,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "bottom": 0,
+        "flexDirection": "column",
+        "left": 0,
+        "position": "absolute",
+        "right": 0,
+        "top": 0,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0.6)",
+          "flex": 1,
+        }
+      }
+    />
+    <View
+      style={
+        {
+          "flexDirection": "row",
+          "height": 401.448362720403,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(0, 0, 0, 0.6)",
+            "flex": 1,
+          }
+        }
+      />
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "transparent",
+            },
+            {
+              "height": 401.448362720403,
+              "width": 637.5,
+            },
+          ]
+        }
+      />
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(0, 0, 0, 0.6)",
+            "flex": 1,
+          }
+        }
+      />
+    </View>
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0.6)",
+          "flex": 1,
+        }
+      }
+    />
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      [
+        {
+          "alignItems": "center",
+          "justifyContent": "center",
+          "position": "absolute",
+        },
+        {
+          "height": 401.448362720403,
+          "width": 637.5,
+        },
+        {
+          "transform": [
+            {
+              "scale": 1,
+            },
+            {
+              "translateX": 0,
+            },
+          ],
+        },
+      ]
+    }
+  >
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomWidth": 0,
+            "borderRightWidth": 0,
+            "borderTopLeftRadius": 8,
+            "left": 0,
+            "top": 0,
+          },
+          {
+            "borderColor": "#F44336",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomWidth": 0,
+            "borderLeftWidth": 0,
+            "borderTopRightRadius": 8,
+            "right": 0,
+            "top": 0,
+          },
+          {
+            "borderColor": "#F44336",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomLeftRadius": 8,
+            "borderRightWidth": 0,
+            "borderTopWidth": 0,
+            "bottom": 0,
+            "left": 0,
+          },
+          {
+            "borderColor": "#F44336",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomRightRadius": 8,
+            "borderLeftWidth": 0,
+            "borderTopWidth": 0,
+            "bottom": 0,
+            "right": 0,
+          },
+          {
+            "borderColor": "#F44336",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+  </View>
+</View>
+`;
+
+exports[`ScanningOverlay renders in landscape orientation 1`] = `
+<View
+  pointerEvents="box-none"
+  style={
+    {
+      "alignItems": "center",
+      "bottom": 0,
+      "justifyContent": "center",
+      "left": 0,
+      "position": "absolute",
+      "right": 0,
+      "top": 0,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "bottom": 0,
+        "flexDirection": "column",
+        "left": 0,
+        "position": "absolute",
+        "right": 0,
+        "top": 0,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0.6)",
+          "flex": 1,
+        }
+      }
+    />
+    <View
+      style={
+        {
+          "flexDirection": "row",
+          "height": 401.448362720403,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(0, 0, 0, 0.6)",
+            "flex": 1,
+          }
+        }
+      />
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "transparent",
+            },
+            {
+              "height": 637.5,
+              "width": 401.448362720403,
+            },
+          ]
+        }
+      />
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(0, 0, 0, 0.6)",
+            "flex": 1,
+          }
+        }
+      />
+    </View>
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0.6)",
+          "flex": 1,
+        }
+      }
+    />
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      [
+        {
+          "alignItems": "center",
+          "justifyContent": "center",
+          "position": "absolute",
+        },
+        {
+          "height": 637.5,
+          "width": 401.448362720403,
+        },
+        {
+          "transform": [
+            {
+              "scale": 1,
+            },
+            {
+              "translateX": 0,
+            },
+          ],
+        },
+      ]
+    }
+  >
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomWidth": 0,
+            "borderRightWidth": 0,
+            "borderTopLeftRadius": 8,
+            "left": 0,
+            "top": 0,
+          },
+          {
+            "borderColor": "#FFFFFF",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomWidth": 0,
+            "borderLeftWidth": 0,
+            "borderTopRightRadius": 8,
+            "right": 0,
+            "top": 0,
+          },
+          {
+            "borderColor": "#FFFFFF",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomLeftRadius": 8,
+            "borderRightWidth": 0,
+            "borderTopWidth": 0,
+            "bottom": 0,
+            "left": 0,
+          },
+          {
+            "borderColor": "#FFFFFF",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomRightRadius": 8,
+            "borderLeftWidth": 0,
+            "borderTopWidth": 0,
+            "bottom": 0,
+            "right": 0,
+          },
+          {
+            "borderColor": "#FFFFFF",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+  </View>
+</View>
+`;
+
+exports[`ScanningOverlay renders success state correctly 1`] = `
+<View
+  pointerEvents="box-none"
+  style={
+    {
+      "alignItems": "center",
+      "bottom": 0,
+      "justifyContent": "center",
+      "left": 0,
+      "position": "absolute",
+      "right": 0,
+      "top": 0,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "bottom": 0,
+        "flexDirection": "column",
+        "left": 0,
+        "position": "absolute",
+        "right": 0,
+        "top": 0,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0.6)",
+          "flex": 1,
+        }
+      }
+    />
+    <View
+      style={
+        {
+          "flexDirection": "row",
+          "height": 401.448362720403,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(0, 0, 0, 0.6)",
+            "flex": 1,
+          }
+        }
+      />
+      <View
+        style={
+          [
+            {
+              "backgroundColor": "transparent",
+            },
+            {
+              "height": 401.448362720403,
+              "width": 637.5,
+            },
+          ]
+        }
+      />
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(0, 0, 0, 0.6)",
+            "flex": 1,
+          }
+        }
+      />
+    </View>
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0.6)",
+          "flex": 1,
+        }
+      }
+    />
+  </View>
+  <View
+    pointerEvents="none"
+    style={
+      [
+        {
+          "alignItems": "center",
+          "justifyContent": "center",
+          "position": "absolute",
+        },
+        {
+          "height": 401.448362720403,
+          "width": 637.5,
+        },
+        {
+          "transform": [
+            {
+              "scale": 1,
+            },
+            {
+              "translateX": 0,
+            },
+          ],
+        },
+      ]
+    }
+  >
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomWidth": 0,
+            "borderRightWidth": 0,
+            "borderTopLeftRadius": 8,
+            "left": 0,
+            "top": 0,
+          },
+          {
+            "borderColor": "#4CAF50",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomWidth": 0,
+            "borderLeftWidth": 0,
+            "borderTopRightRadius": 8,
+            "right": 0,
+            "top": 0,
+          },
+          {
+            "borderColor": "#4CAF50",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomLeftRadius": 8,
+            "borderRightWidth": 0,
+            "borderTopWidth": 0,
+            "bottom": 0,
+            "left": 0,
+          },
+          {
+            "borderColor": "#4CAF50",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "borderWidth": 3,
+            "height": 30,
+            "position": "absolute",
+            "width": 30,
+          },
+          {
+            "borderBottomRightRadius": 8,
+            "borderLeftWidth": 0,
+            "borderTopWidth": 0,
+            "bottom": 0,
+            "right": 0,
+          },
+          {
+            "borderColor": "#4CAF50",
+          },
+          {
+            "transform": [
+              {
+                "scale": 1,
+              },
+            ],
+          },
+        ]
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "alignItems": "center",
+            "bottom": 0,
+            "justifyContent": "center",
+            "left": 0,
+            "position": "absolute",
+            "right": 0,
+            "top": 0,
+          },
+          {
+            "opacity": 0,
+            "transform": [
+              {
+                "scale": 0,
+              },
+            ],
+          },
+        ]
+      }
+    >
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "backgroundColor": "#4CAF50",
+            "borderRadius": 40,
+            "height": 80,
+            "justifyContent": "center",
+            "width": 80,
+          }
+        }
+      >
+        <Text
+          style={
+            {
+              "color": "white",
+              "fontSize": 40,
+              "fontWeight": "bold",
+            }
+          }
+        >
+          ✓
+        </Text>
+      </View>
+    </View>
+  </View>
+</View>
+`;
