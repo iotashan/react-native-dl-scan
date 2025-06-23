@@ -98,6 +98,12 @@ describe('FallbackController', () => {
     controller = new FallbackController({}, events);
   });
 
+  afterEach(() => {
+    // Clean up any timers or intervals
+    controller.cancel();
+    jest.clearAllTimers();
+  });
+
   describe('Configuration', () => {
     test('should use default configuration when none provided', () => {
       const config = controller.getConfig();

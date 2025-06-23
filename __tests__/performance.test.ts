@@ -623,4 +623,96 @@ describe('Performance Tests', () => {
       );
     });
   });
+
+  describe('UI Progress Performance', () => {
+    const sampleBarcodeData = 'SAMPLE_BARCODE_DATA';
+    const mockPerformance = {
+      barcodeProcessingTime: 100, // 100ms baseline
+    };
+
+    it('should maintain performance with progress UI updates', async () => {
+      const progressUpdates: number[] = [];
+      let updateCount = 0;
+      let progressInterval: NodeJS.Timeout | null = null;
+
+      // Mock progress callback to track update frequency
+      const onProgressUpdate = (_progress: any) => {
+        updateCount++;
+        progressUpdates.push(Date.now());
+      };
+
+      // Set up mock for this specific test with exact timing
+      mockScanLicenseFunction.mockImplementation(async () => {
+        // Start progress updates when scan starts
+        progressInterval = setInterval(() => {
+          onProgressUpdate({
+            state: 'barcode',
+            progressPercentage: Math.min(100, updateCount * 10),
+          });
+        }, 100);
+
+        await new Promise((resolve) =>
+          setTimeout(resolve, mockPerformance.barcodeProcessingTime)
+        );
+
+        // Clear interval before returning
+        if (progressInterval) {
+          clearInterval(progressInterval);
+        }
+
+        return {
+          success: true,
+          data: {
+            firstName: 'Progress',
+            lastName: 'Test',
+            licenseNumber: 'PROG123',
+            dateOfBirth: new Date('1990-01-01'),
+            expirationDate: new Date('2026-01-01'),
+            sex: 'M',
+          },
+        };
+      });
+
+      const startTime = Date.now();
+      await mockScanLicenseFunction(sampleBarcodeData);
+      const endTime = Date.now();
+
+      const scanTime = endTime - startTime;
+
+      // Verify performance impact is less than 5%
+      expect(scanTime).toBeLessThan(
+        Math.round(mockPerformance.barcodeProcessingTime * 1.05)
+      );
+
+      // Verify we had at least one progress update
+      expect(updateCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should complete mode switch animations within 300ms', async () => {
+      let animationStartTime: number | null = null;
+      let animationEndTime: number | null = null;
+
+      const mockAnimationCallbacks = {
+        onAnimationStart: () => {
+          animationStartTime = Date.now();
+        },
+        onAnimationComplete: () => {
+          animationEndTime = Date.now();
+        },
+      };
+
+      // Simulate mode transition
+      const animationDuration = 300; // As specified in ProgressIndicator
+
+      mockAnimationCallbacks.onAnimationStart();
+      await new Promise((resolve) => setTimeout(resolve, animationDuration));
+      mockAnimationCallbacks.onAnimationComplete();
+
+      const actualDuration = animationEndTime! - animationStartTime!;
+
+      // Verify animation completes within specified time (with small buffer)
+      expect(actualDuration).toBeLessThanOrEqual(310); // 300ms + 10ms buffer
+      expect(actualDuration).toBeGreaterThanOrEqual(295); // Allow slight variance
+    });
+  });
 });

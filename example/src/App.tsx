@@ -10,7 +10,8 @@ import {
 import { useLicenseScanner, CameraScanner } from 'react-native-dl-scan';
 
 export default function App() {
-  const { licenseData, isScanning, error, scan, reset } = useLicenseScanner();
+  const { licenseData, isScanning, error, scan, reset, scanProgress, cancel } =
+    useLicenseScanner();
   const [showCamera, setShowCamera] = useState(false);
 
   const handleTestScan = () => {
@@ -96,6 +97,8 @@ export default function App() {
           <CameraScanner
             onLicenseScanned={handleLicenseScanned}
             onError={handleCameraError}
+            scanProgress={scanProgress}
+            onCancel={cancel}
           />
           <View style={styles.closeButtonContainer}>
             <Button title="Close Camera" onPress={() => setShowCamera(false)} />

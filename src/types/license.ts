@@ -82,6 +82,7 @@ export type ScanningState =
 
 export interface FallbackConfig {
   barcodeTimeoutMs: number;
+  ocrTimeoutMs: number;
   maxBarcodeAttempts: number;
   maxFallbackProcessingTimeMs: number;
   enableQualityAssessment: boolean;
@@ -96,6 +97,13 @@ export interface ScanProgress {
   barcodeAttempts: number;
   timeElapsed: number;
   message?: string;
+  // UI state information
+  progressPercentage?: number;
+  showCancelButton?: boolean;
+  animationState?: 'idle' | 'entering' | 'exiting';
+  accessibilityAnnouncement?: string;
+  isTransitioning?: boolean;
+  estimatedTimeRemaining?: number;
 }
 
 export interface ScanMetrics {

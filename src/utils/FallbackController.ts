@@ -34,6 +34,9 @@ export class FallbackController {
   private scanStartTime: number = 0;
   // Removed barcodeStartTime and ocrStartTime - now using logger timing
   private barcodeAttempts: number = 0;
+  private lastStateChangeTime: number = 0;
+  private lastProgressPercentage: number = 0;
+  private progressInterval?: NodeJS.Timeout;
   private events?: FallbackControllerEvents;
   private abortController?: AbortController;
   private ocrProcessorReady: boolean = false; // Used for parallel processing optimization
@@ -44,6 +47,7 @@ export class FallbackController {
   ) {
     this.config = {
       barcodeTimeoutMs: 3000, // 3 seconds default
+      ocrTimeoutMs: 2000, // 2 seconds for OCR
       maxBarcodeAttempts: 5,
       maxFallbackProcessingTimeMs: 4000, // 4 seconds total limit
       enableQualityAssessment: true,
@@ -68,6 +72,9 @@ export class FallbackController {
     this.currentMode = mode;
     this.scanStartTime = Date.now();
     this.abortController = new AbortController();
+
+    // Start progress updates
+    this.startProgressInterval();
 
     // Start performance monitoring
     logger.startTimer('total_scan');
@@ -118,6 +125,9 @@ export class FallbackController {
       this.notifyMetrics({ success: false });
       throw error;
     } finally {
+      // Stop progress updates
+      this.stopProgressInterval();
+
       // Stop performance monitoring
       const totalTime = logger.stopTimer('total_scan');
 
@@ -565,6 +575,7 @@ export class FallbackController {
    */
   private updateState(newState: ScanningState): void {
     this.currentState = newState;
+    this.lastStateChangeTime = Date.now();
     this.notifyProgress();
   }
 
@@ -574,13 +585,21 @@ export class FallbackController {
   private notifyProgress(): void {
     if (!this.events?.onProgressUpdate) return;
 
+    const timeElapsed = Date.now() - this.scanStartTime;
     const progress: ScanProgress = {
       state: this.currentState,
       mode: this.currentMode,
       startTime: this.scanStartTime,
       barcodeAttempts: this.barcodeAttempts,
-      timeElapsed: Date.now() - this.scanStartTime,
+      timeElapsed,
       message: this.getProgressMessage(),
+      // UI state information
+      progressPercentage: this.calculateProgressPercentage(timeElapsed),
+      showCancelButton: timeElapsed > 3000, // Show cancel after 3 seconds
+      animationState: this.getAnimationState(),
+      accessibilityAnnouncement: this.getAccessibilityAnnouncement(),
+      isTransitioning: this.currentState === 'fallback_transition',
+      estimatedTimeRemaining: this.estimateTimeRemaining(timeElapsed),
     };
 
     this.events.onProgressUpdate(progress);
@@ -616,31 +635,193 @@ export class FallbackController {
    * Get progress message for current state
    */
   private getProgressMessage(): string {
+    const timeElapsed = Date.now() - this.scanStartTime;
+    const seconds = Math.round(timeElapsed / 1000);
+
     switch (this.currentState) {
       case 'idle':
         return 'Ready to scan';
       case 'barcode':
-        return 'Scanning barcode...';
+        if (this.barcodeAttempts === 0) {
+          return 'Looking for barcode...';
+        } else if (this.barcodeAttempts < 3) {
+          return 'Scanning barcode...';
+        } else if (this.barcodeAttempts < 10) {
+          return `Scanning barcode... (${seconds}s)`;
+        } else {
+          return 'Having trouble? Try adjusting angle or lighting';
+        }
       case 'ocr':
-        return 'Reading license text...';
+        if (seconds < 2) {
+          return 'Reading license text...';
+        } else if (seconds < 5) {
+          return 'Processing license information...';
+        } else {
+          return 'Almost done, analyzing text...';
+        }
       case 'fallback_transition':
         return 'Switching to text recognition...';
       case 'completed':
         return 'Scan completed successfully';
       case 'failed':
-        return 'Scan failed';
+        return 'Scan failed - please try again';
       default:
         return 'Processing...';
     }
   }
 
   /**
+   * Calculate progress percentage based on current state and time
+   */
+  private calculateProgressPercentage(timeElapsed: number): number {
+    const barcodeTimeout = this.config.barcodeTimeoutMs;
+    const ocrTimeout = this.config.ocrTimeoutMs;
+
+    let percentage = 0;
+
+    switch (this.currentState) {
+      case 'idle':
+        percentage = 0;
+        break;
+      case 'barcode':
+        // Progress from 0-40% during barcode scanning
+        percentage = Math.min(40, (timeElapsed / barcodeTimeout) * 40);
+        break;
+      case 'fallback_transition':
+        // Quick jump to 50% during transition
+        percentage = 50;
+        break;
+      case 'ocr':
+        // Progress from 50-90% during OCR
+        const ocrElapsed = timeElapsed - barcodeTimeout;
+        percentage = 50 + Math.min(40, (ocrElapsed / ocrTimeout) * 40);
+        break;
+      case 'completed':
+        percentage = 100;
+        break;
+      case 'failed':
+        // Stay at whatever progress we had before failure
+        percentage = this.lastProgressPercentage;
+        break;
+      default:
+        percentage = 0;
+    }
+
+    // Track the last progress percentage for failure states
+    if (this.currentState !== 'failed') {
+      this.lastProgressPercentage = percentage;
+    }
+
+    return percentage;
+  }
+
+  /**
+   * Get animation state for UI transitions
+   */
+  private getAnimationState(): 'idle' | 'entering' | 'exiting' {
+    const timeSinceStateChange = Date.now() - this.lastStateChangeTime;
+
+    if (timeSinceStateChange < 300) {
+      return 'entering';
+    } else if (
+      this.currentState === 'completed' ||
+      this.currentState === 'failed'
+    ) {
+      return 'exiting';
+    }
+
+    return 'idle';
+  }
+
+  /**
+   * Generate accessibility announcement for state changes
+   */
+  private getAccessibilityAnnouncement(): string {
+    const timeSinceStateChange = Date.now() - this.lastStateChangeTime;
+
+    // Only announce on recent state changes
+    if (timeSinceStateChange > 500) {
+      return '';
+    }
+
+    switch (this.currentState) {
+      case 'barcode':
+        return 'Scanning barcode. Please hold the license steady.';
+      case 'ocr':
+        return 'Reading license text. Processing may take a moment.';
+      case 'fallback_transition':
+        return 'Switching to text recognition mode.';
+      case 'completed':
+        return 'License scan completed successfully.';
+      case 'failed':
+        return 'Scan failed. Please try again.';
+      default:
+        return '';
+    }
+  }
+
+  /**
+   * Estimate remaining time based on current progress
+   */
+  private estimateTimeRemaining(timeElapsed: number): number | undefined {
+    const barcodeTimeout = this.config.barcodeTimeoutMs;
+    const ocrTimeout = this.config.ocrTimeoutMs;
+
+    switch (this.currentState) {
+      case 'barcode':
+        if (this.barcodeAttempts > 5) {
+          // Likely to fallback to OCR
+          return barcodeTimeout - timeElapsed + ocrTimeout;
+        }
+        return barcodeTimeout - timeElapsed;
+      case 'ocr':
+        const ocrElapsed = timeElapsed - barcodeTimeout;
+        return Math.max(0, ocrTimeout - ocrElapsed);
+      case 'fallback_transition':
+        return ocrTimeout;
+      default:
+        return undefined;
+    }
+  }
+
+  /**
+   * Start progress update interval
+   */
+  private startProgressInterval(): void {
+    // Clear any existing interval
+    this.stopProgressInterval();
+
+    // Update progress immediately
+    this.notifyProgress();
+
+    // Then update every 100ms for smooth UI updates
+    this.progressInterval = setInterval(() => {
+      if (
+        this.currentState !== 'idle' &&
+        this.currentState !== 'completed' &&
+        this.currentState !== 'failed'
+      ) {
+        this.notifyProgress();
+      }
+    }, 100);
+  }
+
+  /**
+   * Stop progress update interval
+   */
+  private stopProgressInterval(): void {
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = undefined;
+    }
+  } /**
    * Cancel current scan operation
    */
   cancel(): void {
     if (this.abortController) {
       this.abortController.abort();
     }
+    this.stopProgressInterval();
     this.updateState('idle');
     logger.info('Scan cancelled by user');
   }
@@ -652,6 +833,9 @@ export class FallbackController {
     this.currentState = 'idle';
     this.scanStartTime = 0;
     this.barcodeAttempts = 0;
+    this.lastStateChangeTime = 0;
+    this.lastProgressPercentage = 0;
+    this.stopProgressInterval();
     if (this.abortController) {
       this.abortController.abort();
     }
