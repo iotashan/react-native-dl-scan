@@ -29,7 +29,7 @@ This project follows a milestone-based development approach.
 ## 2. Current Focus
 
 - **Milestone:** M03 - Front-side OCR Fallback 📋 CURRENT
-- **Status:** S05 - Fallback Integration in progress (3/5 core tasks finished)
+- **Status:** S05 - Fallback Integration in progress (4/5 core tasks finished, T03_S04 completed)
 
 ## 3. Sprints in Current Milestone
 
