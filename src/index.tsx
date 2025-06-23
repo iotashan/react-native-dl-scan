@@ -17,6 +17,12 @@ export { scanLicense as scanLicenseFrame } from './frameProcessors/scanLicense';
 export type { ScanLicenseResult } from './frameProcessors/scanLicense';
 export { CameraScanner } from './components/CameraScanner';
 export type { CameraScannerProps } from './components/CameraScanner';
+export type {
+  ScanModeConfig,
+  FrameProcessorConfig,
+  ModeUIConfig,
+  ModeTransitionConfig,
+} from './components/types';
 export { FallbackController } from './utils/FallbackController';
 export type {
   FallbackControllerEvents,

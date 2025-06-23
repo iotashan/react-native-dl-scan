@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,13 +18,27 @@ import {
 } from 'react-native-vision-camera';
 import { runOnJS } from 'react-native-reanimated';
 import { scanLicense } from '../frameProcessors/scanLicense';
-import type { LicenseData, ScanProgress } from '../types/license';
+import { scanOCR } from '../frameProcessors/scanOCR';
+import type {
+  LicenseData,
+  ScanProgress,
+  ScanMode,
+  OCRTextObservation,
+} from '../types/license';
 
 export interface CameraScannerProps {
   onLicenseScanned?: (data: LicenseData) => void;
   onError?: (error: Error) => void;
   scanProgress?: ScanProgress | null;
   onCancel?: () => void;
+  // New props for dual-mode support
+  mode?: ScanMode;
+  onModeChange?: (mode: ScanMode) => void;
+  frameProcessorConfig?: {
+    enableBarcode?: boolean;
+    enableOCR?: boolean;
+    confidenceThreshold?: number;
+  };
 }
 
 interface ProgressIndicatorProps {
@@ -191,6 +205,13 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
   onError,
   scanProgress,
   onCancel,
+  mode = 'auto',
+  onModeChange,
+  frameProcessorConfig = {
+    enableBarcode: true,
+    enableOCR: true,
+    confidenceThreshold: 0.8,
+  },
 }) => {
   const device = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -198,6 +219,10 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
   const [isScanning, setIsScanning] = useState(false);
   const [scanAttempts, setScanAttempts] = useState(0);
   const [lastScanTime, setLastScanTime] = useState<number>(0);
+  const [currentMode, setCurrentMode] = useState<ScanMode>(mode);
+  const [_ocrObservations, setOcrObservations] = useState<OCRTextObservation[]>(
+    []
+  );
 
   useEffect(() => {
     // Request permission on mount if not already granted
@@ -208,6 +233,17 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
       });
     }
   }, [hasPermission, requestPermission, onError]);
+
+  // Handle mode prop changes
+  useEffect(() => {
+    if (mode !== currentMode) {
+      setCurrentMode(mode);
+      onModeChange?.(mode);
+      // Reset scan attempts when mode changes
+      setScanAttempts(0);
+      setOcrObservations([]);
+    }
+  }, [mode, currentMode, onModeChange]);
 
   // Timeout detection after 30 seconds of continuous scanning
   useEffect(() => {
@@ -240,6 +276,42 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
     onError?.(new Error(error.message || 'Scanning failed'));
   };
 
+  // Handle mode transitions
+  const handleModeTransition = useCallback(
+    (newMode: ScanMode, reason?: string) => {
+      console.log(`Mode transition: ${currentMode} -> ${newMode}`, reason);
+      setCurrentMode(newMode);
+      onModeChange?.(newMode);
+
+      // Reset relevant state for new mode
+      if (newMode === 'ocr') {
+        setOcrObservations([]);
+      } else {
+        setScanAttempts(0);
+      }
+
+      // Announce mode change for accessibility
+      const modeText =
+        newMode === 'ocr'
+          ? 'text recognition'
+          : newMode === 'barcode'
+            ? 'barcode scanning'
+            : 'automatic';
+      AccessibilityInfo.announceForAccessibility(
+        `Switched to ${modeText} mode`
+      );
+    },
+    [currentMode, onModeChange]
+  );
+
+  // Auto-switch logic for 'auto' mode
+  useEffect(() => {
+    if (currentMode === 'auto' && scanAttempts > 50 && !isScanning) {
+      handleModeTransition('ocr', 'Auto-switch after barcode timeout');
+    }
+  }, [currentMode, scanAttempts, isScanning, handleModeTransition]);
+
+  // Mode-aware frame processor
   const frameProcessor = useFrameProcessor(
     (frame) => {
       'worklet';
@@ -250,43 +322,66 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
       }
 
       try {
-        const result = scanLicense(frame);
+        // Determine which processor to use based on current mode
+        const shouldUseOCR =
+          currentMode === 'ocr' ||
+          (currentMode === 'auto' && scanAttempts > 50);
 
-        // Track scan attempts
-        runOnJS(() => {
-          setScanAttempts((prev) => prev + 1);
-          setLastScanTime(Date.now());
-        })();
+        if (shouldUseOCR && frameProcessorConfig.enableOCR) {
+          // OCR scanning mode
+          const ocrResult = scanOCR(frame);
 
-        // If no result, no barcode was detected in this frame
-        if (!result) {
-          return;
-        }
+          if (ocrResult && ocrResult.success && ocrResult.observations) {
+            runOnJS(() => {
+              setOcrObservations(ocrResult.observations!);
+              // In a real implementation, this would trigger OCR parsing
+              // For now, we'll just log it
+              console.log(
+                'OCR observations collected:',
+                ocrResult.observations!.length
+              );
+            })();
+          }
+        } else if (frameProcessorConfig.enableBarcode) {
+          // Barcode scanning mode (default)
+          const result = scanLicense(frame);
 
-        // Handle successful scan
-        if (result.success && result.data) {
-          runOnJS(setIsScanning)(true);
-          runOnJS(onLicenseDetected)(result.data);
-        } else if (result.error) {
-          // Log quality errors but don't report to user (they're recoverable)
-          if (
-            result.error.code?.startsWith('POOR_QUALITY') &&
-            result.error.recoverable
-          ) {
-            console.log('Frame quality issue:', result.error.code);
+          // Track scan attempts
+          runOnJS(() => {
+            setScanAttempts((prev) => prev + 1);
+            setLastScanTime(Date.now());
+          })();
+
+          // If no result, no barcode was detected in this frame
+          if (!result) {
             return;
           }
 
-          // Only report non-recoverable errors or persistent issues
-          if (!result.error.recoverable) {
-            runOnJS(onScanError)(result.error);
+          // Handle successful scan
+          if (result.success && result.data) {
+            runOnJS(setIsScanning)(true);
+            runOnJS(onLicenseDetected)(result.data);
+          } else if (result.error) {
+            // Log quality errors but don't report to user (they're recoverable)
+            if (
+              result.error.code?.startsWith('POOR_QUALITY') &&
+              result.error.recoverable
+            ) {
+              console.log('Frame quality issue:', result.error.code);
+              return;
+            }
+
+            // Only report non-recoverable errors or persistent issues
+            if (!result.error.recoverable) {
+              runOnJS(onScanError)(result.error);
+            }
           }
         }
       } catch (error) {
         runOnJS(onScanError)(error);
       }
     },
-    [isScanning]
+    [isScanning, currentMode, scanAttempts, frameProcessorConfig]
   );
 
   const handlePermissionDenied = () => {
@@ -351,14 +446,23 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
       <View style={styles.overlay}>
         <View style={styles.scanFrame} />
         <Text style={styles.instructionText}>
-          Position the barcode within the frame
+          {currentMode === 'ocr'
+            ? 'Position the front of your license within the frame'
+            : currentMode === 'barcode'
+              ? 'Position the barcode within the frame'
+              : 'Position your license within the frame'}
         </Text>
-        {scanAttempts > 20 && (
+        {scanAttempts > 20 && currentMode !== 'ocr' && (
           <Text style={styles.hintText}>
             Tip: Ensure good lighting and hold steady
           </Text>
         )}
-        {scanAttempts > 50 && (
+        {scanAttempts > 50 && currentMode === 'auto' && (
+          <Text style={styles.hintText}>
+            Switching to text recognition mode...
+          </Text>
+        )}
+        {scanAttempts > 50 && currentMode !== 'ocr' && (
           <Text style={styles.hintText}>Flashlight enabled automatically</Text>
         )}
       </View>
