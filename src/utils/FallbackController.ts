@@ -13,11 +13,9 @@ import { logger } from './logger';
 export interface PerformanceAlert {
   type: 'warning' | 'critical';
   category: 'timeout' | 'memory' | 'performance' | 'transition';
-  subcategory?: string; // More granular categorization
   message: string;
   timestamp: number;
   metrics?: Record<string, any>;
-  suggestions?: string[]; // Actionable recommendations
 }
 
 export interface FallbackControllerEvents {
@@ -34,14 +32,10 @@ export class FallbackController {
   private scanStartTime: number = 0;
   // Removed barcodeStartTime and ocrStartTime - now using logger timing
   private barcodeAttempts: number = 0;
-  private lastStateChangeTime: number = 0;
-  private lastProgressPercentage: number = 0;
-  private progressInterval?: NodeJS.Timeout;
   private events?: FallbackControllerEvents;
   private abortController?: AbortController;
   private ocrProcessorReady: boolean = false; // Used for parallel processing optimization
-  // Timer tracking for proper cleanup
-  private activeTimers: Set<NodeJS.Timeout> = new Set();
+  private activeTimers: Set<NodeJS.Timeout> = new Set(); // Track active timers for cleanup
 
   constructor(
     config: Partial<FallbackConfig> = {},
@@ -49,7 +43,7 @@ export class FallbackController {
   ) {
     this.config = {
       barcodeTimeoutMs: 3000, // 3 seconds default
-      ocrTimeoutMs: 2000, // 2 seconds for OCR
+      ocrTimeoutMs: 5000, // 5 seconds default
       maxBarcodeAttempts: 5,
       maxFallbackProcessingTimeMs: 4000, // 4 seconds total limit
       enableQualityAssessment: true,
@@ -74,9 +68,6 @@ export class FallbackController {
     this.currentMode = mode;
     this.scanStartTime = Date.now();
     this.abortController = new AbortController();
-
-    // Start progress updates
-    this.startProgressInterval();
 
     // Start performance monitoring
     logger.startTimer('total_scan');
@@ -127,9 +118,6 @@ export class FallbackController {
       this.notifyMetrics({ success: false });
       throw error;
     } finally {
-      // Stop progress updates
-      this.stopProgressInterval();
-
       // Stop performance monitoring
       const totalTime = logger.stopTimer('total_scan');
 
@@ -138,18 +126,9 @@ export class FallbackController {
         this.raiseAlert({
           type: 'critical',
           category: 'timeout',
-          subcategory: 'total_processing_exceeded',
           message: `Total processing time exceeded: ${totalTime}ms > ${this.config.maxFallbackProcessingTimeMs}ms`,
           timestamp: Date.now(),
-          metrics: {
-            totalTime,
-            limit: this.config.maxFallbackProcessingTimeMs,
-          },
-          suggestions: [
-            'Consider reducing barcode timeout',
-            'Optimize OCR processing pipeline',
-            'Check device performance characteristics',
-          ],
+          metrics: { totalTime },
         });
       }
     }
@@ -210,13 +189,13 @@ export class FallbackController {
         const mockOCRData: OCRTextObservation[] = this.generateMockOCRData();
 
         // Simulate transition work (normally would involve actual OCR preparation)
-        this.createTimeout(() => {
+        this.createTimer(() => {
           resolve(mockOCRData);
         }, 50); // Simulate fast transition
       });
 
       const timeoutPromise = new Promise<never>((_, reject) => {
-        this.createTimeout(() => {
+        this.createTimer(() => {
           reject(
             new ScanError({
               code: 'TRANSITION_TIMEOUT',
@@ -237,15 +216,9 @@ export class FallbackController {
         this.raiseAlert({
           type: 'critical',
           category: 'transition',
-          subcategory: 'transition_timeout',
           message: `Mode transition failed: ${transitionTime}ms > 200ms`,
           timestamp: Date.now(),
-          metrics: { transitionTime, limit: 200 },
-          suggestions: [
-            'Check OCR processor initialization',
-            'Verify device memory availability',
-            'Consider pre-warming OCR components',
-          ],
+          metrics: { transitionTime },
         });
         throw transitionError;
       }
@@ -256,15 +229,9 @@ export class FallbackController {
         this.raiseAlert({
           type: 'critical',
           category: 'transition',
-          subcategory: 'transition_slow',
           message: `Mode transition exceeded limit: ${transitionTime}ms > 200ms`,
           timestamp: Date.now(),
-          metrics: { transitionTime, limit: 200 },
-          suggestions: [
-            'Monitor OCR processor performance',
-            'Check for memory pressure',
-            'Consider async transition optimization',
-          ],
+          metrics: { transitionTime },
         });
       }
 
@@ -298,7 +265,7 @@ export class FallbackController {
 
           // Add timeout wrapper
           const timeoutPromise = new Promise<never>((_, reject) => {
-            this.createTimeout(() => {
+            this.createTimer(() => {
               reject(
                 new ScanError({
                   code: 'BARCODE_TIMEOUT',
@@ -377,7 +344,7 @@ export class FallbackController {
 
         // Add timeout wrapper for OCR (2 seconds as per requirement)
         const timeoutPromise = new Promise<never>((_, reject) => {
-          this.createTimeout(() => {
+          this.createTimer(() => {
             reject(
               new ScanError({
                 code: 'OCR_TIMEOUT',
@@ -396,7 +363,9 @@ export class FallbackController {
           async () => {
             // Wait for OCR processor if not ready (parallel processing optimization)
             if (!this.ocrProcessorReady) {
-              await new Promise((resolve) => setTimeout(resolve, 100));
+              await new Promise((resolve) => {
+                this.createTimer(() => resolve(undefined), 100);
+              });
             }
             return this.parseOCRWithNeuralEngineOptimization(textObservations);
           }
@@ -525,7 +494,7 @@ export class FallbackController {
    */
   private async prepareOCRProcessor(): Promise<void> {
     // Simulate OCR processor preparation in background
-    this.createTimeout(() => {
+    this.createTimer(() => {
       this.ocrProcessorReady = true;
       logger.info('OCR processor ready for parallel processing');
     }, 500);
@@ -533,11 +502,8 @@ export class FallbackController {
 
   /**
    * Generate mock OCR data for demonstration
-   * Note: In production, this would be replaced with actual OCR data
    */
   private generateMockOCRData(): OCRTextObservation[] {
-    // For production builds, this should be replaced with actual OCR processing
-    // This is only used in demo/development scenarios
     return [
       {
         text: 'SAMPLE',
@@ -577,7 +543,6 @@ export class FallbackController {
    */
   private updateState(newState: ScanningState): void {
     this.currentState = newState;
-    this.lastStateChangeTime = Date.now();
     this.notifyProgress();
   }
 
@@ -587,21 +552,13 @@ export class FallbackController {
   private notifyProgress(): void {
     if (!this.events?.onProgressUpdate) return;
 
-    const timeElapsed = Date.now() - this.scanStartTime;
     const progress: ScanProgress = {
       state: this.currentState,
       mode: this.currentMode,
       startTime: this.scanStartTime,
       barcodeAttempts: this.barcodeAttempts,
-      timeElapsed,
+      timeElapsed: Date.now() - this.scanStartTime,
       message: this.getProgressMessage(),
-      // UI state information
-      progressPercentage: this.calculateProgressPercentage(timeElapsed),
-      showCancelButton: timeElapsed > 3000, // Show cancel after 3 seconds
-      animationState: this.getAnimationState(),
-      accessibilityAnnouncement: this.getAccessibilityAnnouncement(),
-      isTransitioning: this.currentState === 'fallback_transition',
-      estimatedTimeRemaining: this.estimateTimeRemaining(timeElapsed),
     };
 
     this.events.onProgressUpdate(progress);
@@ -637,194 +594,56 @@ export class FallbackController {
    * Get progress message for current state
    */
   private getProgressMessage(): string {
-    const timeElapsed = Date.now() - this.scanStartTime;
-    const seconds = Math.round(timeElapsed / 1000);
-
     switch (this.currentState) {
       case 'idle':
         return 'Ready to scan';
       case 'barcode':
-        if (this.barcodeAttempts === 0) {
-          return 'Looking for barcode...';
-        } else if (this.barcodeAttempts < 3) {
-          return 'Scanning barcode...';
-        } else if (this.barcodeAttempts < 10) {
-          return `Scanning barcode... (${seconds}s)`;
-        } else {
-          return 'Having trouble? Try adjusting angle or lighting';
-        }
+        return 'Scanning barcode...';
       case 'ocr':
-        if (seconds < 2) {
-          return 'Reading license text...';
-        } else if (seconds < 5) {
-          return 'Processing license information...';
-        } else {
-          return 'Almost done, analyzing text...';
-        }
+        return 'Reading license text...';
       case 'fallback_transition':
         return 'Switching to text recognition...';
       case 'completed':
         return 'Scan completed successfully';
       case 'failed':
-        return 'Scan failed - please try again';
+        return 'Scan failed';
       default:
         return 'Processing...';
     }
   }
 
   /**
-   * Calculate progress percentage based on current state and time
+   * Helper method to create tracked setTimeout
    */
-  private calculateProgressPercentage(timeElapsed: number): number {
-    const barcodeTimeout = this.config.barcodeTimeoutMs;
-    const ocrTimeout = this.config.ocrTimeoutMs;
-
-    let percentage = 0;
-
-    switch (this.currentState) {
-      case 'idle':
-        percentage = 0;
-        break;
-      case 'barcode':
-        // Progress from 0-40% during barcode scanning
-        percentage = Math.min(40, (timeElapsed / barcodeTimeout) * 40);
-        break;
-      case 'fallback_transition':
-        // Quick jump to 50% during transition
-        percentage = 50;
-        break;
-      case 'ocr':
-        // Progress from 50-90% during OCR
-        const ocrElapsed = timeElapsed - barcodeTimeout;
-        percentage = 50 + Math.min(40, (ocrElapsed / ocrTimeout) * 40);
-        break;
-      case 'completed':
-        percentage = 100;
-        break;
-      case 'failed':
-        // Stay at whatever progress we had before failure
-        percentage = this.lastProgressPercentage;
-        break;
-      default:
-        percentage = 0;
-    }
-
-    // Track the last progress percentage for failure states
-    if (this.currentState !== 'failed') {
-      this.lastProgressPercentage = percentage;
-    }
-
-    return percentage;
-  }
-
-  /**
-   * Get animation state for UI transitions
-   */
-  private getAnimationState(): 'idle' | 'entering' | 'exiting' {
-    const timeSinceStateChange = Date.now() - this.lastStateChangeTime;
-
-    if (timeSinceStateChange < 300) {
-      return 'entering';
-    } else if (
-      this.currentState === 'completed' ||
-      this.currentState === 'failed'
-    ) {
-      return 'exiting';
-    }
-
-    return 'idle';
-  }
-
-  /**
-   * Generate accessibility announcement for state changes
-   */
-  private getAccessibilityAnnouncement(): string {
-    const timeSinceStateChange = Date.now() - this.lastStateChangeTime;
-
-    // Only announce on recent state changes
-    if (timeSinceStateChange > 500) {
-      return '';
-    }
-
-    switch (this.currentState) {
-      case 'barcode':
-        return 'Scanning barcode. Please hold the license steady.';
-      case 'ocr':
-        return 'Reading license text. Processing may take a moment.';
-      case 'fallback_transition':
-        return 'Switching to text recognition mode.';
-      case 'completed':
-        return 'License scan completed successfully.';
-      case 'failed':
-        return 'Scan failed. Please try again.';
-      default:
-        return '';
-    }
-  }
-
-  /**
-   * Estimate remaining time based on current progress
-   */
-  private estimateTimeRemaining(timeElapsed: number): number | undefined {
-    const barcodeTimeout = this.config.barcodeTimeoutMs;
-    const ocrTimeout = this.config.ocrTimeoutMs;
-
-    switch (this.currentState) {
-      case 'barcode':
-        if (this.barcodeAttempts > 5) {
-          // Likely to fallback to OCR
-          return barcodeTimeout - timeElapsed + ocrTimeout;
-        }
-        return barcodeTimeout - timeElapsed;
-      case 'ocr':
-        const ocrElapsed = timeElapsed - barcodeTimeout;
-        return Math.max(0, ocrTimeout - ocrElapsed);
-      case 'fallback_transition':
-        return ocrTimeout;
-      default:
-        return undefined;
-    }
-  }
-
-  /**
-   * Start progress update interval
-   */
-  private startProgressInterval(): void {
-    // Clear any existing interval
-    this.stopProgressInterval();
-
-    // Update progress immediately
-    this.notifyProgress();
-
-    // Then update every 100ms for smooth UI updates
-    this.progressInterval = setInterval(() => {
-      if (
-        this.currentState !== 'idle' &&
-        this.currentState !== 'completed' &&
-        this.currentState !== 'failed'
-      ) {
-        this.notifyProgress();
+  private createTimer(callback: () => void, delay: number): NodeJS.Timeout {
+    const timer = setTimeout(() => {
+      this.activeTimers.delete(timer);
+      if (!this.abortController?.signal.aborted) {
+        callback();
       }
-    }, 100);
+    }, delay);
+    this.activeTimers.add(timer);
+    return timer;
   }
 
   /**
-   * Stop progress update interval
+   * Clear all active timers
    */
-  private stopProgressInterval(): void {
-    if (this.progressInterval) {
-      clearInterval(this.progressInterval);
-      this.progressInterval = undefined;
-    }
-  } /**
+  private clearAllTimers(): void {
+    this.activeTimers.forEach((timer) => {
+      clearTimeout(timer);
+    });
+    this.activeTimers.clear();
+  }
+
+  /**
    * Cancel current scan operation
    */
   cancel(): void {
     if (this.abortController) {
       this.abortController.abort();
     }
-    this.stopProgressInterval();
-    this.clearAllTimers();
+    this.clearAllTimers(); // Clear all pending timers
     this.updateState('idle');
     logger.info('Scan cancelled by user');
   }
@@ -836,35 +655,10 @@ export class FallbackController {
     this.currentState = 'idle';
     this.scanStartTime = 0;
     this.barcodeAttempts = 0;
-    this.lastStateChangeTime = 0;
-    this.lastProgressPercentage = 0;
-    this.stopProgressInterval();
-    this.clearAllTimers();
+    this.clearAllTimers(); // Clear all pending timers
     if (this.abortController) {
       this.abortController.abort();
     }
-  }
-
-  /**
-   * Helper method to track and create timeouts with proper cleanup
-   */
-  private createTimeout(callback: () => void, delay: number): NodeJS.Timeout {
-    const timeoutId = setTimeout(() => {
-      this.activeTimers.delete(timeoutId);
-      callback();
-    }, delay);
-    this.activeTimers.add(timeoutId);
-    return timeoutId;
-  }
-
-  /**
-   * Clear all active timers to prevent memory leaks
-   */
-  private clearAllTimers(): void {
-    this.activeTimers.forEach((timerId) => {
-      clearTimeout(timerId);
-    });
-    this.activeTimers.clear();
   }
 
   /**
@@ -912,5 +706,13 @@ export class FallbackController {
     if (this.events?.onPerformanceAlert) {
       this.events.onPerformanceAlert(alert);
     }
+  }
+
+  /**
+   * Cleanup method for proper disposal
+   */
+  destroy(): void {
+    this.cancel();
+    this.events = undefined;
   }
 }

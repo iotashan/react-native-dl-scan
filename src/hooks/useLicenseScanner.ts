@@ -144,7 +144,8 @@ export function useLicenseScanner(
 
     return () => {
       if (fallbackControllerRef.current) {
-        fallbackControllerRef.current.cancel();
+        fallbackControllerRef.current.destroy();
+        fallbackControllerRef.current = null;
       }
     };
   }, [

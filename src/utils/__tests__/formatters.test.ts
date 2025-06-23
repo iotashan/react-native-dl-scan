@@ -26,7 +26,7 @@ describe('Date Formatting', () => {
       // Use ISO dates with explicit timezone to avoid timezone issues
       const date1 = formatDate('2023-06-15T00:00:00Z');
       const date2 = formatDate('1985-12-25T00:00:00Z');
-      
+
       expect(date1).toMatch(/June \d{1,2}, 2023/);
       expect(date2).toMatch(/December \d{1,2}, 1985/);
     });
@@ -41,7 +41,7 @@ describe('Date Formatting', () => {
       // Test with specific timezone-aware dates
       const invalidLeap = formatDate('2023-02-29T00:00:00Z');
       const validLeap = formatDate('2020-02-29T00:00:00Z');
-      
+
       expect(invalidLeap).toMatch(/March \d{1,2}, 2023/);
       expect(validLeap).toMatch(/February \d{1,2}, 2020/);
     });
@@ -66,9 +66,7 @@ describe('Date Formatting', () => {
 
     beforeAll(() => {
       global.Date = jest.fn(() => mockDate) as any;
-      global.Date.getFullYear = originalDate.getFullYear;
-      global.Date.getMonth = originalDate.getMonth;
-      global.Date.getDate = originalDate.getDate;
+      Object.assign(global.Date, originalDate);
     });
 
     afterAll(() => {
@@ -76,7 +74,7 @@ describe('Date Formatting', () => {
     });
 
     it('calculates age correctly', () => {
-      expect(calculateAge('1985-06-15')).toBe(38); // Same month/day
+      expect(calculateAge(new Date('1985-06-15'))).toBe(38); // Same month/day
       expect(calculateAge('1985-06-14')).toBe(38); // Day before
       expect(calculateAge('1985-06-16')).toBe(37); // Day after
     });
@@ -157,18 +155,22 @@ describe('Address Formatting', () => {
   describe('formatAddress', () => {
     it('formats complete address correctly', () => {
       const data: LicenseData = {
-        addressStreet: '123 Main St',
-        addressCity: 'Anytown',
-        addressState: 'CA',
-        addressZip: '90210',
+        address: {
+          street: '123 Main St',
+          city: 'Anytown',
+          state: 'CA',
+          postalCode: '90210',
+        },
       };
       expect(formatAddress(data)).toBe('123 Main St, Anytown, CA, 90210');
     });
 
     it('handles missing components', () => {
       const data: LicenseData = {
-        addressStreet: '123 Main St',
-        addressCity: 'Anytown',
+        address: {
+          street: '123 Main St',
+          city: 'Anytown',
+        },
       };
       expect(formatAddress(data)).toBe('123 Main St, Anytown');
     });
@@ -181,18 +183,24 @@ describe('Address Formatting', () => {
   describe('formatAddressMultiline', () => {
     it('formats address in multiple lines', () => {
       const data: LicenseData = {
-        addressStreet: '123 Main St',
-        addressCity: 'Anytown',
-        addressState: 'CA',
-        addressZip: '90210',
+        address: {
+          street: '123 Main St',
+          city: 'Anytown',
+          state: 'CA',
+          postalCode: '90210',
+        },
       };
-      expect(formatAddressMultiline(data)).toBe('123 Main St\nAnytown, CA, 90210');
+      expect(formatAddressMultiline(data)).toBe(
+        '123 Main St\nAnytown, CA, 90210'
+      );
     });
 
     it('handles missing street', () => {
       const data: LicenseData = {
-        addressCity: 'Anytown',
-        addressState: 'CA',
+        address: {
+          city: 'Anytown',
+          state: 'CA',
+        },
       };
       expect(formatAddressMultiline(data)).toBe('Anytown, CA');
     });
@@ -282,15 +290,17 @@ describe('Data Quality Assessment', () => {
       const completeData: LicenseData = {
         firstName: 'John',
         lastName: 'Doe',
-        dateOfBirth: '1985-06-15',
+        dateOfBirth: new Date('1985-06-15'),
         licenseNumber: 'D1234567',
-        addressStreet: '123 Main St',
-        addressCity: 'Anytown',
-        addressState: 'CA',
-        issueDate: '2020-06-15',
-        expiryDate: '2025-06-15',
+        address: {
+          street: '123 Main St',
+          city: 'Anytown',
+          state: 'CA',
+          postalCode: '90210',
+        },
+        issueDate: new Date('2020-06-15'),
+        expirationDate: new Date('2025-06-15'),
         middleName: 'Michael',
-        addressZip: '90210',
         licenseClass: 'C',
         sex: 'M',
         height: '72',
@@ -300,7 +310,7 @@ describe('Data Quality Assessment', () => {
         restrictions: 'None',
         endorsements: 'None',
       };
-      
+
       expect(calculateDataCompleteness(completeData)).toBe(1.0);
     });
 
@@ -310,7 +320,7 @@ describe('Data Quality Assessment', () => {
         lastName: 'Doe',
         licenseNumber: 'D1234567',
       };
-      
+
       const completeness = calculateDataCompleteness(partialData);
       expect(completeness).toBeGreaterThan(0);
       expect(completeness).toBeLessThan(1);
@@ -372,17 +382,17 @@ describe('Confidence Utilities', () => {
     it('returns correct confidence levels', () => {
       expect(formatConfidenceLevel(0.95)).toBe('Very High');
       expect(formatConfidenceLevel(0.85)).toBe('High');
-      expect(formatConfidenceLevel(0.70)).toBe('Medium');
-      expect(formatConfidenceLevel(0.50)).toBe('Low');
-      expect(formatConfidenceLevel(0.30)).toBe('Very Low');
+      expect(formatConfidenceLevel(0.7)).toBe('Medium');
+      expect(formatConfidenceLevel(0.5)).toBe('Low');
+      expect(formatConfidenceLevel(0.3)).toBe('Very Low');
     });
   });
 
   describe('getConfidenceColor', () => {
     it('returns correct colors for confidence levels', () => {
-      expect(getConfidenceColor(0.90)).toBe('#4CAF50'); // Green
-      expect(getConfidenceColor(0.70)).toBe('#FF9800'); // Orange
-      expect(getConfidenceColor(0.40)).toBe('#F44336'); // Red
+      expect(getConfidenceColor(0.9)).toBe('#4CAF50'); // Green
+      expect(getConfidenceColor(0.7)).toBe('#FF9800'); // Orange
+      expect(getConfidenceColor(0.4)).toBe('#F44336'); // Red
     });
   });
 });

@@ -9,6 +9,11 @@ import {
   Alert,
 } from 'react-native';
 import type { LicenseData, ScanMode } from '../types/license';
+import { formatDate, calculateAge } from '../utils/formatters';
+
+// Local wrapper to ensure proper type handling
+const formatDateLocal = (date: Date): string => formatDate(date);
+const calculateAgeLocal = (date: Date): number | null => calculateAge(date);
 
 // Result data structure from task specification
 export interface ScanResult {
@@ -36,32 +41,17 @@ const PersonalInfoSection: React.FC<{ data: LicenseData }> = ({ data }) => {
     .filter(Boolean)
     .join(' ');
 
-  const calculateAge = (dateOfBirth?: string): string => {
-    if (!dateOfBirth) return '';
-    
-    try {
-      const birth = new Date(dateOfBirth);
-      const today = new Date();
-      let age = today.getFullYear() - birth.getFullYear();
-      const monthDiff = today.getMonth() - birth.getMonth();
-      
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-        age--;
-      }
-      
-      return ` (Age ${age})`;
-    } catch {
-      return '';
-    }
-  };
-
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Personal Information</Text>
       <DataField label="Full Name" value={fullName} />
-      <DataField 
-        label="Date of Birth" 
-        value={data.dateOfBirth ? `${data.dateOfBirth}${calculateAge(data.dateOfBirth)}` : undefined} 
+      <DataField
+        label="Date of Birth"
+        value={
+          data.dateOfBirth
+            ? `${formatDateLocal(data.dateOfBirth)}${data.dateOfBirth ? ` (Age: ${calculateAgeLocal(data.dateOfBirth) ?? 'Unknown'})` : ''}`
+            : undefined
+        }
       />
       <DataField label="Gender" value={data.sex} />
     </View>
@@ -71,12 +61,12 @@ const PersonalInfoSection: React.FC<{ data: LicenseData }> = ({ data }) => {
 const AddressSection: React.FC<{ data: LicenseData }> = ({ data }) => {
   const formatAddress = (): string => {
     const parts = [
-      data.addressStreet,
-      data.addressCity,
-      data.addressState,
-      data.addressZip,
+      data.address?.street,
+      data.address?.city,
+      data.address?.state,
+      data.address?.postalCode,
     ].filter(Boolean);
-    
+
     return parts.join(', ');
   };
 
@@ -85,56 +75,61 @@ const AddressSection: React.FC<{ data: LicenseData }> = ({ data }) => {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Address</Text>
-      <DataField label="Address" value={formattedAddress || undefined} multiline />
+      <DataField
+        label="Address"
+        value={formattedAddress || undefined}
+        multiline
+      />
     </View>
   );
 };
 
 const LicenseDetailsSection: React.FC<{ data: LicenseData }> = ({ data }) => {
-  const formatDate = (dateString?: string): string => {
-    if (!dateString) return '';
-    
-    try {
-      return new Date(dateString).toLocaleDateString();
-    } catch {
-      return dateString;
-    }
-  };
-
-  const isExpired = (expiryDate?: string): boolean => {
+  const isExpired = (expiryDate?: string | Date): boolean => {
     if (!expiryDate) return false;
-    
+
     try {
-      return new Date(expiryDate) < new Date();
+      const date =
+        typeof expiryDate === 'string' ? new Date(expiryDate) : expiryDate;
+      return date < new Date();
     } catch {
       return false;
     }
   };
 
-  const expiryStatus = data.expiryDate ? (isExpired(data.expiryDate) ? ' (EXPIRED)' : ' (Valid)') : '';
+  const expiryStatus = data.expirationDate
+    ? isExpired(data.expirationDate)
+      ? ' (EXPIRED)'
+      : ' (Valid)'
+    : '';
 
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>License Details</Text>
       <DataField label="License Number" value={data.licenseNumber} />
-      <DataField label="Document ID" value={data.documentId} />
       <DataField label="Class" value={data.licenseClass} />
       <DataField label="Restrictions" value={data.restrictions} />
       <DataField label="Endorsements" value={data.endorsements} />
-      <DataField 
-        label="Issue Date" 
-        value={data.issueDate ? formatDate(data.issueDate) : undefined} 
+      <DataField
+        label="Issue Date"
+        value={data.issueDate ? formatDateLocal(data.issueDate) : undefined}
       />
-      <DataField 
-        label="Expiry Date" 
-        value={data.expiryDate ? `${formatDate(data.expiryDate)}${expiryStatus}` : undefined}
-        isError={data.expiryDate ? isExpired(data.expiryDate) : false}
+      <DataField
+        label="Expiry Date"
+        value={
+          data.expirationDate
+            ? `${formatDateLocal(data.expirationDate)}${expiryStatus}`
+            : undefined
+        }
+        isError={data.expirationDate ? isExpired(data.expirationDate) : false}
       />
     </View>
   );
 };
 
-const PhysicalDescriptionSection: React.FC<{ data: LicenseData }> = ({ data }) => {
+const PhysicalDescriptionSection: React.FC<{ data: LicenseData }> = ({
+  data,
+}) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
 
   if (!data.height && !data.weight && !data.eyeColor && !data.hairColor) {
@@ -143,7 +138,7 @@ const PhysicalDescriptionSection: React.FC<{ data: LicenseData }> = ({ data }) =
 
   return (
     <View style={styles.section}>
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.collapsibleHeader}
         onPress={() => setIsExpanded(!isExpanded)}
         accessibilityRole="button"
@@ -152,7 +147,7 @@ const PhysicalDescriptionSection: React.FC<{ data: LicenseData }> = ({ data }) =
         <Text style={styles.sectionTitle}>Physical Description</Text>
         <Text style={styles.expandIcon}>{isExpanded ? '−' : '+'}</Text>
       </TouchableOpacity>
-      
+
       {isExpanded && (
         <View>
           <DataField label="Height" value={data.height} />
@@ -165,14 +160,16 @@ const PhysicalDescriptionSection: React.FC<{ data: LicenseData }> = ({ data }) =
   );
 };
 
-const DocumentMetadataSection: React.FC<{ scanResult: ScanResult }> = ({ scanResult }) => {
+const DocumentMetadataSection: React.FC<{ scanResult: ScanResult }> = ({
+  scanResult,
+}) => {
   const formatTimestamp = (timestamp: number): string => {
     return new Date(timestamp).toLocaleString();
   };
 
   const getModeDisplay = (mode: ScanMode): string => {
     switch (mode) {
-      case 'pdf417':
+      case 'barcode':
         return 'PDF417 Barcode';
       case 'ocr':
         return 'OCR Text Recognition';
@@ -187,13 +184,14 @@ const DocumentMetadataSection: React.FC<{ scanResult: ScanResult }> = ({ scanRes
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Scan Information</Text>
       <DataField label="Scan Mode" value={getModeDisplay(scanResult.mode)} />
-      <DataField label="Scanned At" value={formatTimestamp(scanResult.timestamp)} />
-      <DataField label="Issuing State" value={scanResult.data.issuingState} />
-      <DataField label="Document Type" value={scanResult.data.documentType} />
+      <DataField
+        label="Scanned At"
+        value={formatTimestamp(scanResult.timestamp)}
+      />
       {scanResult.confidence && (
-        <DataField 
-          label="Confidence" 
-          value={`${Math.round(scanResult.confidence.overall * 100)}%`} 
+        <DataField
+          label="Confidence"
+          value={`${Math.round(scanResult.confidence.overall * 100)}%`}
         />
       )}
     </View>
@@ -220,25 +218,30 @@ const DataField: React.FC<{
   return (
     <View style={styles.dataField}>
       <Text style={styles.label}>{label}</Text>
-      <Text 
+      <Text
         style={[
-          styles.value, 
+          styles.value,
           multiline && styles.multilineValue,
-          isError && styles.errorValue
+          isError && styles.errorValue,
         ]}
       >
         {value}
       </Text>
       {confidence !== undefined && (
         <View style={styles.confidenceIndicator}>
-          <View 
+          <View
             style={[
               styles.confidenceBar,
-              { 
+              {
                 width: `${confidence * 100}%`,
-                backgroundColor: confidence > 0.8 ? '#4CAF50' : confidence > 0.6 ? '#FF9800' : '#F44336'
-              }
-            ]} 
+                backgroundColor:
+                  confidence > 0.8
+                    ? '#4CAF50'
+                    : confidence > 0.6
+                      ? '#FF9800'
+                      : '#F44336',
+              },
+            ]}
           />
         </View>
       )}
@@ -257,11 +260,9 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
     if (onReportIssue) {
       onReportIssue();
     } else {
-      Alert.alert(
-        'Report Issue',
-        'This feature is not yet implemented.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Report Issue', 'This feature is not yet implemented.', [
+        { text: 'OK' },
+      ]);
     }
   };
 
@@ -279,7 +280,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
       </View>
 
       {/* Scrollable Content */}
-      <ScrollView 
+      <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
@@ -293,7 +294,7 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
 
       {/* Action Bar */}
       <View style={styles.actionBar}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.button, styles.secondaryButton]}
           onPress={onRescan}
           accessibilityRole="button"
@@ -301,8 +302,8 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         >
           <Text style={styles.secondaryButtonText}>Rescan</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[styles.button, styles.primaryButton]}
           onPress={onDone}
           accessibilityRole="button"
@@ -310,8 +311,8 @@ export const ResultScreen: React.FC<ResultScreenProps> = ({
         >
           <Text style={styles.primaryButtonText}>Done</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[styles.button, styles.tertiaryButton]}
           onPress={handleReportIssue}
           accessibilityRole="button"

@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { ResultScreen, type ScanResult } from '../ResultScreen';
@@ -16,42 +15,40 @@ describe('ResultScreen', () => {
     firstName: 'John',
     middleName: 'Michael',
     lastName: 'Doe',
-    dateOfBirth: '1985-06-15',
+    dateOfBirth: new Date('1985-06-15'),
     sex: 'M',
     height: '72',
     weight: '180',
     eyeColor: 'Brown',
     hairColor: 'Black',
-    addressStreet: '123 Main Street',
-    addressCity: 'Anytown',
-    addressState: 'CA',
-    addressZip: '90210',
+    address: {
+      street: '123 Main Street',
+      city: 'Anytown',
+      state: 'CA',
+      postalCode: '90210',
+    },
     licenseNumber: 'D1234567',
-    documentId: 'DL123456789',
     licenseClass: 'C',
     restrictions: 'None',
     endorsements: 'None',
-    issueDate: '2020-06-15',
-    expiryDate: '2025-06-15',
-    issuingState: 'CA',
-    issuingCountry: 'USA',
-    documentType: 'Driver License',
+    issueDate: new Date('2020-06-15'),
+    expirationDate: new Date('2025-06-15'),
   };
 
   const partialLicenseData: LicenseData = {
     firstName: 'Jane',
     lastName: 'Smith',
     licenseNumber: 'D9876543',
-    issueDate: '2022-03-10',
+    issueDate: new Date('2022-03-10'),
   };
 
   const expiredLicenseData: LicenseData = {
     ...completeLicenseData,
-    expiryDate: '2020-01-01', // Expired
+    expirationDate: new Date('2020-01-01'), // Expired
   };
 
   const completeScanResult: ScanResult = {
-    mode: 'pdf417',
+    mode: 'barcode',
     data: completeLicenseData,
     confidence: {
       overall: 0.95,
@@ -71,8 +68,8 @@ describe('ResultScreen', () => {
       overall: 0.75,
       fields: {
         firstName: 0.85,
-        lastName: 0.80,
-        licenseNumber: 0.60,
+        lastName: 0.8,
+        licenseNumber: 0.6,
       },
     },
     timestamp: Date.now(),
@@ -97,7 +94,7 @@ describe('ResultScreen', () => {
           onDone={mockOnDone}
         />
       );
-      
+
       expect(toJSON()).toMatchSnapshot();
     });
 
@@ -109,7 +106,7 @@ describe('ResultScreen', () => {
           onDone={mockOnDone}
         />
       );
-      
+
       expect(toJSON()).toMatchSnapshot();
     });
 
@@ -245,7 +242,7 @@ describe('ResultScreen', () => {
       );
 
       expect(getByText('Physical Description')).toBeTruthy();
-      
+
       // Should be collapsed initially - height/weight not visible
       expect(queryByText('72')).toBeNull();
     });
@@ -446,8 +443,8 @@ describe('ResultScreen', () => {
     it('handles invalid date formats gracefully', () => {
       const invalidDateData: LicenseData = {
         ...completeLicenseData,
-        dateOfBirth: 'invalid-date',
-        expiryDate: 'not-a-date',
+        dateOfBirth: new Date('invalid-date'),
+        expirationDate: new Date('not-a-date'),
       };
 
       const invalidDateResult: ScanResult = {

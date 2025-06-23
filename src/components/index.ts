@@ -19,7 +19,11 @@ export { CameraViewExample } from './CameraViewExample';
 
 // Screens
 export { ResultScreen } from '../screens/ResultScreen';
-export type { ResultScreenProps, ScanResult, ConfidenceScores } from '../screens/ResultScreen';
+export type {
+  ResultScreenProps,
+  ScanResult,
+  ConfidenceScores,
+} from '../screens/ResultScreen';
 
 // Utilities
 export { default as formatters } from '../utils/formatters';

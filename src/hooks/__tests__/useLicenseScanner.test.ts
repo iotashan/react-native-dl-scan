@@ -8,6 +8,7 @@ jest.mock('../../utils/FallbackController', () => ({
   FallbackController: jest.fn().mockImplementation(() => ({
     scan: jest.fn(),
     cancel: jest.fn(),
+    destroy: jest.fn(),
     updateConfig: jest.fn(),
     getMode: jest.fn().mockReturnValue('auto'),
     getState: jest.fn().mockReturnValue('idle'),
@@ -80,6 +81,7 @@ describe('useLicenseScanner', () => {
   interface MockControllerInstance {
     scan: jest.MockedFunction<any>;
     cancel: jest.MockedFunction<any>;
+    destroy: jest.MockedFunction<any>;
     updateConfig: jest.MockedFunction<any>;
     getMode: jest.MockedFunction<any>;
     getState: jest.MockedFunction<any>;
@@ -93,6 +95,7 @@ describe('useLicenseScanner', () => {
     mockControllerInstance = {
       scan: jest.fn(),
       cancel: jest.fn(),
+      destroy: jest.fn(),
       updateConfig: jest.fn(),
       getMode: jest.fn().mockReturnValue('auto'),
       getState: jest.fn().mockReturnValue('idle'),
@@ -449,7 +452,7 @@ describe('useLicenseScanner', () => {
 
     unmount();
 
-    expect(mockControllerInstance.cancel).toHaveBeenCalled();
+    expect(mockControllerInstance.destroy).toHaveBeenCalled();
   });
 
   test('backward compatibility: hook works without options', async () => {

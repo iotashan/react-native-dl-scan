@@ -50,7 +50,7 @@ export const ScanningOverlay: React.FC<ScanningOverlayProps> = ({
   isScanning,
   detectionState,
   orientation,
-  _onOverlayPress,
+  onOverlayPress: _,
   showGuides = true,
   instructionText,
   animateSuccess = true,
