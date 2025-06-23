@@ -10,7 +10,12 @@ jest.mock('../../index', () => {
     public readonly userMessage: string;
     public readonly recoverable: boolean;
 
-    constructor(error: any) {
+    constructor(error: {
+      code: string;
+      message: string;
+      userMessage: string;
+      recoverable: boolean;
+    }) {
       super(error.message);
       this.name = 'ScanError';
       this.code = error.code;

@@ -21,7 +21,12 @@ jest.mock('../../index', () => {
     public readonly userMessage: string;
     public readonly recoverable: boolean;
 
-    constructor(error: any) {
+    constructor(error: {
+      code: string;
+      message: string;
+      userMessage: string;
+      recoverable: boolean;
+    }) {
       super(error.message);
       this.name = 'ScanError';
       this.code = error.code;
@@ -72,7 +77,15 @@ describe('useLicenseScanner', () => {
     },
   ];
 
-  let mockControllerInstance: any;
+  interface MockControllerInstance {
+    scan: jest.MockedFunction<any>;
+    cancel: jest.MockedFunction<any>;
+    updateConfig: jest.MockedFunction<any>;
+    getMode: jest.MockedFunction<any>;
+    getState: jest.MockedFunction<any>;
+  }
+
+  let mockControllerInstance: MockControllerInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -85,7 +98,9 @@ describe('useLicenseScanner', () => {
       getState: jest.fn().mockReturnValue('idle'),
     };
 
-    mockFallbackController.mockImplementation(() => mockControllerInstance);
+    (mockFallbackController as jest.MockedClass<any>).mockImplementation(
+      () => mockControllerInstance
+    );
   });
 
   test('should initialize with default state', () => {

@@ -13,9 +13,11 @@ import { logger } from './logger';
 export interface PerformanceAlert {
   type: 'warning' | 'critical';
   category: 'timeout' | 'memory' | 'performance' | 'transition';
+  subcategory?: string; // More granular categorization
   message: string;
   timestamp: number;
   metrics?: Record<string, any>;
+  suggestions?: string[]; // Actionable recommendations
 }
 
 export interface FallbackControllerEvents {
@@ -124,9 +126,18 @@ export class FallbackController {
         this.raiseAlert({
           type: 'critical',
           category: 'timeout',
+          subcategory: 'total_processing_exceeded',
           message: `Total processing time exceeded: ${totalTime}ms > ${this.config.maxFallbackProcessingTimeMs}ms`,
           timestamp: Date.now(),
-          metrics: { totalTime },
+          metrics: {
+            totalTime,
+            limit: this.config.maxFallbackProcessingTimeMs,
+          },
+          suggestions: [
+            'Consider reducing barcode timeout',
+            'Optimize OCR processing pipeline',
+            'Check device performance characteristics',
+          ],
         });
       }
     }
@@ -214,9 +225,15 @@ export class FallbackController {
         this.raiseAlert({
           type: 'critical',
           category: 'transition',
+          subcategory: 'transition_timeout',
           message: `Mode transition failed: ${transitionTime}ms > 200ms`,
           timestamp: Date.now(),
-          metrics: { transitionTime },
+          metrics: { transitionTime, limit: 200 },
+          suggestions: [
+            'Check OCR processor initialization',
+            'Verify device memory availability',
+            'Consider pre-warming OCR components',
+          ],
         });
         throw transitionError;
       }
@@ -227,9 +244,15 @@ export class FallbackController {
         this.raiseAlert({
           type: 'critical',
           category: 'transition',
+          subcategory: 'transition_slow',
           message: `Mode transition exceeded limit: ${transitionTime}ms > 200ms`,
           timestamp: Date.now(),
-          metrics: { transitionTime },
+          metrics: { transitionTime, limit: 200 },
+          suggestions: [
+            'Monitor OCR processor performance',
+            'Check for memory pressure',
+            'Consider async transition optimization',
+          ],
         });
       }
 
@@ -498,8 +521,11 @@ export class FallbackController {
 
   /**
    * Generate mock OCR data for demonstration
+   * Note: In production, this would be replaced with actual OCR data
    */
   private generateMockOCRData(): OCRTextObservation[] {
+    // For production builds, this should be replaced with actual OCR processing
+    // This is only used in demo/development scenarios
     return [
       {
         text: 'SAMPLE',

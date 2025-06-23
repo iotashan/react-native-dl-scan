@@ -7,6 +7,10 @@ import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { useLicenseScanner } from '../hooks/useLicenseScanner';
 import { scanLicense, parseOCRText, ScanError } from '../index';
 import type { OCRTextObservation } from '../types/license';
+import {
+  generateMockOCRData,
+  mockLicenseData,
+} from '../test-utils/mockOCRData';
 
 // Mock the native module first
 jest.mock('../NativeDlScan', () => ({
@@ -30,7 +34,12 @@ jest.mock('../index', () => {
     public readonly userMessage: string;
     public readonly recoverable: boolean;
 
-    constructor(error: any) {
+    constructor(error: {
+      code: string;
+      message: string;
+      userMessage: string;
+      recoverable: boolean;
+    }) {
       super(error.message);
       this.name = 'ScanError';
       this.code = error.code;
@@ -46,8 +55,12 @@ jest.mock('../index', () => {
   };
 });
 
-// Mock the FallbackController to use our mocked functions
+// Mock the FallbackController with improved typing
 jest.mock('../utils/FallbackController', () => {
+  const { generateMockOCRData: generateMockData } = jest.requireActual(
+    '../test-utils/mockOCRData'
+  );
+
   return {
     FallbackController: jest.fn().mockImplementation((_config, events) => {
       let cancelled = false;
@@ -55,11 +68,13 @@ jest.mock('../utils/FallbackController', () => {
       return {
         scan: jest.fn().mockImplementation(async (input, mode) => {
           if (cancelled) return null;
+
           // Get the mocked functions from the mocked module
           const {
             scanLicense: mockScan,
             parseOCRText: mockParse,
           } = require('../index');
+
           try {
             if (events?.onProgressUpdate) {
               events.onProgressUpdate({
@@ -78,6 +93,7 @@ jest.mock('../utils/FallbackController', () => {
               // OCR scan
               result = await mockParse(input);
             }
+
             if (events?.onMetricsUpdate) {
               events.onMetricsUpdate({
                 success: true,
@@ -86,18 +102,21 @@ jest.mock('../utils/FallbackController', () => {
                 totalProcessingTime: 100,
               });
             }
+
             return result;
           } catch (error) {
             // Handle fallback for auto mode
             if (
               mode === 'auto' &&
               typeof input === 'string' &&
-              ((error as any).code === 'INVALID_BARCODE_FORMAT' ||
-                (error as any).code === 'TIMEOUT_ERROR')
+              ((error as Error & { code?: string }).code ===
+                'INVALID_BARCODE_FORMAT' ||
+                (error as Error & { code?: string }).code === 'TIMEOUT_ERROR')
             ) {
               if (events?.onModeSwitch) {
                 events.onModeSwitch('barcode', 'ocr', 'failure');
               }
+
               if (events?.onProgressUpdate) {
                 events.onProgressUpdate({
                   state: 'ocr',
@@ -106,9 +125,10 @@ jest.mock('../utils/FallbackController', () => {
                   timeElapsed: 100,
                 });
               }
+
               // Try OCR fallback
               try {
-                const ocrResult = await mockParse([]);
+                const ocrResult = await mockParse(generateMockData());
 
                 if (events?.onMetricsUpdate) {
                   events.onMetricsUpdate({
@@ -119,6 +139,7 @@ jest.mock('../utils/FallbackController', () => {
                     totalProcessingTime: 200,
                   });
                 }
+
                 return ocrResult;
               } catch (ocrError) {
                 // Both scans failed
@@ -137,10 +158,13 @@ jest.mock('../utils/FallbackController', () => {
             throw error;
           }
         }),
+
         cancel: jest.fn().mockImplementation(() => {
           cancelled = true;
         }),
+
         updateConfig: jest.fn(),
+
         getMode: jest.fn().mockReturnValue('auto'),
       };
     }),
@@ -179,35 +203,8 @@ describe('Fallback Integration Pipeline', () => {
     jest.clearAllMocks();
   });
 
-  const mockLicenseData = {
-    firstName: 'John',
-    lastName: 'Doe',
-    licenseNumber: 'D12345678',
-    address: {
-      street: '123 Main St',
-      city: 'Anytown',
-      state: 'CA',
-      postalCode: '12345',
-    },
-  };
-
-  const mockOCRData: OCRTextObservation[] = [
-    {
-      text: 'JOHN',
-      confidence: 0.98,
-      boundingBox: { x: 100, y: 80, width: 60, height: 20 },
-    },
-    {
-      text: 'DOE',
-      confidence: 0.97,
-      boundingBox: { x: 170, y: 80, width: 50, height: 20 },
-    },
-    {
-      text: 'D12345678',
-      confidence: 0.93,
-      boundingBox: { x: 100, y: 110, width: 100, height: 20 },
-    },
-  ];
+  // Use shared mock data from test utilities
+  const mockOCRData: OCRTextObservation[] = generateMockOCRData();
 
   beforeEach(() => {
     jest.clearAllMocks();

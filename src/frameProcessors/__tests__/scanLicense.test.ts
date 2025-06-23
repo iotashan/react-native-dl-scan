@@ -1,10 +1,24 @@
 // Mock react-native-vision-camera module
 jest.mock('react-native-vision-camera');
 
+interface MockFrame {
+  width: number;
+  height: number;
+  pixelFormat: string;
+}
+
+interface MockPlugin {
+  call: jest.MockedFunction<(frame: MockFrame, options?: any) => any>;
+}
+
+interface MockScanLicense {
+  (frame: MockFrame, options?: any): any;
+}
+
 describe('scanLicense frame processor', () => {
-  let mockFrame: any;
-  let scanLicense: any;
-  let mockPlugin: any;
+  let mockFrame: MockFrame;
+  let scanLicense: MockScanLicense;
+  let mockPlugin: MockPlugin;
 
   beforeEach(() => {
     // Reset modules to ensure fresh imports
@@ -28,6 +42,7 @@ describe('scanLicense frame processor', () => {
     mockFrame = {
       width: 1920,
       height: 1080,
+      pixelFormat: 'yuv420p',
     };
   });
 
