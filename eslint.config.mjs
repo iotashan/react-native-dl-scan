@@ -33,6 +33,22 @@ export default defineConfig([
     },
   },
   {
+    files: ['jest.setup.js', '**/*.test.js', '**/*.test.ts', '**/*.test.tsx'],
+    languageOptions: {
+      globals: {
+        jest: 'readonly',
+        describe: 'readonly',
+        it: 'readonly',
+        test: 'readonly',
+        expect: 'readonly',
+        beforeAll: 'readonly',
+        beforeEach: 'readonly',
+        afterAll: 'readonly',
+        afterEach: 'readonly',
+      },
+    },
+  },
+  {
     ignores: [
       'node_modules/',
       'lib/'

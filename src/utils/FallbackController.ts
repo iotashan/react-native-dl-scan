@@ -35,6 +35,7 @@ export class FallbackController {
   private events?: FallbackControllerEvents;
   private abortController?: AbortController;
   private ocrProcessorReady: boolean = false; // Used for parallel processing optimization
+  private activeTimers: Set<NodeJS.Timeout> = new Set(); // Track active timers for cleanup
 
   constructor(
     config: Partial<FallbackConfig> = {},
@@ -187,13 +188,13 @@ export class FallbackController {
         const mockOCRData: OCRTextObservation[] = this.generateMockOCRData();
 
         // Simulate transition work (normally would involve actual OCR preparation)
-        setTimeout(() => {
+        this.createTimer(() => {
           resolve(mockOCRData);
         }, 50); // Simulate fast transition
       });
 
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
+        this.createTimer(() => {
           reject(
             new ScanError({
               code: 'TRANSITION_TIMEOUT',
@@ -263,7 +264,7 @@ export class FallbackController {
 
           // Add timeout wrapper
           const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => {
+            this.createTimer(() => {
               reject(
                 new ScanError({
                   code: 'BARCODE_TIMEOUT',
@@ -342,7 +343,7 @@ export class FallbackController {
 
         // Add timeout wrapper for OCR (2 seconds as per requirement)
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => {
+          this.createTimer(() => {
             reject(
               new ScanError({
                 code: 'OCR_TIMEOUT',
@@ -361,7 +362,9 @@ export class FallbackController {
           async () => {
             // Wait for OCR processor if not ready (parallel processing optimization)
             if (!this.ocrProcessorReady) {
-              await new Promise((resolve) => setTimeout(resolve, 100));
+              await new Promise((resolve) => {
+                this.createTimer(() => resolve(undefined), 100);
+              });
             }
             return this.parseOCRWithNeuralEngineOptimization(textObservations);
           }
@@ -490,7 +493,7 @@ export class FallbackController {
    */
   private async prepareOCRProcessor(): Promise<void> {
     // Simulate OCR processor preparation in background
-    setTimeout(() => {
+    this.createTimer(() => {
       this.ocrProcessorReady = true;
       logger.info('OCR processor ready for parallel processing');
     }, 500);
@@ -609,12 +612,37 @@ export class FallbackController {
   }
 
   /**
+   * Helper method to create tracked setTimeout
+   */
+  private createTimer(callback: () => void, delay: number): NodeJS.Timeout {
+    const timer = setTimeout(() => {
+      this.activeTimers.delete(timer);
+      if (!this.abortController?.signal.aborted) {
+        callback();
+      }
+    }, delay);
+    this.activeTimers.add(timer);
+    return timer;
+  }
+
+  /**
+   * Clear all active timers
+   */
+  private clearAllTimers(): void {
+    this.activeTimers.forEach((timer) => {
+      clearTimeout(timer);
+    });
+    this.activeTimers.clear();
+  }
+
+  /**
    * Cancel current scan operation
    */
   cancel(): void {
     if (this.abortController) {
       this.abortController.abort();
     }
+    this.clearAllTimers(); // Clear all pending timers
     this.updateState('idle');
     logger.info('Scan cancelled by user');
   }
@@ -626,6 +654,7 @@ export class FallbackController {
     this.currentState = 'idle';
     this.scanStartTime = 0;
     this.barcodeAttempts = 0;
+    this.clearAllTimers(); // Clear all pending timers
     if (this.abortController) {
       this.abortController.abort();
     }
@@ -676,5 +705,13 @@ export class FallbackController {
     if (this.events?.onPerformanceAlert) {
       this.events.onPerformanceAlert(alert);
     }
+  }
+
+  /**
+   * Cleanup method for proper disposal
+   */
+  destroy(): void {
+    this.cancel();
+    this.events = undefined;
   }
 }
