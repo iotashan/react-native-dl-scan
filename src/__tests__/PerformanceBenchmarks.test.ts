@@ -1,9 +1,6 @@
 import { FallbackController } from '../utils/FallbackController';
 import { performanceMonitor } from '../utils/PerformanceMonitor';
-import type {
-  PerformanceMetrics,
-  OCRTextObservation,
-} from '../types/license';
+import type { PerformanceMetrics, OCRTextObservation } from '../types/license';
 
 /**
  * Performance Benchmarking Test Suite
@@ -369,19 +366,16 @@ describe('Performance Benchmarks', () => {
       const concurrentScans = 3;
       const mockOCRData = generateHighQualityOCRData();
 
-      const scanPromises = Array.from(
-        { length: concurrentScans },
-        async () => {
-          performanceMonitor.startSession('ocr');
+      const scanPromises = Array.from({ length: concurrentScans }, async () => {
+        performanceMonitor.startSession('ocr');
 
-          try {
-            await controller.scan(mockOCRData, 'ocr');
-            return performanceMonitor.endSession();
-          } catch (error) {
-            return performanceMonitor.endSession();
-          }
+        try {
+          await controller.scan(mockOCRData, 'ocr');
+          return performanceMonitor.endSession();
+        } catch (error) {
+          return performanceMonitor.endSession();
         }
-      );
+      });
 
       const results = await Promise.allSettled(scanPromises);
 

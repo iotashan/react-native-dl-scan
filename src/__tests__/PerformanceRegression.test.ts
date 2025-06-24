@@ -172,7 +172,11 @@ describe('Performance Regression Tests', () => {
       );
 
       // Log regression analysis
-      if (p95 && baseline.p95 && p95 > baseline.p95 * (1 + REGRESSION_THRESHOLDS.timing)) {
+      if (
+        p95 &&
+        baseline.p95 &&
+        p95 > baseline.p95 * (1 + REGRESSION_THRESHOLDS.timing)
+      ) {
         console.warn(
           `Potential barcode scanning regression detected: p95 ${p95}ms vs baseline ${baseline.p95}ms`
         );
@@ -248,7 +252,11 @@ describe('Performance Regression Tests', () => {
       );
 
       // Regression detection for OCR
-      if (p95 && baseline.p95 && p95 > baseline.p95 * (1 + REGRESSION_THRESHOLDS.timing)) {
+      if (
+        p95 &&
+        baseline.p95 &&
+        p95 > baseline.p95 * (1 + REGRESSION_THRESHOLDS.timing)
+      ) {
         console.warn(
           `Potential OCR scanning regression detected: p95 ${p95}ms vs baseline ${baseline.p95}ms`
         );
@@ -334,7 +342,7 @@ describe('Performance Regression Tests', () => {
         sortedTimes[sortedTimes.length - 1];
 
       // Check for regression
-      const regressionThreshold = baseline.p95 
+      const regressionThreshold = baseline.p95
         ? baseline.p95 * (1 + REGRESSION_THRESHOLDS.timing)
         : 0;
       const hasRegression = p95 && p95 > regressionThreshold;
@@ -445,16 +453,64 @@ describe('Performance Regression Tests', () => {
               iterations: sessionResults.length,
               results: sessionResults,
               summary: {
-                mean: sessionResults[0] || ({} as PerformanceMetrics), // Simplified
-                median: sessionResults[0] || ({} as PerformanceMetrics),
-                p95: {
-                  ...sessionResults[0],
-                  totalProcessingTime: Math.max(...timings),
-                },
-                p99: {
-                  ...sessionResults[0],
-                  totalProcessingTime: Math.max(...timings),
-                },
+                mean:
+                  sessionResults[0] ||
+                  ({
+                    totalProcessingTime: 0,
+                    initialMemoryUsageMB: 0,
+                    peakMemoryUsageMB: 0,
+                    finalMemoryUsageMB: 0,
+                    memoryDeltaMB: 0,
+                    meetsOcrTarget: false,
+                    meetsFallbackTarget: false,
+                    meetsMemoryTarget: false,
+                    meetsCpuTarget: false,
+                  } as PerformanceMetrics),
+                median:
+                  sessionResults[0] ||
+                  ({
+                    totalProcessingTime: 0,
+                    initialMemoryUsageMB: 0,
+                    peakMemoryUsageMB: 0,
+                    finalMemoryUsageMB: 0,
+                    memoryDeltaMB: 0,
+                    meetsOcrTarget: false,
+                    meetsFallbackTarget: false,
+                    meetsMemoryTarget: false,
+                    meetsCpuTarget: false,
+                  } as PerformanceMetrics),
+                p95: sessionResults[0]
+                  ? {
+                      ...sessionResults[0],
+                      totalProcessingTime: Math.max(...timings),
+                    }
+                  : ({
+                      totalProcessingTime: Math.max(...timings),
+                      initialMemoryUsageMB: 0,
+                      peakMemoryUsageMB: 0,
+                      finalMemoryUsageMB: 0,
+                      memoryDeltaMB: 0,
+                      meetsOcrTarget: false,
+                      meetsFallbackTarget: false,
+                      meetsMemoryTarget: false,
+                      meetsCpuTarget: false,
+                    } as PerformanceMetrics),
+                p99: sessionResults[0]
+                  ? {
+                      ...sessionResults[0],
+                      totalProcessingTime: Math.max(...timings),
+                    }
+                  : ({
+                      totalProcessingTime: Math.max(...timings),
+                      initialMemoryUsageMB: 0,
+                      peakMemoryUsageMB: 0,
+                      finalMemoryUsageMB: 0,
+                      memoryDeltaMB: 0,
+                      meetsOcrTarget: false,
+                      meetsFallbackTarget: false,
+                      meetsMemoryTarget: false,
+                      meetsCpuTarget: false,
+                    } as PerformanceMetrics),
               },
             };
             benchmarkRuns.push(mockBenchmark);
@@ -469,21 +525,23 @@ describe('Performance Regression Tests', () => {
         const firstRun = benchmarkRuns[0];
         const lastRun = benchmarkRuns[benchmarkRuns.length - 1];
 
-        // Check for performance degradation trend
-        const timingTrend =
-          (lastRun.summary.p95.totalProcessingTime -
-            firstRun.summary.p95.totalProcessingTime) /
-          firstRun.summary.p95.totalProcessingTime;
+        if (firstRun && lastRun) {
+          // Check for performance degradation trend
+          const timingTrend =
+            (lastRun.summary.p95.totalProcessingTime -
+              firstRun.summary.p95.totalProcessingTime) /
+            firstRun.summary.p95.totalProcessingTime;
 
-        // Warn if performance is degrading over time
-        if (timingTrend > REGRESSION_THRESHOLDS.timing) {
-          console.warn(
-            `Performance degradation trend detected: ${(timingTrend * 100).toFixed(1)}% slower`
-          );
+          // Warn if performance is degrading over time
+          if (timingTrend > REGRESSION_THRESHOLDS.timing) {
+            console.warn(
+              `Performance degradation trend detected: ${(timingTrend * 100).toFixed(1)}% slower`
+            );
+          }
+
+          // For optimized code, we expect stable or improving performance
+          expect(timingTrend).toBeLessThan(REGRESSION_THRESHOLDS.timing);
         }
-
-        // For optimized code, we expect stable or improving performance
-        expect(timingTrend).toBeLessThan(REGRESSION_THRESHOLDS.timing);
       }
     });
   });

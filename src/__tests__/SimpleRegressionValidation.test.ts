@@ -342,14 +342,34 @@ describe('Simplified Performance Regression Validation', () => {
       // Generate regression report
       const allPassed = Object.values(testResults).every((test) => test.passed);
       const performanceScore =
-        Object.values(testResults).reduce((acc, test) => {
-          const efficiency = test.duration
-            ? (test.threshold - test.duration) / test.threshold
-            : test.growth
-              ? (test.threshold - test.growth) / test.threshold
-              : test.rate
-                ? (test.threshold - test.rate) / test.threshold
-                : 1;
+        Object.entries(testResults).reduce((acc, [key, test]) => {
+          let efficiency = 1;
+          if (key === 'barcode_performance' || key === 'ocr_performance') {
+            const durationTest = test as {
+              duration: number;
+              threshold: number;
+              passed: boolean;
+            };
+            efficiency =
+              (durationTest.threshold - durationTest.duration) /
+              durationTest.threshold;
+          } else if (key === 'memory_stability') {
+            const growthTest = test as {
+              growth: number;
+              threshold: number;
+              passed: boolean;
+            };
+            efficiency =
+              (growthTest.threshold - growthTest.growth) / growthTest.threshold;
+          } else if (key === 'error_rate') {
+            const rateTest = test as {
+              rate: number;
+              threshold: number;
+              passed: boolean;
+            };
+            efficiency =
+              (rateTest.threshold - rateTest.rate) / rateTest.threshold;
+          }
           return acc + Math.max(0, efficiency);
         }, 0) / Object.keys(testResults).length;
 
