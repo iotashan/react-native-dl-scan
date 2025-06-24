@@ -120,15 +120,15 @@ function analyzeCoverage(coverage) {
     }
 
     metrics.forEach((metric) => {
-      const total = moduleFiles.reduce(
+      const moduleTotal = moduleFiles.reduce(
         (sum, file) => sum + file[metric].total,
         0
       );
-      const covered = moduleFiles.reduce(
+      const moduleCovered = moduleFiles.reduce(
         (sum, file) => sum + file[metric].covered,
         0
       );
-      const pct = total > 0 ? ((covered / total) * 100).toFixed(2) : 0;
+      const pct = moduleTotal > 0 ? ((moduleCovered / moduleTotal) * 100).toFixed(2) : 0;
       const threshold = thresholds[module][metric];
       const color = pct >= threshold ? 'green' : 'red';
       const icon = pct >= threshold ? '✅' : '❌';
