@@ -71,8 +71,46 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
+// Auto-mock these modules - Jest will use __mocks__ directory
+jest.mock('react-native-svg');
+jest.mock('react-native-vision-camera');
+
+// Mock React Native modules that might be missing
+jest.mock('react-native', () => {
+  const RN = jest.requireActual('react-native');
+
+  // Add any missing mocks
+  RN.NativeModules = {
+    ...RN.NativeModules,
+    DlScan: {
+      scanLicense: jest.fn(),
+      parseOCRText: jest.fn(),
+    },
+    // Add other native modules if needed
+  };
+
+  // Mock Platform if needed
+  RN.Platform = {
+    ...RN.Platform,
+    OS: 'ios',
+    select: jest.fn((obj) => obj.ios || obj.default),
+  };
+
+  return RN;
+});
+
 // Global test configuration
 global.__DEV__ = true;
+
+// Mock console methods to avoid noise in tests
+global.console = {
+  ...console,
+  log: jest.fn(),
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};
 
 // Configure timers - only for tests that use fake timers
 afterEach(() => {
