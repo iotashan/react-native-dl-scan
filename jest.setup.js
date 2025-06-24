@@ -25,6 +25,26 @@ jest.mock(
   })
 );
 
+// Mock NativeDeviceInfo
+jest.mock('react-native/src/private/specs_DEPRECATED/modules/NativeDeviceInfo', () => ({
+  getConstants: jest.fn(() => ({
+    Dimensions: {
+      windowPhysicalPixels: {
+        width: 375,
+        height: 667,
+        scale: 2.0,
+        fontScale: 1.0,
+      },
+      screenPhysicalPixels: {
+        width: 375,
+        height: 667,
+        scale: 2.0,
+        fontScale: 1.0,
+      },
+    },
+  })),
+}));
+
 // Mock react-native-reanimated more comprehensively
 jest.mock('react-native-reanimated', () => {
   const Reanimated = require('react-native-reanimated/mock');

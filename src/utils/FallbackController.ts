@@ -6,17 +6,13 @@ import type {
   ScanMetrics,
   LicenseData,
   OCRTextObservation,
+  PerformanceMetrics,
+  PerformanceAlert,
 } from '../types/license';
 import { scanLicense, parseOCRText, ScanError } from '../index';
 import { logger } from './logger';
+import { performanceMonitor } from './PerformanceMonitor';
 
-export interface PerformanceAlert {
-  type: 'warning' | 'critical';
-  category: 'timeout' | 'memory' | 'performance' | 'transition';
-  message: string;
-  timestamp: number;
-  metrics?: Record<string, any>;
-}
 
 export interface FallbackControllerEvents {
   onProgressUpdate: (progress: ScanProgress) => void;
@@ -43,7 +39,7 @@ export class FallbackController {
   ) {
     this.config = {
       barcodeTimeoutMs: 3000, // 3 seconds default
-      ocrTimeoutMs: 5000, // 5 seconds default
+      ocrTimeoutMs: 2000, // 2 seconds for OCR target
       maxBarcodeAttempts: 5,
       maxFallbackProcessingTimeMs: 4000, // 4 seconds total limit
       enableQualityAssessment: true,
@@ -58,7 +54,7 @@ export class FallbackController {
   }
 
   /**
-   * Start scanning with automatic fallback logic
+   * Start scanning with automatic fallback logic - OPTIMIZED
    */
   async scan(
     input: string | OCRTextObservation[],
@@ -69,66 +65,68 @@ export class FallbackController {
     this.scanStartTime = Date.now();
     this.abortController = new AbortController();
 
-    // Start performance monitoring
-    logger.startTimer('total_scan');
-    logger.clearPerformanceMetrics();
-
-    logger.info('Starting scan with fallback', {
-      mode,
-      inputType: typeof input === 'string' ? 'barcode' : 'ocr',
-    });
+    // Optimized performance monitoring - minimal overhead
+    const sessionType = mode === 'auto' ? 'fallback' : mode;
+    const performanceSessionId = performanceMonitor.startSession(sessionType);
 
     try {
-      // Enforce memory limit at start
-      logger.enforceMemoryLimit('scan_start');
+      let result: LicenseData;
 
       if (mode === 'ocr' || Array.isArray(input)) {
-        return await this.performOCRScan(input as OCRTextObservation[]);
-      }
-
-      if (mode === 'barcode') {
-        return await this.performBarcodeScan(input as string);
-      }
-
-      // Auto mode: try barcode first, fallback to OCR
-      if (typeof input === 'string') {
-        try {
-          return await this.performBarcodeScanWithFallback(input as string);
-        } catch (error) {
-          if (this.abortController.signal.aborted) {
-            throw new ScanError({
-              code: 'SCAN_ABORTED',
-              message: 'Scan was cancelled',
-              userMessage: 'Scan cancelled',
-              recoverable: true,
-            });
+        result = await this.performOCRScan(input as OCRTextObservation[]);
+      } else if (mode === 'barcode') {
+        result = await this.performBarcodeScan(input as string);
+      } else {
+        // Auto mode: try barcode first, fallback to OCR
+        if (typeof input === 'string') {
+          try {
+            result = await this.performBarcodeScanWithFallback(input as string);
+          } catch (error) {
+            if (this.abortController.signal.aborted) {
+              throw new ScanError({
+                code: 'SCAN_ABORTED',
+                message: 'Scan was cancelled',
+                userMessage: 'Scan cancelled',
+                recoverable: true,
+              });
+            }
+            throw error;
           }
-          throw error;
+        } else {
+          throw new ScanError({
+            code: 'INVALID_INPUT',
+            message: 'Invalid input type for auto mode',
+            userMessage: 'Invalid scanning input',
+            recoverable: true,
+          });
         }
       }
 
-      throw new ScanError({
-        code: 'INVALID_INPUT',
-        message: 'Invalid input type for auto mode',
-        userMessage: 'Invalid scanning input',
-        recoverable: true,
-      });
+      return result;
+      
     } catch (error) {
       this.updateState('failed');
       this.notifyMetrics({ success: false });
       throw error;
     } finally {
-      // Stop performance monitoring
-      const totalTime = logger.stopTimer('total_scan');
+      // Optimized performance monitoring - minimal overhead
+      const detailedMetrics = performanceMonitor.endSession();
+      
+      // Only process detailed metrics if events are configured
+      if (detailedMetrics && this.events?.onMetricsUpdate) {
+        this.notifyEnhancedMetrics(detailedMetrics);
+      }
 
-      // Check total processing time
-      if (totalTime && totalTime > this.config.maxFallbackProcessingTimeMs) {
+      // Fast timeout check using scan start time
+      const totalTime = Date.now() - this.scanStartTime;
+      if (totalTime > this.config.maxFallbackProcessingTimeMs) {
         this.raiseAlert({
           type: 'critical',
           category: 'timeout',
           message: `Total processing time exceeded: ${totalTime}ms > ${this.config.maxFallbackProcessingTimeMs}ms`,
           timestamp: Date.now(),
-          metrics: { totalTime },
+          threshold: this.config.maxFallbackProcessingTimeMs,
+          actualValue: totalTime,
         });
       }
     }
@@ -180,9 +178,9 @@ export class FallbackController {
       );
       this.updateState('fallback_transition');
 
-      // Start transition timer with STRICT 200ms enforcement
-      logger.startTimer('mode_transition');
-
+      // Optimized transition with minimal overhead
+      const transitionStartTime = Date.now();
+      
       // Enforce <200ms transition requirement
       const transitionPromise = new Promise<OCRTextObservation[]>((resolve) => {
         // For demo purposes, we'll simulate OCR data based on typical license fields
@@ -212,26 +210,30 @@ export class FallbackController {
       try {
         mockOCRData = await Promise.race([transitionPromise, timeoutPromise]);
       } catch (transitionError) {
-        const transitionTime = logger.stopTimer('mode_transition');
+        const transitionTime = Date.now() - transitionStartTime;
+        
         this.raiseAlert({
           type: 'critical',
           category: 'transition',
           message: `Mode transition failed: ${transitionTime}ms > 200ms`,
           timestamp: Date.now(),
-          metrics: { transitionTime },
+          threshold: 200,
+          actualValue: transitionTime,
         });
         throw transitionError;
       }
 
-      // Stop transition timer and validate
-      const transitionTime = logger.stopTimer('mode_transition');
-      if (transitionTime && transitionTime > 200) {
+      // Fast transition time validation
+      const transitionTime = Date.now() - transitionStartTime;
+      
+      if (transitionTime > 200) {
         this.raiseAlert({
           type: 'critical',
           category: 'transition',
           message: `Mode transition exceeded limit: ${transitionTime}ms > 200ms`,
           timestamp: Date.now(),
-          metrics: { transitionTime },
+          threshold: 200,
+          actualValue: transitionTime,
         });
       }
 
@@ -247,23 +249,18 @@ export class FallbackController {
   }
 
   /**
-   * Perform barcode-only scan with retry logic
+   * Perform barcode-only scan with retry logic - OPTIMIZED
    */
   private async performBarcodeScan(barcodeData: string): Promise<LicenseData> {
     this.updateState('barcode');
 
     try {
-      // Use logger's retry functionality with timeout enforcement
-      return await logger.withRetry(
-        'barcode-scan',
+      // Optimized retry with minimal logging overhead
+      return await this.optimizedRetry(
         async () => {
           this.barcodeAttempts++;
-          this.notifyProgress();
-
-          // Enforce memory limit during barcode scanning
-          logger.enforceMemoryLimit('barcode_scan');
-
-          // Add timeout wrapper
+          
+          // Fast timeout wrapper
           const timeoutPromise = new Promise<never>((_, reject) => {
             this.createTimer(() => {
               reject(
@@ -278,30 +275,17 @@ export class FallbackController {
             }, this.config.barcodeTimeoutMs);
           });
 
-          const scanPromise = logger.measureTime(
-            'barcode_processing',
-            async () => {
-              return scanLicense(barcodeData);
-            }
-          );
-
+          const scanPromise = scanLicense(barcodeData);
           const result = await Promise.race([scanPromise, timeoutPromise]);
 
           this.updateState('completed');
           this.notifyMetrics({
             success: true,
             finalMode: 'barcode',
-            barcodeAttemptTime:
-              logger.getPerformanceMetrics().barcode_processing_time || 0,
           });
           return result;
         },
-        {
-          maxAttempts: 3,
-          initialDelayMs: 100,
-          maxDelayMs: 1000,
-          backoffMultiplier: 2,
-        }
+        3 // maxAttempts
       );
     } catch (error) {
       // Wrap unknown errors in ScanError
@@ -319,30 +303,17 @@ export class FallbackController {
   }
 
   /**
-   * Perform OCR-only scan with retry logic
+   * Perform OCR-only scan with retry logic - OPTIMIZED
    */
   private async performOCRScan(
     textObservations: OCRTextObservation[]
   ): Promise<LicenseData> {
     this.updateState('ocr');
 
-    // Calculate frame quality score from OCR confidence
-    const avgConfidence =
-      textObservations.reduce((sum, obs) => sum + obs.confidence, 0) /
-      (textObservations.length || 1);
-
-    logger.info('OCR frame quality', { avgConfidence });
-
-    // Use logger's retry functionality with 2-second timeout enforcement
-    return await logger.withRetry(
-      'ocr-scan',
+    // Optimized retry with minimal monitoring overhead
+    return await this.optimizedRetry(
       async () => {
-        this.notifyProgress();
-
-        // Enforce memory limit during OCR processing
-        logger.enforceMemoryLimit('ocr_scan');
-
-        // Add timeout wrapper for OCR (2 seconds as per requirement)
+        // Fast timeout wrapper for OCR (2 seconds as per requirement)
         const timeoutPromise = new Promise<never>((_, reject) => {
           this.createTimer(() => {
             reject(
@@ -354,55 +325,35 @@ export class FallbackController {
                 recoverable: true,
               })
             );
-          }, 2000); // 2 second timeout for OCR
+          }, 2000);
         });
 
-        // Apply Neural Engine optimizations for M3 iPad
-        const optimizedParsePromise = logger.measureTime(
-          'ocr_processing',
-          async () => {
-            // Wait for OCR processor if not ready (parallel processing optimization)
-            if (!this.ocrProcessorReady) {
-              await new Promise((resolve) => {
-                this.createTimer(() => resolve(undefined), 100);
-              });
-            }
-            return this.parseOCRWithNeuralEngineOptimization(textObservations);
-          }
-        );
+        // Optimized Neural Engine processing
+        const optimizedParsePromise = this.parseOCRWithNeuralEngineOptimization(textObservations);
 
         const result = await Promise.race([
           optimizedParsePromise,
           timeoutPromise,
         ]);
 
-        // Update confidence score based on parsed results
+        // Fast confidence calculation
         const fieldsFound = [
           result.firstName,
           result.lastName,
           result.licenseNumber,
           result.address?.street,
         ].filter(Boolean).length;
-        const confidenceScore = fieldsFound / 4; // Simple confidence based on essential fields
-
-        logger.info('OCR confidence score', { confidenceScore, fieldsFound });
+        const confidenceScore = fieldsFound / 4;
 
         this.updateState('completed');
         this.notifyMetrics({
           success: true,
           finalMode: 'ocr',
           confidenceScore: confidenceScore,
-          ocrProcessingTime:
-            logger.getPerformanceMetrics().ocr_processing_time || 0,
         });
         return result;
       },
-      {
-        maxAttempts: 3,
-        initialDelayMs: 100,
-        maxDelayMs: 1000,
-        backoffMultiplier: 2,
-      }
+      3 // maxAttempts
     );
   }
 
@@ -447,46 +398,56 @@ export class FallbackController {
   }
 
   /**
-   * Neural Engine optimized OCR parsing for M3 iPad
+   * Neural Engine optimized OCR parsing for M3 iPad - OPTIMIZED
    */
   private async parseOCRWithNeuralEngineOptimization(
     textObservations: OCRTextObservation[]
   ): Promise<LicenseData> {
-    // Batch processing for Neural Engine efficiency
-    const batchSize = 4; // Optimal for M3 Neural Engine
-    const batches: OCRTextObservation[][] = [];
-
-    for (let i = 0; i < textObservations.length; i += batchSize) {
-      batches.push(textObservations.slice(i, i + batchSize));
-    }
-
-    // Process batches with priority queue for Neural Engine
-    const processedObservations: OCRTextObservation[] = [];
-
-    for (const batch of batches) {
-      // Sort by confidence for priority processing
-      const prioritizedBatch = batch.sort(
-        (a, b) => b.confidence - a.confidence
-      );
-      processedObservations.push(...prioritizedBatch);
-    }
-
-    // Use optimized parsing with frame quality filtering
-    const highQualityObservations = processedObservations.filter(
+    // Fast pre-filtering for high confidence observations
+    const highQualityObservations = textObservations.filter(
       (obs) => obs.confidence > 0.7
     );
 
-    logger.info('Neural Engine optimization applied', {
-      totalObservations: textObservations.length,
-      highQualityCount: highQualityObservations.length,
-      batchCount: batches.length,
-    });
+    // Use high quality observations if available, otherwise use all
+    const targetObservations = highQualityObservations.length > 0 
+      ? highQualityObservations 
+      : textObservations;
 
-    return parseOCRText(
-      highQualityObservations.length > 0
-        ? highQualityObservations
-        : processedObservations
-    );
+    // Optimized batch processing - sort by confidence for Neural Engine efficiency
+    if (targetObservations.length > 4) {
+      targetObservations.sort((a, b) => b.confidence - a.confidence);
+    }
+
+    return parseOCRText(targetObservations);
+  }
+
+  /**
+   * Optimized retry implementation with minimal overhead
+   */
+  private async optimizedRetry<T>(
+    fn: () => Promise<T>,
+    maxAttempts: number = 3
+  ): Promise<T> {
+    let lastError: Error | null = null;
+    let delayMs = 100;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error as Error;
+
+        if (attempt === maxAttempts) {
+          break;
+        }
+
+        // Fast exponential backoff without logging overhead
+        await new Promise((resolve) => this.createTimer(() => resolve(undefined), delayMs));
+        delayMs = Math.min(delayMs * 2, 1000);
+      }
+    }
+
+    throw lastError || new Error('Operation failed after retries');
   }
 
   /**
@@ -588,6 +549,110 @@ export class FallbackController {
     };
 
     this.events.onMetricsUpdate(fullMetrics);
+  }
+
+  /**
+   * Notify enhanced metrics with detailed performance data
+   */
+  private notifyEnhancedMetrics(detailedMetrics: PerformanceMetrics): void {
+    if (!this.events?.onMetricsUpdate) return;
+
+    const enhancedScanMetrics: Partial<ScanMetrics> = {
+      totalProcessingTime: detailedMetrics.totalProcessingTime,
+      ocrProcessingTime: detailedMetrics.ocrProcessingTime,
+      modeTransitionTime: detailedMetrics.modeTransitionTime,
+      peakMemoryUsageMB: detailedMetrics.peakMemoryUsageMB,
+      
+      // Performance rating based on targets
+      performanceRating: this.calculatePerformanceRating(detailedMetrics),
+      
+      // Detailed performance data
+      detailedPerformance: detailedMetrics,
+      
+      // Performance alerts
+      performanceAlerts: performanceMonitor.getRecentAlerts(5),
+      
+      // Bottlenecks and recommendations
+      bottlenecks: this.identifyBottlenecks(detailedMetrics),
+      recommendations: this.generateRecommendations(detailedMetrics),
+    };
+
+    this.events.onMetricsUpdate(enhancedScanMetrics);
+  }
+
+  /**
+   * Calculate overall performance rating based on targets
+   */
+  private calculatePerformanceRating(metrics: PerformanceMetrics): 'excellent' | 'good' | 'acceptable' | 'poor' | 'critical' {
+    const targetsMet = [
+      metrics.meetsOcrTarget,
+      metrics.meetsFallbackTarget,
+      metrics.meetsMemoryTarget,
+      metrics.meetsCpuTarget,
+    ].filter(Boolean).length;
+
+    if (targetsMet === 4) return 'excellent';
+    if (targetsMet === 3) return 'good';
+    if (targetsMet === 2) return 'acceptable';
+    if (targetsMet === 1) return 'poor';
+    return 'critical';
+  }
+
+  /**
+   * Identify performance bottlenecks
+   */
+  private identifyBottlenecks(metrics: PerformanceMetrics): string[] {
+    const bottlenecks: string[] = [];
+
+    if (!metrics.meetsOcrTarget) {
+      bottlenecks.push(`OCR processing slow: ${metrics.ocrProcessingTime}ms > 2000ms`);
+    }
+
+    if (!metrics.meetsFallbackTarget) {
+      bottlenecks.push(`Total processing slow: ${metrics.totalProcessingTime}ms > 4000ms`);
+    }
+
+    if (!metrics.meetsMemoryTarget) {
+      bottlenecks.push(`Memory usage high: ${metrics.memoryDeltaMB}MB > 50MB`);
+    }
+
+    if (!metrics.meetsCpuTarget && metrics.peakCpuUtilization) {
+      bottlenecks.push(`CPU utilization high: ${metrics.peakCpuUtilization}% > 60%`);
+    }
+
+    if (metrics.modeTransitionTime && metrics.modeTransitionTime > 200) {
+      bottlenecks.push(`Mode transition slow: ${metrics.modeTransitionTime}ms > 200ms`);
+    }
+
+    return bottlenecks;
+  }
+
+  /**
+   * Generate performance recommendations
+   */
+  private generateRecommendations(metrics: PerformanceMetrics): string[] {
+    const recommendations: string[] = [];
+
+    if (!metrics.meetsOcrTarget) {
+      recommendations.push('Consider reducing OCR preprocessing complexity');
+      recommendations.push('Optimize Neural Engine utilization');
+    }
+
+    if (!metrics.meetsMemoryTarget) {
+      recommendations.push('Implement more aggressive memory cleanup');
+      recommendations.push('Reduce frame buffer size');
+    }
+
+    if (!metrics.meetsCpuTarget) {
+      recommendations.push('Move more processing to GPU/Neural Engine');
+      recommendations.push('Implement frame dropping during high load');
+    }
+
+    if (metrics.framesDropped && metrics.framesDropped > 0) {
+      recommendations.push('Improve frame processing efficiency');
+    }
+
+    return recommendations;
   }
 
   /**
