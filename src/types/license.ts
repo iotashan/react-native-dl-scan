@@ -112,19 +112,19 @@ export interface PerformanceMetrics {
   barcodeAttemptTime?: number;
   ocrProcessingTime?: number;
   modeTransitionTime?: number;
-  
+
   // Detailed timing breakdowns
   barcodePreparationTime?: number;
   barcodeDecodingTime?: number;
   ocrPreprocessingTime?: number;
   ocrTextExtractionTime?: number;
   ocrParsingTime?: number;
-  
+
   // Neural Engine optimization metrics
   neuralEngineUtilization?: number; // Percentage
   gpuProcessingTime?: number;
   cpuProcessingTime?: number;
-  
+
   // Memory profiling
   initialMemoryUsageMB: number;
   peakMemoryUsageMB: number;
@@ -132,18 +132,18 @@ export interface PerformanceMetrics {
   memoryDeltaMB: number;
   memoryAllocations?: number;
   memoryDeallocations?: number;
-  
+
   // CPU/GPU utilization
   peakCpuUtilization?: number; // Percentage
   averageCpuUtilization?: number; // Percentage
   peakGpuUtilization?: number; // Percentage
   averageGpuUtilization?: number; // Percentage
-  
+
   // Frame processing metrics
   framesProcessed?: number;
   framesDropped?: number;
   frameProcessingRate?: number; // FPS
-  
+
   // Performance targets validation
   meetsOcrTarget: boolean; // <2 seconds
   meetsFallbackTarget: boolean; // <4 seconds
@@ -190,7 +190,7 @@ export interface ScanMetrics {
   fallbackReason?: 'timeout' | 'failure' | 'quality' | 'manual';
   finalMode: ScanMode;
   success: boolean;
-  
+
   // Performance metrics
   barcodeAttempts?: number;
   ocrAttempts?: number;
@@ -202,7 +202,7 @@ export interface ScanMetrics {
   performanceRating?: 'excellent' | 'good' | 'acceptable' | 'poor' | 'critical';
   bottlenecks?: string[];
   recommendations?: string[];
-  
+
   // Enhanced performance tracking
   detailedPerformance?: PerformanceMetrics;
   performanceAlerts?: PerformanceAlert[];

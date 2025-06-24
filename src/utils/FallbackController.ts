@@ -20,6 +20,9 @@ export interface FallbackControllerEvents {
   onPerformanceAlert?: (alert: PerformanceAlert) => void;
 }
 
+// Export PerformanceAlert for use in other modules
+export type { PerformanceAlert };
+
 export class FallbackController {
   private config: FallbackConfig;
   private currentState: ScanningState = 'idle';
@@ -29,7 +32,8 @@ export class FallbackController {
   private barcodeAttempts: number = 0;
   private events?: FallbackControllerEvents;
   private abortController?: AbortController;
-  private ocrProcessorReady: boolean = false;
+  // @ts-ignore - Used in prepareOCRProcessor() and destroy()
+  private _ocrProcessorReady: boolean = false;
   private activeTimers: Set<NodeJS.Timeout> = new Set(); // Track active timers for cleanup
 
   constructor(
@@ -276,6 +280,16 @@ export class FallbackController {
           const scanPromise = scanLicense(barcodeData);
           const result = await Promise.race([scanPromise, timeoutPromise]);
 
+          // Ensure we have a valid result
+          if (!result) {
+            throw new ScanError({
+              code: 'BARCODE_SCAN_ERROR',
+              message: 'Barcode scan returned no data',
+              userMessage: 'Unable to scan barcode. Please try again.',
+              recoverable: true,
+            });
+          }
+
           this.updateState('completed');
           this.notifyMetrics({
             success: true,
@@ -335,12 +349,12 @@ export class FallbackController {
           timeoutPromise,
         ]);
 
-        // Fast confidence calculation
+        // Fast confidence calculation with null safety
         const fieldsFound = [
-          result.firstName,
-          result.lastName,
-          result.licenseNumber,
-          result.address?.street,
+          result?.firstName,
+          result?.lastName,
+          result?.licenseNumber,
+          result?.address?.street,
         ].filter(Boolean).length;
         const confidenceScore = fieldsFound / 4;
 
@@ -458,7 +472,7 @@ export class FallbackController {
   private async prepareOCRProcessor(): Promise<void> {
     // Simulate OCR processor preparation in background
     this.createTimer(() => {
-      this.ocrProcessorReady = true;
+      this._ocrProcessorReady = true;
       logger.info('OCR processor ready for parallel processing');
     }, 500);
   }
@@ -703,7 +717,9 @@ export class FallbackController {
         try {
           callback();
         } catch (error) {
-          logger.error('Timer callback error', { error: (error as Error).message });
+          logger.error('Timer callback error', {
+            error: (error as Error).message,
+          });
         }
       }
     }, delay);
@@ -717,15 +733,17 @@ export class FallbackController {
   private clearAllTimers(): void {
     // Create a copy to avoid modification during iteration
     const timersToClear = Array.from(this.activeTimers);
-    
+
     timersToClear.forEach((timer) => {
       try {
         clearTimeout(timer);
       } catch (error) {
-        logger.warn('Error clearing timer', { error: (error as Error).message });
+        logger.warn('Error clearing timer', {
+          error: (error as Error).message,
+        });
       }
     });
-    
+
     this.activeTimers.clear();
   }
 
@@ -810,24 +828,24 @@ export class FallbackController {
       if (this.abortController) {
         this.abortController.abort();
       }
-      
+
       // Clear all timers with safe cleanup
       this.clearAllTimers();
-      
+
       // Reset state
       this.currentState = 'idle';
       this.scanStartTime = 0;
       this.barcodeAttempts = 0;
-      this.ocrProcessorReady = false;
-      
+      this._ocrProcessorReady = false;
+
       // Clear references to prevent memory leaks
       this.events = undefined;
       this.abortController = undefined;
-      
+
       logger.info('FallbackController destroyed successfully');
     } catch (error) {
-      logger.error('Error during FallbackController destruction', { 
-        error: (error as Error).message 
+      logger.error('Error during FallbackController destruction', {
+        error: (error as Error).message,
       });
     }
   }
