@@ -5,3 +5,6 @@
 
 ## Instructions
 - Read the initial instructions
+
+## Git Workflow
+- after a successful merge, delete the task branch
