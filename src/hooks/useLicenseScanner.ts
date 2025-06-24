@@ -7,6 +7,8 @@ import type {
   ScanMetrics,
   FallbackConfig,
   OCRTextObservation,
+  AutoModeState,
+  QualityMetrics,
 } from '../types/license';
 import { logger } from '../utils/logger';
 import { FallbackController } from '../utils/FallbackController';
@@ -32,6 +34,8 @@ export interface LicenseScannerState {
   scanProgress: ScanProgress | null;
   scanMetrics: ScanMetrics | null;
   performanceMetrics: ScanMetrics | null;
+  autoModeState: AutoModeState | null;
+  lastQualityMetrics: QualityMetrics | null;
 }
 
 export interface LicenseScannerActions {
@@ -47,6 +51,7 @@ export interface LicenseScannerActions {
   cancel: () => void;
   updateFallbackConfig: (config: Partial<FallbackConfig>) => void;
   setScanMode: (mode: ScanMode) => void;
+  processQualityMetrics: (metrics: QualityMetrics) => boolean;
 }
 
 export function useLicenseScanner(
@@ -63,6 +68,8 @@ export function useLicenseScanner(
   const [scanMetrics, setScanMetrics] = useState<ScanMetrics | null>(null);
   const [performanceMetrics, setPerformanceMetrics] =
     useState<ScanMetrics | null>(null);
+  const [autoModeState, setAutoModeState] = useState<AutoModeState | null>(null);
+  const [lastQualityMetrics, setLastQualityMetrics] = useState<QualityMetrics | null>(null);
 
   const fallbackControllerRef = useRef<FallbackController | null>(null);
 
@@ -121,6 +128,18 @@ export function useLicenseScanner(
             })
           );
         }
+      },
+      onAutoModeStateChange: (oldState: AutoModeState, newState: AutoModeState) => {
+        setAutoModeState(newState);
+        logger.debug('Auto-mode state changed', { from: oldState, to: newState });
+      },
+      onModeRecommendation: (recommendedMode: ScanMode, reason: string) => {
+        logger.info('Mode recommendation', { mode: recommendedMode, reason });
+        // Could trigger UI updates or automatic mode switching here
+      },
+      onQualityAssessment: (metrics: QualityMetrics, shouldSwitch: boolean) => {
+        setLastQualityMetrics(metrics);
+        logger.debug('Quality assessment', { metrics, shouldSwitch });
       },
     };
 
@@ -273,6 +292,14 @@ export function useLicenseScanner(
     []
   );
 
+  // Process quality metrics for intelligent mode switching
+  const processQualityMetrics = useCallback((metrics: QualityMetrics): boolean => {
+    if (fallbackControllerRef.current) {
+      return fallbackControllerRef.current.processQualityMetrics(metrics);
+    }
+    return false;
+  }, []);
+
   const reset = useCallback(() => {
     setLicenseData(null);
     setError(null);
@@ -282,6 +309,8 @@ export function useLicenseScanner(
     setScanProgress(null);
     setScanMetrics(null);
     setPerformanceMetrics(null);
+    setAutoModeState(null);
+    setLastQualityMetrics(null);
     if (fallbackControllerRef.current) {
       fallbackControllerRef.current.cancel();
     }
@@ -309,6 +338,8 @@ export function useLicenseScanner(
     scanProgress,
     scanMetrics,
     performanceMetrics,
+    autoModeState,
+    lastQualityMetrics,
     scan,
     scanBarcode,
     scanOCR,
@@ -318,5 +349,6 @@ export function useLicenseScanner(
     cancel,
     updateFallbackConfig,
     setScanMode: setScanModeManual,
+    processQualityMetrics,
   };
 }

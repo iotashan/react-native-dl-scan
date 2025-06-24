@@ -25,6 +25,8 @@ import type {
   ScanProgress,
   ScanMode,
   OCRTextObservation,
+  AutoModeState,
+  QualityMetrics,
 } from '../types/license';
 
 export interface CameraScannerProps {
@@ -35,6 +37,8 @@ export interface CameraScannerProps {
   // New props for dual-mode support
   mode?: ScanMode;
   onModeChange?: (mode: ScanMode) => void;
+  autoModeState?: AutoModeState | null;
+  onQualityMetrics?: (metrics: QualityMetrics) => void;
   frameProcessorConfig?: {
     enableBarcode?: boolean;
     enableOCR?: boolean;

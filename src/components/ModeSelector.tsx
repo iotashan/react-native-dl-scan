@@ -19,11 +19,15 @@ import {
   useColorScheme,
 } from 'react-native';
 import type { ScanMode } from '../types/license';
+import { AutoModeState } from '../types/license';
 
 export interface ModeSelectorProps {
   currentMode: ScanMode;
   onModeChange: (mode: ScanMode) => void;
   disabled?: boolean;
+  autoModeState?: AutoModeState | null;
+  isTransitioning?: boolean;
+  timeRemaining?: number;
 }
 
 const MODES: ScanMode[] = ['auto', 'barcode', 'ocr'];
@@ -95,10 +99,160 @@ const MODE_ICONS: Record<ScanMode, React.FC<{ color: string }>> = {
   ocr: OCRIcon,
 };
 
+// Auto-mode state indicator component
+interface AutoModeStateIndicatorProps {
+  autoModeState: AutoModeState;
+  isTransitioning: boolean;
+  timeRemaining?: number;
+}
+
+const AutoModeStateIndicator: React.FC<AutoModeStateIndicatorProps> = ({
+  autoModeState,
+  isTransitioning,
+  timeRemaining,
+}) => {
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Create pulsing animation for transition states
+  useEffect(() => {
+    if (isTransitioning) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    } else {
+      pulseAnim.setValue(1);
+      return undefined;
+    }
+  }, [isTransitioning, pulseAnim]);
+
+  // Update progress animation based on time remaining
+  useEffect(() => {
+    if (timeRemaining !== undefined && timeRemaining > 0) {
+      const progress = 1 - (timeRemaining / 10000); // Assuming 10s total timeout
+      Animated.timing(progressAnim, {
+        toValue: progress,
+        duration: 300,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [timeRemaining, progressAnim]);
+
+  const getStateColor = () => {
+    switch (autoModeState) {
+      case AutoModeState.INITIAL_PDF417:
+        return '#34C759'; // Green for barcode scanning
+      case AutoModeState.PDF417_TIMEOUT_WARNING:
+        return '#FF9500'; // Orange for warning
+      case AutoModeState.SWITCHING_TO_OCR:
+        return '#007AFF'; // Blue for transition
+      case AutoModeState.OCR_ACTIVE:
+        return '#5856D6'; // Purple for OCR
+      case AutoModeState.SUCCESS:
+        return '#34C759'; // Green for success
+      default:
+        return '#007AFF';
+    }
+  };
+
+  const getStateText = () => {
+    switch (autoModeState) {
+      case AutoModeState.INITIAL_PDF417:
+        return 'Scanning barcode...';
+      case AutoModeState.PDF417_TIMEOUT_WARNING:
+        return 'Switching soon...';
+      case AutoModeState.SWITCHING_TO_OCR:
+        return 'Switching to OCR...';
+      case AutoModeState.OCR_ACTIVE:
+        return 'Reading text...';
+      case AutoModeState.SUCCESS:
+        return 'Success!';
+      default:
+        return 'Processing...';
+    }
+  };
+
+  const getStateIcon = () => {
+    switch (autoModeState) {
+      case AutoModeState.INITIAL_PDF417:
+        return '⬚'; // Barcode symbol
+      case AutoModeState.PDF417_TIMEOUT_WARNING:
+        return '⚠'; // Warning symbol
+      case AutoModeState.SWITCHING_TO_OCR:
+        return '↻'; // Switching symbol
+      case AutoModeState.OCR_ACTIVE:
+        return 'T'; // Text symbol
+      case AutoModeState.SUCCESS:
+        return '✓'; // Checkmark
+      default:
+        return '•';
+    }
+  };
+
+  return (
+    <Animated.View
+      style={[
+        styles.stateIndicator,
+        { 
+          backgroundColor: getStateColor(),
+          transform: [{ scale: pulseAnim }],
+        },
+      ]}
+    >
+      <View style={styles.stateContent}>
+        <Text style={styles.stateIcon}>{getStateIcon()}</Text>
+        <Text style={styles.stateText}>{getStateText()}</Text>
+        
+        {/* Progress bar for timeout states */}
+        {(autoModeState === AutoModeState.INITIAL_PDF417 || 
+          autoModeState === AutoModeState.PDF417_TIMEOUT_WARNING) && 
+          timeRemaining !== undefined && (
+          <View style={styles.progressContainer}>
+            <Animated.View
+              style={[
+                styles.progressBar,
+                {
+                  width: progressAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0%', '100%'],
+                  }),
+                },
+              ]}
+            />
+          </View>
+        )}
+        
+        {/* Time remaining indicator */}
+        {timeRemaining !== undefined && timeRemaining > 0 && (
+          <Text style={styles.timeText}>
+            {Math.ceil(timeRemaining / 1000)}s
+          </Text>
+        )}
+      </View>
+    </Animated.View>
+  );
+};
+
 export const ModeSelector: React.FC<ModeSelectorProps> = ({
   currentMode,
   onModeChange,
   disabled = false,
+  autoModeState = null,
+  isTransitioning = false,
+  timeRemaining,
 }) => {
   const translateX = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -320,6 +474,17 @@ export const ModeSelector: React.FC<ModeSelectorProps> = ({
           </Text>
         </Animated.View>
       )}
+
+      {/* Auto-mode indicator */}
+      {currentMode === 'auto' && autoModeState && (
+        <View style={[styles.autoModeIndicator, isDarkMode && styles.autoModeIndicatorDark]}>
+          <AutoModeStateIndicator
+            autoModeState={autoModeState}
+            isTransitioning={isTransitioning}
+            timeRemaining={timeRemaining}
+          />
+        </View>
+      )}
     </View>
   );
 };
@@ -444,6 +609,67 @@ const styles = StyleSheet.create({
   },
   barcodeBarThin: {
     width: 12,
+  },
+  // Auto-mode indicator styles
+  autoModeIndicator: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  autoModeIndicatorDark: {
+    // Dark mode specific styles if needed
+  },
+  stateIndicator: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    minWidth: 140,
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  stateContent: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  stateIcon: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  stateText: {
+    fontSize: 12,
+    color: 'white',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  progressContainer: {
+    width: '100%',
+    height: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 1,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 1,
+  },
+  timeText: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '600',
+    marginTop: 2,
   },
 });
 

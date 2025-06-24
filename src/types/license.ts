@@ -80,6 +80,28 @@ export type ScanningState =
   | 'completed'
   | 'failed';
 
+export enum AutoModeState {
+  INITIAL_PDF417 = 'initial_pdf417',
+  PDF417_TIMEOUT_WARNING = 'pdf417_timeout_warning',
+  SWITCHING_TO_OCR = 'switching_to_ocr',
+  OCR_ACTIVE = 'ocr_active',
+  SUCCESS = 'success'
+}
+
+export interface AutoModeConfig {
+  pdf417TimeoutMs: number; // Default: 10000
+  warningThresholdMs: number; // Default: 7000
+  minQualityScore: number; // 0-1, default: 0.7
+  switchDelayMs: number; // Smooth transition, default: 500
+}
+
+export interface QualityMetrics {
+  brightness: number; // 0-1
+  blur: number; // 0-1, lower is better
+  glare: number; // 0-1, lower is better
+  documentAlignment: number; // 0-1
+}
+
 export interface FallbackConfig {
   barcodeTimeoutMs: number;
   ocrTimeoutMs: number;

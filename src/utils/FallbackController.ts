@@ -8,16 +8,24 @@ import type {
   OCRTextObservation,
   PerformanceMetrics,
   PerformanceAlert,
+  AutoModeState,
+  AutoModeConfig,
+  QualityMetrics,
 } from '../types/license';
 import { scanLicense, parseOCRText, ScanError } from '../index';
 import { logger } from './logger';
 import { performanceMonitor } from './PerformanceMonitor';
+import { IntelligentModeManager } from './IntelligentModeManager';
+import type { IntelligentModeManagerEvents } from './IntelligentModeManager';
 
 export interface FallbackControllerEvents {
   onProgressUpdate: (progress: ScanProgress) => void;
   onModeSwitch: (fromMode: ScanMode, toMode: ScanMode, reason: string) => void;
   onMetricsUpdate: (metrics: Partial<ScanMetrics>) => void;
   onPerformanceAlert?: (alert: PerformanceAlert) => void;
+  onAutoModeStateChange?: (oldState: AutoModeState, newState: AutoModeState) => void;
+  onModeRecommendation?: (recommendedMode: ScanMode, reason: string) => void;
+  onQualityAssessment?: (metrics: QualityMetrics, shouldSwitch: boolean) => void;
 }
 
 // Export PerformanceAlert for use in other modules
@@ -35,6 +43,7 @@ export class FallbackController {
   // @ts-ignore - Used in prepareOCRProcessor() and destroy()
   private _ocrProcessorReady: boolean = false;
   private activeTimers: Set<NodeJS.Timeout> = new Set(); // Track active timers for cleanup
+  private intelligentModeManager?: IntelligentModeManager;
 
   constructor(
     config: Partial<FallbackConfig> = {},
@@ -49,6 +58,37 @@ export class FallbackController {
       ...config,
     };
     this.events = events;
+
+    // Initialize IntelligentModeManager with enhanced timeout settings
+    const autoModeConfig: Partial<AutoModeConfig> = {
+      pdf417TimeoutMs: config.barcodeTimeoutMs || 10000, // Use longer timeout for auto-mode
+      warningThresholdMs: Math.round((config.barcodeTimeoutMs || 10000) * 0.7), // 70% of timeout
+      minQualityScore: 0.7,
+      switchDelayMs: 500,
+    };
+
+    const intelligentEvents: IntelligentModeManagerEvents = {
+      onAutoModeStateChange: (oldState: AutoModeState, newState: AutoModeState) => {
+        if (this.events?.onAutoModeStateChange) {
+          this.events.onAutoModeStateChange(oldState, newState);
+        }
+      },
+      onModeRecommendation: (recommendedMode: ScanMode, reason: string) => {
+        if (this.events?.onModeRecommendation) {
+          this.events.onModeRecommendation(recommendedMode, reason);
+        }
+      },
+      onWarningThresholdReached: (timeElapsed: number, threshold: number) => {
+        logger.info('Auto-mode warning threshold reached', { timeElapsed, threshold });
+      },
+      onQualityAssessment: (metrics: QualityMetrics, shouldSwitch: boolean) => {
+        if (this.events?.onQualityAssessment) {
+          this.events.onQualityAssessment(metrics, shouldSwitch);
+        }
+      },
+    };
+
+    this.intelligentModeManager = new IntelligentModeManager(autoModeConfig, intelligentEvents);
 
     // Start preparing OCR processor in parallel
     this.prepareOCRProcessor();
@@ -80,9 +120,14 @@ export class FallbackController {
       } else if (mode === 'barcode') {
         result = await this.performBarcodeScan(input as string);
       } else {
-        // Auto mode: try barcode first, fallback to OCR
+        // Auto mode: try barcode first, fallback to OCR with intelligent management
         if (typeof input === 'string') {
           try {
+            // Start intelligent auto-mode session
+            if (this.intelligentModeManager) {
+              this.intelligentModeManager.startAutoModeSession();
+            }
+            
             result = await this.performBarcodeScanWithFallback(input as string);
           } catch (error) {
             if (this.abortController.signal.aborted) {
@@ -524,12 +569,32 @@ export class FallbackController {
   }
 
   /**
+   * Process quality metrics for intelligent mode switching
+   */
+  processQualityMetrics(metrics: QualityMetrics): boolean {
+    if (this.currentMode === 'auto' && this.intelligentModeManager) {
+      return this.intelligentModeManager.processQualityMetrics(metrics);
+    }
+    return false;
+  }
+
+  /**
+   * Get current auto-mode state if in auto mode
+   */
+  getCurrentAutoState(): AutoModeState | null {
+    if (this.currentMode === 'auto' && this.intelligentModeManager) {
+      return this.intelligentModeManager.getCurrentAutoState();
+    }
+    return null;
+  }
+
+  /**
    * Notify progress update
    */
   private notifyProgress(): void {
     if (!this.events?.onProgressUpdate) return;
 
-    const progress: ScanProgress = {
+    let progress: ScanProgress = {
       state: this.currentState,
       mode: this.currentMode,
       startTime: this.scanStartTime,
@@ -537,6 +602,12 @@ export class FallbackController {
       timeElapsed: Date.now() - this.scanStartTime,
       message: this.getProgressMessage(),
     };
+
+    // Enhance progress with intelligent mode information if in auto mode
+    if (this.currentMode === 'auto' && this.intelligentModeManager) {
+      const autoProgress = this.intelligentModeManager.getProgressInfo();
+      progress = { ...progress, ...autoProgress };
+    }
 
     this.events.onProgressUpdate(progress);
   }
@@ -831,6 +902,12 @@ export class FallbackController {
 
       // Clear all timers with safe cleanup
       this.clearAllTimers();
+
+      // Cleanup IntelligentModeManager
+      if (this.intelligentModeManager) {
+        this.intelligentModeManager.destroy();
+        this.intelligentModeManager = undefined;
+      }
 
       // Reset state
       this.currentState = 'idle';

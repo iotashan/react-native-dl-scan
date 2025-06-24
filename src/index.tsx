@@ -30,6 +30,8 @@ export type {
   FallbackControllerEvents,
   PerformanceAlert,
 } from './utils/FallbackController';
+export { IntelligentModeManager } from './utils/IntelligentModeManager';
+export type { IntelligentModeManagerEvents } from './utils/IntelligentModeManager';
 export {
   initializeStorage,
   getPersistedScanMode,
