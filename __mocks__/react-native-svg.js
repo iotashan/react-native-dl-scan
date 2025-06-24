@@ -1,0 +1,15 @@
+module.exports = {
+  __esModule: true,
+  default: 'Svg',
+  Svg: 'Svg',
+  Line: 'Line',
+  Path: 'Path',
+  Circle: 'Circle',
+  Rect: 'Rect',
+  G: 'G',
+  Text: 'Text',
+  Defs: 'Defs',
+  ClipPath: 'ClipPath',
+  LinearGradient: 'LinearGradient',
+  Stop: 'Stop',
+};
