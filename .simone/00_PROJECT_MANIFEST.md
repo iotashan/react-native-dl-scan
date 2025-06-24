@@ -113,6 +113,7 @@ This project follows a milestone-based development approach.
 
 - [x] T001: [Fix Failing Test Infrastructure](04_GENERAL_TASKS/T001_Fix_Failing_Test_Infrastructure.md) - Status: In Progress
 - [x] T002: [Fix Critical Test Infrastructure - React act() warnings and async leaks in fallback integration](04_GENERAL_TASKS/TX002_COMPLETED_Fix_Critical_Test_Infrastructure_React_Act_Warnings_And_Async_Leaks_In_Fallback_Integration.md) - Status: Completed (2025-06-23 10:34)
+- [ ] T003: [iOS Simulator Example App Interactive Setup](04_GENERAL_TASKS/T003_iOS_Simulator_Example_App_Interactive_Setup.md) - Status: Blocked (2025-06-23 17:31) - Swift module compilation errors
 
 ## 6. Key Documentation
 

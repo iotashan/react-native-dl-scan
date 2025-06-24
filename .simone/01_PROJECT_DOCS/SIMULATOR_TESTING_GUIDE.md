@@ -329,6 +329,157 @@ describe('Performance Validation', () => {
 });
 ```
 
+## Interactive Testing with Mobile MCP
+
+### Overview
+
+For interactive development and testing, the iOS simulator can be controlled using the Mobile MCP (Model Context Protocol) tool with WebDriverAgent. This approach enables real-time interaction with the app for manual testing, UI validation, and iterative development.
+
+### Prerequisites
+
+- iPad Air 11-inch (M3) simulator running
+- WebDriverAgent installed and configured on the simulator
+- Mobile MCP tool available in the development environment
+
+### Setup WebDriverAgent
+
+WebDriverAgent should already be installed on the iPad simulator for interactive testing:
+
+```bash
+# Verify WebDriverAgent is running on simulator
+# The mobile MCP tool will automatically connect to the WebDriverAgent session
+```
+
+### Using Mobile MCP for Interactive Testing
+
+#### 1. Launch the Example App
+
+```bash
+# From project root
+cd example
+yarn start  # Start Metro bundler
+
+# In another terminal
+yarn ios   # Launch app on simulator
+```
+
+#### 2. Control Simulator with Mobile MCP
+
+Use mobile MCP commands to interact with the running app:
+
+```javascript
+// Take screenshot to see current app state
+mobile_take_screenshot
+
+// List interactive elements on screen
+mobile_list_elements_on_screen
+
+// Click on specific elements (e.g., "Open Camera" button)
+mobile_click_on_screen_at_coordinates(x, y)
+
+// Type text input if needed
+mobile_type_keys("sample text", true)
+
+// Navigate using device buttons
+mobile_press_button("HOME")
+mobile_press_button("BACK")
+
+// Swipe gestures for scrolling
+swipe_on_screen("up", 200)
+```
+
+#### 3. Interactive Testing Scenarios
+
+**Camera Permission Testing:**
+```javascript
+// Launch app and trigger camera permission request
+mobile_click_on_screen_at_coordinates(/* Open Camera button coordinates */)
+
+// Handle system permission dialog
+mobile_click_on_screen_at_coordinates(/* Allow button coordinates */)
+```
+
+**Navigation Flow Testing:**
+```javascript
+// Test full scanning workflow
+mobile_take_screenshot()  // Initial state
+mobile_click_on_screen_at_coordinates(/* Open Camera */)
+mobile_take_screenshot()  // Camera view
+mobile_click_on_screen_at_coordinates(/* Close or Back */)
+mobile_take_screenshot()  // Back to main view
+```
+
+**Error State Testing:**
+```javascript
+// Test app behavior under different conditions
+mobile_click_on_screen_at_coordinates(/* Test Scan button */)
+mobile_take_screenshot()  // Results display
+mobile_click_on_screen_at_coordinates(/* Reset button */)
+mobile_take_screenshot()  // Reset state
+```
+
+#### 4. Sample Data Integration
+
+For testing without real camera input, provide sample ID card images:
+
+```javascript
+// Request sample images from user as needed
+// "I need sample ID card images for testing. Can you provide:"
+// - Front of California driver's license
+// - Front of Texas driver's license  
+// - Sample with poor lighting conditions
+// - Sample with damaged/worn license
+```
+
+#### 5. Mobile MCP Testing Workflow
+
+```javascript
+// 1. Launch and verify app state
+mobile_use_default_device()
+mobile_take_screenshot()
+
+// 2. Navigate through app features
+mobile_list_elements_on_screen()
+mobile_click_on_screen_at_coordinates(x, y)
+
+// 3. Validate UI responses
+mobile_take_screenshot()
+
+// 4. Test error conditions
+mobile_click_on_screen_at_coordinates(/* error trigger */)
+mobile_take_screenshot()
+
+// 5. Reset for next test
+mobile_click_on_screen_at_coordinates(/* reset button */)
+```
+
+### Interactive Testing Benefits
+
+- **Real-time feedback**: See immediate results of code changes
+- **Manual validation**: Verify UI/UX behavior that automated tests might miss
+- **Sample data testing**: Test with real ID card images provided by user
+- **Performance observation**: Monitor app responsiveness during interactions
+- **Camera simulation limitations**: Work around simulator camera restrictions
+
+### Integration with Development
+
+The mobile MCP approach complements the automated testing framework:
+
+1. **Development**: Use mobile MCP for iterative UI development
+2. **Manual Testing**: Validate user experience flows
+3. **Sample Data**: Test with realistic ID card images
+4. **Debugging**: Interactive debugging of camera permission and scanning flows
+5. **Automated Testing**: Fall back to Jest/Detox for CI/CD
+
+### Best Practices for Mobile MCP Testing
+
+- **Screenshot frequently**: Document each step for debugging
+- **Element coordinates**: Use `mobile_list_elements_on_screen()` to find precise coordinates
+- **State verification**: Take screenshots before and after each interaction
+- **Sample data ready**: Have various ID card images prepared for testing
+- **Permission flows**: Test both granted and denied camera permissions
+- **Error recovery**: Verify app handles errors gracefully with user-friendly messages
+
 ## Best Practices
 
 ### 1. Test Organization
