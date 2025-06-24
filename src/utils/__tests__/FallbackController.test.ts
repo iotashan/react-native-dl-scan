@@ -104,10 +104,10 @@ describe('FallbackController', () => {
       controller.cancel();
       controller.destroy();
     }
-    
+
     // Clear all Jest timers
     jest.clearAllTimers();
-    
+
     // Force garbage collection if available (for Node.js testing environments)
     if (global.gc) {
       global.gc();

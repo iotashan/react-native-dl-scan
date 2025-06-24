@@ -37,11 +37,11 @@ describe('IntelligentModeManager', () => {
       manager.cancel();
       manager.destroy();
     }
-    
+
     // Clear all timers and return to real timers
     jest.clearAllTimers();
     jest.useRealTimers();
-    
+
     // Force garbage collection if available (for Node.js testing environments)
     if (global.gc) {
       global.gc();

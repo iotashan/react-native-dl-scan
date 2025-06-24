@@ -72,7 +72,7 @@ describe('Date Formatting', () => {
         }
         return new originalDate(dateString);
       }) as any;
-      
+
       // Copy over static methods
       Object.assign(global.Date, originalDate);
       global.Date.now = jest.fn(() => mockDate.getTime());

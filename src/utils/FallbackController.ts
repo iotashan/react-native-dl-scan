@@ -23,9 +23,15 @@ export interface FallbackControllerEvents {
   onModeSwitch: (fromMode: ScanMode, toMode: ScanMode, reason: string) => void;
   onMetricsUpdate: (metrics: Partial<ScanMetrics>) => void;
   onPerformanceAlert?: (alert: PerformanceAlert) => void;
-  onAutoModeStateChange?: (oldState: AutoModeState, newState: AutoModeState) => void;
+  onAutoModeStateChange?: (
+    oldState: AutoModeState,
+    newState: AutoModeState
+  ) => void;
   onModeRecommendation?: (recommendedMode: ScanMode, reason: string) => void;
-  onQualityAssessment?: (metrics: QualityMetrics, shouldSwitch: boolean) => void;
+  onQualityAssessment?: (
+    metrics: QualityMetrics,
+    shouldSwitch: boolean
+  ) => void;
 }
 
 // Export PerformanceAlert for use in other modules
@@ -68,7 +74,10 @@ export class FallbackController {
     };
 
     const intelligentEvents: IntelligentModeManagerEvents = {
-      onAutoModeStateChange: (oldState: AutoModeState, newState: AutoModeState) => {
+      onAutoModeStateChange: (
+        oldState: AutoModeState,
+        newState: AutoModeState
+      ) => {
         if (this.events?.onAutoModeStateChange) {
           this.events.onAutoModeStateChange(oldState, newState);
         }
@@ -79,7 +88,10 @@ export class FallbackController {
         }
       },
       onWarningThresholdReached: (timeElapsed: number, threshold: number) => {
-        logger.info('Auto-mode warning threshold reached', { timeElapsed, threshold });
+        logger.info('Auto-mode warning threshold reached', {
+          timeElapsed,
+          threshold,
+        });
       },
       onQualityAssessment: (metrics: QualityMetrics, shouldSwitch: boolean) => {
         if (this.events?.onQualityAssessment) {
@@ -88,7 +100,10 @@ export class FallbackController {
       },
     };
 
-    this.intelligentModeManager = new IntelligentModeManager(autoModeConfig, intelligentEvents);
+    this.intelligentModeManager = new IntelligentModeManager(
+      autoModeConfig,
+      intelligentEvents
+    );
 
     // Start preparing OCR processor in parallel
     this.prepareOCRProcessor();
@@ -127,7 +142,7 @@ export class FallbackController {
             if (this.intelligentModeManager) {
               this.intelligentModeManager.startAutoModeSession();
             }
-            
+
             result = await this.performBarcodeScanWithFallback(input as string);
           } catch (error) {
             if (this.abortController.signal.aborted) {
@@ -782,9 +797,12 @@ export class FallbackController {
       try {
         // Remove from activeTimers first to prevent race conditions
         this.activeTimers.delete(timer);
-        
+
         // Only execute callback if not aborted and controller is still alive
-        if (!this.abortController?.signal.aborted && this.currentState !== 'idle') {
+        if (
+          !this.abortController?.signal.aborted &&
+          this.currentState !== 'idle'
+        ) {
           callback();
         }
       } catch (error) {
@@ -793,10 +811,10 @@ export class FallbackController {
         });
       }
     }, delay);
-    
+
     // Track timer immediately after creation
     this.activeTimers.add(timer);
-    
+
     // Set up abort signal listener to clean up timer if aborted
     if (this.abortController?.signal) {
       const abortHandler = () => {
@@ -805,7 +823,7 @@ export class FallbackController {
           this.activeTimers.delete(timer);
         }
       };
-      
+
       // Check if already aborted
       if (this.abortController.signal.aborted) {
         abortHandler();
@@ -813,7 +831,7 @@ export class FallbackController {
         this.abortController.signal.addEventListener('abort', abortHandler);
       }
     }
-    
+
     return timer;
   }
 
@@ -844,12 +862,12 @@ export class FallbackController {
   cancel(): void {
     // Immediately clear all timers to prevent new ones from firing
     this.clearAllTimers();
-    
+
     // Then abort the controller to signal all operations to stop
     if (this.abortController) {
       this.abortController.abort();
     }
-    
+
     this.updateState('idle');
     logger.info('Scan cancelled by user');
   }
@@ -862,15 +880,15 @@ export class FallbackController {
     if (this.abortController) {
       this.abortController.abort();
     }
-    
+
     // Clear all timers after aborting to ensure proper cleanup
     this.clearAllTimers();
-    
+
     // Reset state
     this.currentState = 'idle';
     this.scanStartTime = 0;
     this.barcodeAttempts = 0;
-    
+
     // Clear abortController reference after cleanup
     this.abortController = undefined;
   }

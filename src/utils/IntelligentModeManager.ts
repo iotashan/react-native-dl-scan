@@ -430,13 +430,13 @@ export class IntelligentModeManager {
     try {
       // Clear timers first to prevent any callbacks during destruction
       this.clearTimers();
-      
+
       // Reset state
       this.reset();
-      
+
       // Clear event references to prevent memory leaks
       this.events = undefined;
-      
+
       logger.info('IntelligentModeManager destroyed successfully');
     } catch (error) {
       logger.error('Error during IntelligentModeManager destruction', {
