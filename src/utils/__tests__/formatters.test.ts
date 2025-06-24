@@ -65,12 +65,24 @@ describe('Date Formatting', () => {
     const originalDate = Date;
 
     beforeAll(() => {
-      global.Date = jest.fn(() => mockDate) as any;
+      // Mock Date constructor to return mockDate when called without arguments
+      global.Date = jest.fn((dateString?: string | number) => {
+        if (dateString === undefined) {
+          return mockDate;
+        }
+        return new originalDate(dateString);
+      }) as any;
+      
+      // Copy over static methods
       Object.assign(global.Date, originalDate);
+      global.Date.now = jest.fn(() => mockDate.getTime());
     });
 
     afterAll(() => {
+      // Restore original Date and clean up all references
       global.Date = originalDate;
+      jest.restoreAllMocks();
+      jest.clearAllTimers();
     });
 
     it('calculates age correctly', () => {

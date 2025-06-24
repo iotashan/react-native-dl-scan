@@ -63,32 +63,55 @@ export class IntelligentModeManager {
    * Setup warning and timeout timers
    */
   private setupTimers(): void {
-    // Clear existing timers
+    // Clear existing timers first
     this.clearTimers();
+
+    // Only setup timers if we have a valid scan start time
+    if (this.scanStartTime === 0) {
+      logger.warn('Attempted to setup timers without valid scan start time');
+      return;
+    }
 
     // Warning timer - notify when approaching timeout
     this.warningTimer = setTimeout(() => {
-      const timeElapsed = Date.now() - this.scanStartTime;
-      this.transitionToState(AutoModeState.PDF417_TIMEOUT_WARNING);
+      try {
+        const timeElapsed = Date.now() - this.scanStartTime;
+        this.transitionToState(AutoModeState.PDF417_TIMEOUT_WARNING);
 
-      if (this.events?.onWarningThresholdReached) {
-        this.events.onWarningThresholdReached(
+        if (this.events?.onWarningThresholdReached) {
+          this.events.onWarningThresholdReached(
+            timeElapsed,
+            this.config.warningThresholdMs
+          );
+        }
+
+        logger.info('PDF417 timeout warning triggered', {
           timeElapsed,
-          this.config.warningThresholdMs
-        );
+          threshold: this.config.warningThresholdMs,
+        });
+      } catch (error) {
+        logger.error('Error in warning timer callback', {
+          error: (error as Error).message,
+        });
       }
-
-      logger.info('PDF417 timeout warning triggered', {
-        timeElapsed,
-        threshold: this.config.warningThresholdMs,
-      });
     }, this.config.warningThresholdMs);
 
     // Timeout timer - trigger automatic switch to OCR
     this.timeoutTimer = setTimeout(() => {
-      const timeElapsed = Date.now() - this.scanStartTime;
-      this.triggerTimeoutFallback(timeElapsed);
+      try {
+        const timeElapsed = Date.now() - this.scanStartTime;
+        this.triggerTimeoutFallback(timeElapsed);
+      } catch (error) {
+        logger.error('Error in timeout timer callback', {
+          error: (error as Error).message,
+        });
+      }
     }, this.config.pdf417TimeoutMs);
+
+    logger.debug('Timers setup successfully', {
+      warningThreshold: this.config.warningThresholdMs,
+      timeoutThreshold: this.config.pdf417TimeoutMs,
+    });
   }
 
   /**
@@ -366,14 +389,28 @@ export class IntelligentModeManager {
    */
   private clearTimers(): void {
     if (this.warningTimer) {
-      clearTimeout(this.warningTimer);
+      try {
+        clearTimeout(this.warningTimer);
+      } catch (error) {
+        logger.warn('Error clearing warning timer', {
+          error: (error as Error).message,
+        });
+      }
       this.warningTimer = undefined;
     }
 
     if (this.timeoutTimer) {
-      clearTimeout(this.timeoutTimer);
+      try {
+        clearTimeout(this.timeoutTimer);
+      } catch (error) {
+        logger.warn('Error clearing timeout timer', {
+          error: (error as Error).message,
+        });
+      }
       this.timeoutTimer = undefined;
     }
+
+    logger.debug('All timers cleared successfully');
   }
 
   /**
@@ -390,9 +427,21 @@ export class IntelligentModeManager {
    * Cleanup and destroy manager
    */
   destroy(): void {
-    this.clearTimers();
-    this.reset();
-    this.events = undefined;
-    logger.info('IntelligentModeManager destroyed');
+    try {
+      // Clear timers first to prevent any callbacks during destruction
+      this.clearTimers();
+      
+      // Reset state
+      this.reset();
+      
+      // Clear event references to prevent memory leaks
+      this.events = undefined;
+      
+      logger.info('IntelligentModeManager destroyed successfully');
+    } catch (error) {
+      logger.error('Error during IntelligentModeManager destruction', {
+        error: (error as Error).message,
+      });
+    }
   }
 }

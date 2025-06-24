@@ -23,8 +23,29 @@ jest.mock('../../index', () => {
   }
 
   return {
-    scanLicense: jest.fn(),
-    parseOCRText: jest.fn(),
+    scanLicense: jest.fn(
+      () =>
+        new Promise((resolve) => {
+          // Simulate a long-running operation that can be aborted
+          const timer = setTimeout(() => {
+            resolve({
+              firstName: 'John',
+              lastName: 'Doe',
+              licenseNumber: 'D12345678',
+            });
+          }, 5000); // 5 second delay
+
+          // Clean up timer if needed (though it won't be called in tests)
+          return () => clearTimeout(timer);
+        })
+    ),
+    parseOCRText: jest.fn(() =>
+      Promise.resolve({
+        firstName: 'John',
+        lastName: 'Doe',
+        licenseNumber: 'D12345678',
+      })
+    ),
     ScanError: MockScanError,
   };
 });
@@ -75,8 +96,17 @@ describe('FallbackController Memory Management', () => {
   });
 
   afterEach(() => {
+    // Comprehensive cleanup to prevent memory leaks and timer issues
     if (controller) {
       controller.destroy();
+    }
+
+    // Clear any remaining timers that might have been missed
+    jest.clearAllTimers();
+
+    // Force garbage collection if available (for Node.js testing environments)
+    if (global.gc) {
+      global.gc();
     }
   });
 

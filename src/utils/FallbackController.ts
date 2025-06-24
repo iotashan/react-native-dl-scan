@@ -779,22 +779,41 @@ export class FallbackController {
    */
   private createTimer(callback: () => void, delay: number): NodeJS.Timeout {
     const timer = setTimeout(() => {
-      // Safe cleanup: only delete if still in activeTimers
-      if (this.activeTimers.has(timer)) {
+      try {
+        // Remove from activeTimers first to prevent race conditions
         this.activeTimers.delete(timer);
-      }
-      // Only execute callback if not aborted
-      if (!this.abortController?.signal.aborted) {
-        try {
+        
+        // Only execute callback if not aborted and controller is still alive
+        if (!this.abortController?.signal.aborted && this.currentState !== 'idle') {
           callback();
-        } catch (error) {
-          logger.error('Timer callback error', {
-            error: (error as Error).message,
-          });
         }
+      } catch (error) {
+        logger.error('Timer callback error', {
+          error: (error as Error).message,
+        });
       }
     }, delay);
+    
+    // Track timer immediately after creation
     this.activeTimers.add(timer);
+    
+    // Set up abort signal listener to clean up timer if aborted
+    if (this.abortController?.signal) {
+      const abortHandler = () => {
+        if (this.activeTimers.has(timer)) {
+          clearTimeout(timer);
+          this.activeTimers.delete(timer);
+        }
+      };
+      
+      // Check if already aborted
+      if (this.abortController.signal.aborted) {
+        abortHandler();
+      } else {
+        this.abortController.signal.addEventListener('abort', abortHandler);
+      }
+    }
+    
     return timer;
   }
 
@@ -805,6 +824,9 @@ export class FallbackController {
     // Create a copy to avoid modification during iteration
     const timersToClear = Array.from(this.activeTimers);
 
+    // Clear the set first to prevent new timers being added during cleanup
+    this.activeTimers.clear();
+
     timersToClear.forEach((timer) => {
       try {
         clearTimeout(timer);
@@ -814,18 +836,20 @@ export class FallbackController {
         });
       }
     });
-
-    this.activeTimers.clear();
   }
 
   /**
    * Cancel current scan operation
    */
   cancel(): void {
+    // Immediately clear all timers to prevent new ones from firing
+    this.clearAllTimers();
+    
+    // Then abort the controller to signal all operations to stop
     if (this.abortController) {
       this.abortController.abort();
     }
-    this.clearAllTimers(); // Clear all pending timers
+    
     this.updateState('idle');
     logger.info('Scan cancelled by user');
   }
@@ -834,13 +858,21 @@ export class FallbackController {
    * Reset controller state
    */
   private reset(): void {
-    this.currentState = 'idle';
-    this.scanStartTime = 0;
-    this.barcodeAttempts = 0;
-    this.clearAllTimers(); // Clear all pending timers
+    // Abort any existing operations first
     if (this.abortController) {
       this.abortController.abort();
     }
+    
+    // Clear all timers after aborting to ensure proper cleanup
+    this.clearAllTimers();
+    
+    // Reset state
+    this.currentState = 'idle';
+    this.scanStartTime = 0;
+    this.barcodeAttempts = 0;
+    
+    // Clear abortController reference after cleanup
+    this.abortController = undefined;
   }
 
   /**

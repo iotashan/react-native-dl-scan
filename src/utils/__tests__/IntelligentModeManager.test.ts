@@ -32,8 +32,20 @@ describe('IntelligentModeManager', () => {
   });
 
   afterEach(() => {
-    manager.destroy();
+    // Comprehensive cleanup to prevent memory leaks and timer issues
+    if (manager) {
+      manager.cancel();
+      manager.destroy();
+    }
+    
+    // Clear all timers and return to real timers
+    jest.clearAllTimers();
     jest.useRealTimers();
+    
+    // Force garbage collection if available (for Node.js testing environments)
+    if (global.gc) {
+      global.gc();
+    }
   });
 
   describe('Initialization', () => {

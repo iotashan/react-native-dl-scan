@@ -15,10 +15,12 @@ export const formatDate = (dateInput?: string | Date): string => {
       return typeof dateInput === 'string' ? dateInput : ''; // Return original if invalid
     }
 
+    // Use UTC to ensure consistent behavior across timezones
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
+      timeZone: 'UTC',
     });
   } catch {
     return typeof dateInput === 'string' ? dateInput : '';
@@ -35,10 +37,12 @@ export const formatShortDate = (dateInput?: string | Date): string => {
       return typeof dateInput === 'string' ? dateInput : '';
     }
 
+    // Use UTC to ensure consistent behavior across timezones
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
+      timeZone: 'UTC',
     });
   } catch {
     return typeof dateInput === 'string' ? dateInput : '';
@@ -54,7 +58,9 @@ export const calculateAge = (dateOfBirth?: string | Date): number | null => {
       typeof dateOfBirth === 'string' ? new Date(dateOfBirth) : dateOfBirth;
     if (isNaN(birth.getTime())) return null;
 
+    // Use consistent date handling - new Date() will use the mocked date in tests
     const today = new Date();
+
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
 
@@ -65,7 +71,7 @@ export const calculateAge = (dateOfBirth?: string | Date): number | null => {
       age--;
     }
 
-    return age >= 0 ? age : null;
+    return age;
   } catch {
     return null;
   }
@@ -206,56 +212,49 @@ export const isDateValid = (dateString?: string): boolean => {
 
 // Data completeness scoring
 export const calculateDataCompleteness = (data: LicenseData): number => {
-  const requiredFields = [
-    'firstName',
-    'lastName',
-    'dateOfBirth',
-    'licenseNumber',
-    'addressStreet',
-    'addressCity',
-    'addressState',
-    'issueDate',
-    'expiryDate',
-  ];
-
-  const optionalFields = [
-    'middleName',
-    'addressZip',
-    'licenseClass',
-    'sex',
-    'height',
-    'weight',
-    'eyeColor',
-    'hairColor',
-    'restrictions',
-    'endorsements',
-  ];
-
   let filledRequired = 0;
   let filledOptional = 0;
 
-  requiredFields.forEach((field) => {
-    const value = data[field as keyof LicenseData];
-    if (typeof value === 'string' && value.trim()) {
-      filledRequired++;
-    }
-  });
+  // Check required fields
+  const requiredChecks = [
+    data.firstName && data.firstName.trim(),
+    data.lastName && data.lastName.trim(),
+    data.dateOfBirth,
+    data.licenseNumber && data.licenseNumber.trim(),
+    // Handle address object fields
+    data.address?.street && data.address.street.trim(),
+    data.address?.city && data.address.city.trim(),
+    data.address?.state && data.address.state.trim(),
+    data.issueDate,
+    data.expirationDate,
+  ];
 
-  optionalFields.forEach((field) => {
-    const value = data[field as keyof LicenseData];
-    if (typeof value === 'string' && value.trim()) {
-      filledOptional++;
-    }
-  });
+  filledRequired = requiredChecks.filter(Boolean).length;
+
+  // Check optional fields
+  const optionalChecks = [
+    data.middleName && data.middleName.trim(),
+    data.address?.postalCode && data.address.postalCode.trim(),
+    data.licenseClass && data.licenseClass.trim(),
+    data.sex && data.sex.trim(),
+    data.height && data.height.trim(),
+    data.weight && data.weight.trim(),
+    data.eyeColor && data.eyeColor.trim(),
+    data.hairColor && data.hairColor.trim(),
+    data.restrictions && data.restrictions.trim(),
+    data.endorsements && data.endorsements.trim(),
+  ];
+
+  filledOptional = optionalChecks.filter(Boolean).length;
 
   // Weight required fields more heavily
   const requiredWeight = 0.7;
   const optionalWeight = 0.3;
+  const totalRequired = 9; // 9 required fields
+  const totalOptional = 10; // 10 optional fields
 
-  const requiredScore =
-    (filledRequired / requiredFields.length) * requiredWeight;
-  const optionalScore =
-    (filledOptional / optionalFields.length) * optionalWeight;
+  const requiredScore = (filledRequired / totalRequired) * requiredWeight;
+  const optionalScore = (filledOptional / totalOptional) * optionalWeight;
 
   return Math.round((requiredScore + optionalScore) * 100) / 100;
 };

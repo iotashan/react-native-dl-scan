@@ -99,9 +99,19 @@ describe('FallbackController', () => {
   });
 
   afterEach(() => {
-    // Clean up any timers or intervals
-    controller.cancel();
+    // Comprehensive cleanup to prevent memory leaks and timer issues
+    if (controller) {
+      controller.cancel();
+      controller.destroy();
+    }
+    
+    // Clear all Jest timers
     jest.clearAllTimers();
+    
+    // Force garbage collection if available (for Node.js testing environments)
+    if (global.gc) {
+      global.gc();
+    }
   });
 
   describe('Configuration', () => {
