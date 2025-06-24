@@ -13,6 +13,7 @@ export type { ScanningOverlayProps } from './ScanningOverlay';
 export { QualityIndicator } from './QualityIndicator';
 export { AlignmentGuides, GridPattern } from './AlignmentGuides';
 export { ScanningOverlayContainer } from './ScanningOverlayContainer';
+export { GuidanceOverlay } from './GuidanceOverlay';
 
 // Example Integration
 export { CameraViewExample } from './CameraViewExample';

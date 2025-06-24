@@ -102,6 +102,28 @@ export interface QualityMetrics {
   documentAlignment: number; // 0-1
 }
 
+export interface RealTimeQualityMetrics {
+  blur: {
+    value: number; // 0-1, lower is better
+    status: 'good' | 'warning' | 'poor';
+  };
+  lighting: {
+    brightness: number; // 0-1
+    uniformity: number; // 0-1
+    status: 'good' | 'warning' | 'poor';
+  };
+  positioning: {
+    documentDetected: boolean;
+    alignment: number; // 0-1
+    distance: 'too_close' | 'optimal' | 'too_far';
+    status: 'good' | 'warning' | 'poor';
+  };
+  overall: {
+    score: number; // 0-1
+    readyToScan: boolean;
+  };
+}
+
 export interface FallbackConfig {
   barcodeTimeoutMs: number;
   ocrTimeoutMs: number;

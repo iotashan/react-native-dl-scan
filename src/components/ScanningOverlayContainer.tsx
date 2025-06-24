@@ -3,20 +3,22 @@ import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { ScanningOverlay } from './ScanningOverlay';
 import { QualityIndicator } from './QualityIndicator';
 import { AlignmentGuides } from './AlignmentGuides';
-import type { ScanMode } from '../types/license';
+import { GuidanceOverlay } from './GuidanceOverlay';
+import type { ScanMode, RealTimeQualityMetrics } from '../types/license';
 
 interface ScanningOverlayContainerProps {
   mode: ScanMode;
   isScanning: boolean;
   onModeChange?: (mode: ScanMode) => void;
   onOverlayPress?: () => void;
-  // Quality metrics
+  // Quality metrics (supports both legacy and new interfaces)
   imageQuality?: {
     blur: number;
     lighting: number;
     positioning: number;
     overall: 'good' | 'fair' | 'poor';
   };
+  realTimeQualityMetrics?: RealTimeQualityMetrics;
   // Edge detection
   edgeDetected?: {
     top: boolean;
@@ -28,6 +30,9 @@ interface ScanningOverlayContainerProps {
   showQualityIndicator?: boolean;
   showAlignmentGuides?: boolean;
   showModeToggle?: boolean;
+  showGuidanceOverlay?: boolean;
+  enableHapticFeedback?: boolean;
+  enableAccessibilityAnnouncements?: boolean;
   orientation?: 'portrait' | 'landscape';
 }
 
@@ -44,6 +49,7 @@ export const ScanningOverlayContainer: React.FC<
     positioning: 0.8,
     overall: 'good',
   },
+  realTimeQualityMetrics,
   edgeDetected = {
     top: false,
     right: false,
@@ -53,6 +59,9 @@ export const ScanningOverlayContainer: React.FC<
   showQualityIndicator = true,
   showAlignmentGuides = true,
   showModeToggle = true,
+  showGuidanceOverlay = true,
+  enableHapticFeedback = true,
+  enableAccessibilityAnnouncements = true,
   orientation = 'portrait',
 }) => {
   const [detectionState, setDetectionState] = useState<
@@ -60,14 +69,18 @@ export const ScanningOverlayContainer: React.FC<
   >('idle');
   const [showGrid, setShowGrid] = useState(false);
 
-  // Simulate detection states based on quality
+  // Simulate detection states based on quality (supports both metric interfaces)
   useEffect(() => {
-    if (isScanning && imageQuality.overall === 'good') {
+    const isGoodQuality = realTimeQualityMetrics
+      ? realTimeQualityMetrics.overall.readyToScan
+      : imageQuality.overall === 'good';
+      
+    if (isScanning && isGoodQuality) {
       setDetectionState('detecting');
     } else {
       setDetectionState('idle');
     }
-  }, [isScanning, imageQuality.overall]);
+  }, [isScanning, imageQuality.overall, realTimeQualityMetrics]);
 
   const handleModeToggle = useCallback(() => {
     if (!onModeChange) return;
@@ -86,7 +99,27 @@ export const ScanningOverlayContainer: React.FC<
       return 'Tap to start scanning';
     }
 
-    if (imageQuality.overall === 'poor') {
+    // Use real-time metrics if available, otherwise fall back to legacy
+    if (realTimeQualityMetrics) {
+      if (!realTimeQualityMetrics.positioning.documentDetected) {
+        return mode === 'barcode' 
+          ? 'Position the back of your license in the frame'
+          : 'Position the front of your license in the frame';
+      }
+      if (realTimeQualityMetrics.blur.status === 'poor') {
+        return 'Hold camera steady';
+      }
+      if (realTimeQualityMetrics.lighting.status === 'poor') {
+        return 'Find better lighting';
+      }
+      if (realTimeQualityMetrics.positioning.status === 'poor') {
+        return realTimeQualityMetrics.positioning.distance === 'too_close' 
+          ? 'Move device farther away'
+          : realTimeQualityMetrics.positioning.distance === 'too_far'
+          ? 'Move device closer'
+          : 'Center license in frame';
+      }
+    } else if (imageQuality.overall === 'poor') {
       if (imageQuality.blur > 0.7) {
         return 'Hold camera steady';
       }
@@ -146,9 +179,25 @@ export const ScanningOverlayContainer: React.FC<
       {/* Quality indicator */}
       {showQualityIndicator && isScanning && (
         <QualityIndicator
-          metrics={imageQuality}
-          showDetails={imageQuality.overall !== 'good'}
-          compact={imageQuality.overall === 'good'}
+          metrics={realTimeQualityMetrics || imageQuality}
+          showDetails={realTimeQualityMetrics 
+            ? !realTimeQualityMetrics.overall.readyToScan 
+            : imageQuality.overall !== 'good'}
+          compact={realTimeQualityMetrics 
+            ? realTimeQualityMetrics.overall.readyToScan 
+            : imageQuality.overall === 'good'}
+          mode={mode === 'barcode' ? 'pdf417' : 'ocr'}
+          enableHapticFeedback={enableHapticFeedback}
+          enableAccessibilityAnnouncements={enableAccessibilityAnnouncements}
+        />
+      )}
+
+      {/* Guidance overlay for enhanced feedback */}
+      {showGuidanceOverlay && isScanning && realTimeQualityMetrics && (
+        <GuidanceOverlay
+          metrics={realTimeQualityMetrics}
+          mode={mode === 'barcode' ? 'pdf417' : 'ocr'}
+          pulseAnimation={true}
         />
       )}
 

@@ -74,27 +74,37 @@ jest.mock('react-native-reanimated', () => {
 // Auto-mock these modules - Jest will use __mocks__ directory
 jest.mock('react-native-svg');
 jest.mock('react-native-vision-camera');
+jest.mock('expo-haptics');
 
 // Mock React Native modules that might be missing
 jest.mock('react-native', () => {
   const RN = jest.requireActual('react-native');
 
   // Add any missing mocks
-  RN.NativeModules = {
-    ...RN.NativeModules,
-    DlScan: {
-      scanLicense: jest.fn(),
-      parseOCRText: jest.fn(),
+  Object.defineProperty(RN, 'NativeModules', {
+    value: {
+      ...RN.NativeModules,
+      DlScan: {
+        scanLicense: jest.fn(),
+        parseOCRText: jest.fn(),
+      },
+      // Add other native modules if needed
     },
-    // Add other native modules if needed
-  };
+    writable: true,
+    configurable: true,
+  });
 
   // Mock Platform if needed
-  RN.Platform = {
-    ...RN.Platform,
-    OS: 'ios',
-    select: jest.fn((obj) => obj.ios || obj.default),
-  };
+  Object.defineProperty(RN, 'Platform', {
+    value: {
+      OS: 'ios',
+      select: jest.fn((obj) => obj.ios || obj.default),
+      Version: '14.0',
+      constants: {},
+    },
+    writable: true,
+    configurable: true,
+  });
 
   return RN;
 });

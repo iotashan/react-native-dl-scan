@@ -8,6 +8,7 @@ import type {
 
 export * from './types/license';
 export { useLicenseScanner } from './hooks/useLicenseScanner';
+export { useThrottledQualityMetrics } from './hooks/useThrottledQualityMetrics';
 export type {
   LicenseScannerOptions,
   LicenseScannerState,
@@ -15,10 +16,20 @@ export type {
 } from './hooks/useLicenseScanner';
 export { scanLicense as scanLicenseFrame } from './frameProcessors/scanLicense';
 export type { ScanLicenseResult } from './frameProcessors/scanLicense';
+export { 
+  calculateQualityMetrics,
+  convertLegacyMetrics,
+  shouldAnalyzeFrame,
+  getCachedQualityMetrics,
+  setCachedQualityMetrics
+} from './frameProcessors/qualityMetrics';
 export { CameraScanner } from './components/CameraScanner';
 export type { CameraScannerProps } from './components/CameraScanner';
 export { ModeSelector } from './components/ModeSelector';
 export type { ModeSelectorProps } from './components/ModeSelector';
+export { QualityIndicator } from './components/QualityIndicator';
+export { GuidanceOverlay } from './components/GuidanceOverlay';
+export { ScanningOverlayContainer } from './components/ScanningOverlayContainer';
 export type {
   ScanModeConfig,
   FrameProcessorConfig,
