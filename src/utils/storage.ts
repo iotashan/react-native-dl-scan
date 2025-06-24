@@ -1,4 +1,5 @@
 import type { ScanMode } from '../types/license';
+import { logger } from './logger';
 
 const STORAGE_KEYS = {
   SCAN_MODE: '@dl_scan_mode',
@@ -29,7 +30,7 @@ export function initializeStorage(adapter: StorageAdapter) {
  */
 export async function getPersistedScanMode(): Promise<ScanMode | null> {
   if (!storageAdapter) {
-    console.warn(
+    logger.warn(
       'Storage adapter not initialized. Call initializeStorage first.'
     );
     return null;
@@ -41,7 +42,7 @@ export async function getPersistedScanMode(): Promise<ScanMode | null> {
       return savedMode as ScanMode;
     }
   } catch (error) {
-    console.error('Error loading persisted scan mode:', error);
+    logger.error('Error loading persisted scan mode', { error });
   }
   return null;
 }
@@ -51,7 +52,7 @@ export async function getPersistedScanMode(): Promise<ScanMode | null> {
  */
 export async function persistScanMode(mode: ScanMode): Promise<void> {
   if (!storageAdapter) {
-    console.warn(
+    logger.warn(
       'Storage adapter not initialized. Call initializeStorage first.'
     );
     return;
@@ -60,7 +61,7 @@ export async function persistScanMode(mode: ScanMode): Promise<void> {
   try {
     await storageAdapter.setItem(STORAGE_KEYS.SCAN_MODE, mode);
   } catch (error) {
-    console.error('Error persisting scan mode:', error);
+    logger.error('Error persisting scan mode', { error });
   }
 }
 
@@ -69,7 +70,7 @@ export async function persistScanMode(mode: ScanMode): Promise<void> {
  */
 export async function clearPersistedScanMode(): Promise<void> {
   if (!storageAdapter) {
-    console.warn(
+    logger.warn(
       'Storage adapter not initialized. Call initializeStorage first.'
     );
     return;
@@ -78,7 +79,7 @@ export async function clearPersistedScanMode(): Promise<void> {
   try {
     await storageAdapter.removeItem(STORAGE_KEYS.SCAN_MODE);
   } catch (error) {
-    console.error('Error clearing persisted scan mode:', error);
+    logger.error('Error clearing persisted scan mode', { error });
   }
 }
 

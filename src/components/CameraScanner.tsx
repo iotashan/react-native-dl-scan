@@ -19,6 +19,7 @@ import {
 import { runOnJS } from 'react-native-reanimated';
 import { scanLicense } from '../frameProcessors/scanLicense';
 import { scanOCR } from '../frameProcessors/scanOCR';
+import { logger } from '../utils/logger';
 import type {
   LicenseData,
   ScanProgress,
@@ -228,7 +229,7 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
     // Request permission on mount if not already granted
     if (hasPermission === false) {
       requestPermission().catch((error) => {
-        console.error('Failed to request camera permission:', error);
+        logger.error('Failed to request camera permission', { error });
         onError?.(new Error('Failed to request camera permission'));
       });
     }
@@ -272,14 +273,14 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
   };
 
   const onScanError = (error: any) => {
-    console.error('Scan error:', error);
+    logger.error('Scan error', { error });
     onError?.(new Error(error.message || 'Scanning failed'));
   };
 
   // Handle mode transitions
   const handleModeTransition = useCallback(
     (newMode: ScanMode, reason?: string) => {
-      console.log(`Mode transition: ${currentMode} -> ${newMode}`, reason);
+      logger.info(`Mode transition: ${currentMode} -> ${newMode}`, { reason });
       setCurrentMode(newMode);
       onModeChange?.(newMode);
 
@@ -336,10 +337,9 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
               setOcrObservations(ocrResult.observations!);
               // In a real implementation, this would trigger OCR parsing
               // For now, we'll just log it
-              console.log(
-                'OCR observations collected:',
-                ocrResult.observations!.length
-              );
+              logger.info('OCR observations collected', {
+                count: ocrResult.observations!.length,
+              });
             })();
           }
         } else if (frameProcessorConfig.enableBarcode) {
@@ -367,7 +367,7 @@ export const CameraScanner: React.FC<CameraScannerProps> = ({
               result.error.code?.startsWith('POOR_QUALITY') &&
               result.error.recoverable
             ) {
-              console.log('Frame quality issue:', result.error.code);
+              logger.info('Frame quality issue', { code: result.error.code });
               return;
             }
 
