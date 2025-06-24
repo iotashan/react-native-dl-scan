@@ -13,7 +13,6 @@ import { scanLicense, parseOCRText, ScanError } from '../index';
 import { logger } from './logger';
 import { performanceMonitor } from './PerformanceMonitor';
 
-
 export interface FallbackControllerEvents {
   onProgressUpdate: (progress: ScanProgress) => void;
   onModeSwitch: (fromMode: ScanMode, toMode: ScanMode, reason: string) => void;
@@ -30,7 +29,7 @@ export class FallbackController {
   private barcodeAttempts: number = 0;
   private events?: FallbackControllerEvents;
   private abortController?: AbortController;
-  private ocrProcessorReady: boolean = false; // Used for parallel processing optimization
+  private ocrProcessorReady: boolean = false;
   private activeTimers: Set<NodeJS.Timeout> = new Set(); // Track active timers for cleanup
 
   constructor(
@@ -67,7 +66,7 @@ export class FallbackController {
 
     // Optimized performance monitoring - minimal overhead
     const sessionType = mode === 'auto' ? 'fallback' : mode;
-    const performanceSessionId = performanceMonitor.startSession(sessionType);
+    performanceMonitor.startSession(sessionType);
 
     try {
       let result: LicenseData;
@@ -103,7 +102,6 @@ export class FallbackController {
       }
 
       return result;
-      
     } catch (error) {
       this.updateState('failed');
       this.notifyMetrics({ success: false });
@@ -111,7 +109,7 @@ export class FallbackController {
     } finally {
       // Optimized performance monitoring - minimal overhead
       const detailedMetrics = performanceMonitor.endSession();
-      
+
       // Only process detailed metrics if events are configured
       if (detailedMetrics && this.events?.onMetricsUpdate) {
         this.notifyEnhancedMetrics(detailedMetrics);
@@ -180,7 +178,7 @@ export class FallbackController {
 
       // Optimized transition with minimal overhead
       const transitionStartTime = Date.now();
-      
+
       // Enforce <200ms transition requirement
       const transitionPromise = new Promise<OCRTextObservation[]>((resolve) => {
         // For demo purposes, we'll simulate OCR data based on typical license fields
@@ -211,7 +209,7 @@ export class FallbackController {
         mockOCRData = await Promise.race([transitionPromise, timeoutPromise]);
       } catch (transitionError) {
         const transitionTime = Date.now() - transitionStartTime;
-        
+
         this.raiseAlert({
           type: 'critical',
           category: 'transition',
@@ -225,7 +223,7 @@ export class FallbackController {
 
       // Fast transition time validation
       const transitionTime = Date.now() - transitionStartTime;
-      
+
       if (transitionTime > 200) {
         this.raiseAlert({
           type: 'critical',
@@ -259,7 +257,7 @@ export class FallbackController {
       return await this.optimizedRetry(
         async () => {
           this.barcodeAttempts++;
-          
+
           // Fast timeout wrapper
           const timeoutPromise = new Promise<never>((_, reject) => {
             this.createTimer(() => {
@@ -329,7 +327,8 @@ export class FallbackController {
         });
 
         // Optimized Neural Engine processing
-        const optimizedParsePromise = this.parseOCRWithNeuralEngineOptimization(textObservations);
+        const optimizedParsePromise =
+          this.parseOCRWithNeuralEngineOptimization(textObservations);
 
         const result = await Promise.race([
           optimizedParsePromise,
@@ -409,9 +408,10 @@ export class FallbackController {
     );
 
     // Use high quality observations if available, otherwise use all
-    const targetObservations = highQualityObservations.length > 0 
-      ? highQualityObservations 
-      : textObservations;
+    const targetObservations =
+      highQualityObservations.length > 0
+        ? highQualityObservations
+        : textObservations;
 
     // Optimized batch processing - sort by confidence for Neural Engine efficiency
     if (targetObservations.length > 4) {
@@ -442,7 +442,9 @@ export class FallbackController {
         }
 
         // Fast exponential backoff without logging overhead
-        await new Promise((resolve) => this.createTimer(() => resolve(undefined), delayMs));
+        await new Promise((resolve) =>
+          this.createTimer(() => resolve(undefined), delayMs)
+        );
         delayMs = Math.min(delayMs * 2, 1000);
       }
     }
@@ -562,16 +564,16 @@ export class FallbackController {
       ocrProcessingTime: detailedMetrics.ocrProcessingTime,
       modeTransitionTime: detailedMetrics.modeTransitionTime,
       peakMemoryUsageMB: detailedMetrics.peakMemoryUsageMB,
-      
+
       // Performance rating based on targets
       performanceRating: this.calculatePerformanceRating(detailedMetrics),
-      
+
       // Detailed performance data
       detailedPerformance: detailedMetrics,
-      
+
       // Performance alerts
       performanceAlerts: performanceMonitor.getRecentAlerts(5),
-      
+
       // Bottlenecks and recommendations
       bottlenecks: this.identifyBottlenecks(detailedMetrics),
       recommendations: this.generateRecommendations(detailedMetrics),
@@ -583,7 +585,9 @@ export class FallbackController {
   /**
    * Calculate overall performance rating based on targets
    */
-  private calculatePerformanceRating(metrics: PerformanceMetrics): 'excellent' | 'good' | 'acceptable' | 'poor' | 'critical' {
+  private calculatePerformanceRating(
+    metrics: PerformanceMetrics
+  ): 'excellent' | 'good' | 'acceptable' | 'poor' | 'critical' {
     const targetsMet = [
       metrics.meetsOcrTarget,
       metrics.meetsFallbackTarget,
@@ -605,11 +609,15 @@ export class FallbackController {
     const bottlenecks: string[] = [];
 
     if (!metrics.meetsOcrTarget) {
-      bottlenecks.push(`OCR processing slow: ${metrics.ocrProcessingTime}ms > 2000ms`);
+      bottlenecks.push(
+        `OCR processing slow: ${metrics.ocrProcessingTime}ms > 2000ms`
+      );
     }
 
     if (!metrics.meetsFallbackTarget) {
-      bottlenecks.push(`Total processing slow: ${metrics.totalProcessingTime}ms > 4000ms`);
+      bottlenecks.push(
+        `Total processing slow: ${metrics.totalProcessingTime}ms > 4000ms`
+      );
     }
 
     if (!metrics.meetsMemoryTarget) {
@@ -617,11 +625,15 @@ export class FallbackController {
     }
 
     if (!metrics.meetsCpuTarget && metrics.peakCpuUtilization) {
-      bottlenecks.push(`CPU utilization high: ${metrics.peakCpuUtilization}% > 60%`);
+      bottlenecks.push(
+        `CPU utilization high: ${metrics.peakCpuUtilization}% > 60%`
+      );
     }
 
     if (metrics.modeTransitionTime && metrics.modeTransitionTime > 200) {
-      bottlenecks.push(`Mode transition slow: ${metrics.modeTransitionTime}ms > 200ms`);
+      bottlenecks.push(
+        `Mode transition slow: ${metrics.modeTransitionTime}ms > 200ms`
+      );
     }
 
     return bottlenecks;
@@ -678,13 +690,21 @@ export class FallbackController {
   }
 
   /**
-   * Helper method to create tracked setTimeout
+   * Helper method to create tracked setTimeout with safe cleanup
    */
   private createTimer(callback: () => void, delay: number): NodeJS.Timeout {
     const timer = setTimeout(() => {
-      this.activeTimers.delete(timer);
+      // Safe cleanup: only delete if still in activeTimers
+      if (this.activeTimers.has(timer)) {
+        this.activeTimers.delete(timer);
+      }
+      // Only execute callback if not aborted
       if (!this.abortController?.signal.aborted) {
-        callback();
+        try {
+          callback();
+        } catch (error) {
+          logger.error('Timer callback error', { error: (error as Error).message });
+        }
       }
     }, delay);
     this.activeTimers.add(timer);
@@ -692,12 +712,20 @@ export class FallbackController {
   }
 
   /**
-   * Clear all active timers
+   * Clear all active timers with safe cleanup
    */
   private clearAllTimers(): void {
-    this.activeTimers.forEach((timer) => {
-      clearTimeout(timer);
+    // Create a copy to avoid modification during iteration
+    const timersToClear = Array.from(this.activeTimers);
+    
+    timersToClear.forEach((timer) => {
+      try {
+        clearTimeout(timer);
+      } catch (error) {
+        logger.warn('Error clearing timer', { error: (error as Error).message });
+      }
     });
+    
     this.activeTimers.clear();
   }
 
@@ -774,10 +802,33 @@ export class FallbackController {
   }
 
   /**
-   * Cleanup method for proper disposal
+   * Cleanup method for proper disposal with guaranteed resource cleanup
    */
   destroy(): void {
-    this.cancel();
-    this.events = undefined;
+    try {
+      // First, abort any ongoing operations
+      if (this.abortController) {
+        this.abortController.abort();
+      }
+      
+      // Clear all timers with safe cleanup
+      this.clearAllTimers();
+      
+      // Reset state
+      this.currentState = 'idle';
+      this.scanStartTime = 0;
+      this.barcodeAttempts = 0;
+      this.ocrProcessorReady = false;
+      
+      // Clear references to prevent memory leaks
+      this.events = undefined;
+      this.abortController = undefined;
+      
+      logger.info('FallbackController destroyed successfully');
+    } catch (error) {
+      logger.error('Error during FallbackController destruction', { 
+        error: (error as Error).message 
+      });
+    }
   }
 }
