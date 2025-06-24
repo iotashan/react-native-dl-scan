@@ -130,3 +130,46 @@ afterEach(() => {
     jest.clearAllTimers();
   }
 });
+
+// Mock Permissions module for camera tests
+jest.mock('react-native-permissions', () => ({
+  PERMISSIONS: {
+    IOS: {
+      CAMERA: 'ios.permission.CAMERA',
+    },
+    ANDROID: {
+      CAMERA: 'android.permission.CAMERA',
+    },
+  },
+  RESULTS: {
+    UNAVAILABLE: 'unavailable',
+    BLOCKED: 'blocked',
+    DENIED: 'denied',
+    GRANTED: 'granted',
+    LIMITED: 'limited',
+  },
+  check: jest.fn().mockResolvedValue('granted'),
+  request: jest.fn().mockResolvedValue('granted'),
+  openSettings: jest.fn().mockResolvedValue(true),
+}));
+
+// Mock native DL Scanner module with comprehensive functionality
+jest.mock('DLScanModule', () => ({
+  scanLicense: jest.fn().mockResolvedValue({
+    success: true,
+    data: {
+      firstName: 'JOHN',
+      lastName: 'DOE',
+      documentNumber: '123456789',
+    },
+  }),
+  parseOCRText: jest.fn().mockResolvedValue({
+    success: true,
+    fields: {
+      firstName: 'JOHN',
+      lastName: 'DOE',
+    },
+  }),
+  startScanning: jest.fn().mockResolvedValue(true),
+  stopScanning: jest.fn().mockResolvedValue(true),
+}));

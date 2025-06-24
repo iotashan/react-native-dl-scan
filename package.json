@@ -34,6 +34,10 @@
   "scripts": {
     "example": "yarn workspace react-native-dl-scan-example",
     "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "coverage": "jest --coverage && open coverage/lcov-report/index.html",
+    "coverage:report": "node scripts/coverage-report.js",
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
