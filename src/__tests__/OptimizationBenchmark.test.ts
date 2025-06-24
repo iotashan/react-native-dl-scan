@@ -25,7 +25,7 @@ jest.mock('../index', () => ({
   }),
   parseOCRText: jest.fn().mockResolvedValue({
     firstName: 'John',
-    lastName: 'Doe', 
+    lastName: 'Doe',
     licenseNumber: 'D1234567',
     address: { street: '123 Main St' },
   }),
@@ -56,16 +56,16 @@ describe('Optimization Benchmarks', () => {
   describe('Optimized Performance', () => {
     it('should process barcode scans efficiently', async () => {
       const startTime = performance.now();
-      
+
       try {
         await controller.scan('test-barcode-data', 'barcode');
       } catch (error) {
         // Expected to potentially fail with mock data
       }
-      
+
       const endTime = performance.now();
       const processingTime = endTime - startTime;
-      
+
       // Should complete quickly due to optimizations
       expect(processingTime).toBeLessThan(100); // Very fast due to minimal overhead
     });
@@ -90,16 +90,16 @@ describe('Optimization Benchmarks', () => {
       ];
 
       const startTime = performance.now();
-      
+
       try {
         await controller.scan(mockOCRData, 'ocr');
       } catch (error) {
         // Expected to potentially fail with mock data
       }
-      
+
       const endTime = performance.now();
       const processingTime = endTime - startTime;
-      
+
       // Should complete quickly due to optimizations
       expect(processingTime).toBeLessThan(100); // Fast due to optimized Neural Engine processing
     });
@@ -107,7 +107,7 @@ describe('Optimization Benchmarks', () => {
     it('should handle multiple scans efficiently', async () => {
       const iterations = 10;
       const startTime = performance.now();
-      
+
       for (let i = 0; i < iterations; i++) {
         try {
           await controller.scan('test-barcode-data', 'barcode');
@@ -115,20 +115,23 @@ describe('Optimization Benchmarks', () => {
           // Expected to potentially fail with mock data
         }
       }
-      
+
       const endTime = performance.now();
       const avgProcessingTime = (endTime - startTime) / iterations;
-      
+
       // Average time per scan should be very low due to optimizations
       expect(avgProcessingTime).toBeLessThan(50); // <50ms average per scan
     });
 
     it('should demonstrate memory efficiency', async () => {
-      const mockOCRData: OCRTextObservation[] = Array.from({ length: 20 }, (_, i) => ({
-        text: `Text ${i}`,
-        confidence: 0.8 + (i % 2) * 0.1,
-        boundingBox: { x: 100 + i * 10, y: 50, width: 80, height: 20 },
-      }));
+      const mockOCRData: OCRTextObservation[] = Array.from(
+        { length: 20 },
+        (_, i) => ({
+          text: `Text ${i}`,
+          confidence: 0.8 + (i % 2) * 0.1,
+          boundingBox: { x: 100 + i * 10, y: 50, width: 80, height: 20 },
+        })
+      );
 
       // Process large OCR dataset
       try {
@@ -144,7 +147,7 @@ describe('Optimization Benchmarks', () => {
     it('should validate optimization effectiveness', () => {
       // Test that optimization flags are properly set
       expect(controller.getConfig().enableQualityAssessment).toBe(true);
-      
+
       // Verify configuration is optimized
       expect(controller.getConfig().ocrTimeoutMs).toBe(2000); // 2 second OCR target
       expect(controller.getConfig().maxFallbackProcessingTimeMs).toBe(4000); // 4 second fallback target
@@ -155,15 +158,15 @@ describe('Optimization Benchmarks', () => {
     it('should use optimized retry logic', async () => {
       // This indirectly tests the optimizedRetry method
       const startTime = performance.now();
-      
+
       try {
         await controller.scan('test-data', 'barcode');
       } catch (error) {
         // Expected
       }
-      
+
       const endTime = performance.now();
-      
+
       // Should be fast even with retries due to optimized backoff
       expect(endTime - startTime).toBeLessThan(200);
     });
@@ -203,7 +206,7 @@ describe('Optimization Benchmarks', () => {
     it('should minimize logging overhead', async () => {
       const iterations = 5;
       const startTime = performance.now();
-      
+
       for (let i = 0; i < iterations; i++) {
         try {
           await controller.scan('test', 'barcode');
@@ -211,27 +214,27 @@ describe('Optimization Benchmarks', () => {
           // Expected
         }
       }
-      
+
       const endTime = performance.now();
       const totalTime = endTime - startTime;
-      
+
       // Should be very fast due to reduced logging overhead
       expect(totalTime).toBeLessThan(250); // <250ms for 5 operations
     });
 
     it('should handle state transitions efficiently', async () => {
       expect(controller.getState()).toBe('idle');
-      
+
       const startTime = performance.now();
-      
+
       try {
         await controller.scan('test', 'barcode');
       } catch (error) {
         // Expected
       }
-      
+
       const endTime = performance.now();
-      
+
       // State should transition efficiently (completed is correct after successful scan)
       expect(['completed', 'failed', 'idle']).toContain(controller.getState());
       expect(endTime - startTime).toBeLessThan(100);

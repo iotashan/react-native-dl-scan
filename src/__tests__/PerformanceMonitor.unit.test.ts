@@ -4,7 +4,7 @@
  */
 
 import { performanceMonitor } from '../utils/PerformanceMonitor';
-import type { PerformanceMetrics } from '../types/license';
+// Tests don't need to import PerformanceMetrics types directly
 
 // Mock the logger to avoid React Native dependencies
 jest.mock('../utils/logger', () => ({
@@ -34,10 +34,10 @@ describe('Performance Monitor Unit Tests', () => {
     it('should start and end a performance session', async () => {
       const sessionId = performanceMonitor.startSession('ocr');
       expect(sessionId).toContain('ocr_');
-      
+
       // Add small delay to ensure measurable time difference
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       const metrics = performanceMonitor.endSession();
       expect(metrics).toBeDefined();
       if (metrics) {
@@ -48,22 +48,22 @@ describe('Performance Monitor Unit Tests', () => {
     });
 
     it('should handle checkpoints correctly', () => {
-      const sessionId = performanceMonitor.startSession('fallback');
-      
+      performanceMonitor.startSession('fallback');
+
       performanceMonitor.checkpoint('test_start');
       performanceMonitor.checkpoint('test_middle', { step: 1 });
       performanceMonitor.checkpoint('test_end');
-      
+
       const metrics = performanceMonitor.endSession();
       expect(metrics).toBeDefined();
     });
 
     it('should track memory allocations', () => {
-      const sessionId = performanceMonitor.startSession('barcode');
-      
+      performanceMonitor.startSession('barcode');
+
       performanceMonitor.trackMemoryAllocation('operation1', 1024);
       performanceMonitor.trackMemoryAllocation('operation2');
-      
+
       const metrics = performanceMonitor.endSession();
       expect(metrics).toBeDefined();
       if (metrics) {
@@ -72,11 +72,11 @@ describe('Performance Monitor Unit Tests', () => {
     });
 
     it('should track resource utilization', () => {
-      const sessionId = performanceMonitor.startSession('ocr');
-      
+      performanceMonitor.startSession('ocr');
+
       performanceMonitor.trackResourceUtilization(45, 30);
       performanceMonitor.trackResourceUtilization(55, 40);
-      
+
       const metrics = performanceMonitor.endSession();
       expect(metrics).toBeDefined();
       if (metrics) {
@@ -88,12 +88,12 @@ describe('Performance Monitor Unit Tests', () => {
 
   describe('Performance Target Validation', () => {
     it('should validate OCR processing target (<2000ms)', () => {
-      const sessionId = performanceMonitor.startSession('ocr');
-      
+      performanceMonitor.startSession('ocr');
+
       // Simulate fast OCR processing
       performanceMonitor.checkpoint('ocr_start');
       performanceMonitor.checkpoint('ocr_end');
-      
+
       const metrics = performanceMonitor.endSession();
       expect(metrics).toBeDefined();
       if (metrics) {
@@ -103,12 +103,12 @@ describe('Performance Monitor Unit Tests', () => {
     });
 
     it('should validate fallback processing target (<4000ms)', () => {
-      const sessionId = performanceMonitor.startSession('fallback');
-      
+      performanceMonitor.startSession('fallback');
+
       // Simulate reasonably fast processing
       performanceMonitor.checkpoint('fallback_start');
       performanceMonitor.checkpoint('fallback_end');
-      
+
       const metrics = performanceMonitor.endSession();
       expect(metrics).toBeDefined();
       if (metrics) {
@@ -118,8 +118,8 @@ describe('Performance Monitor Unit Tests', () => {
     });
 
     it('should validate memory usage target (<50MB)', () => {
-      const sessionId = performanceMonitor.startSession('ocr');
-      
+      performanceMonitor.startSession('ocr');
+
       // Memory delta should be small for a simple test
       const metrics = performanceMonitor.endSession();
       expect(metrics).toBeDefined();
@@ -130,11 +130,11 @@ describe('Performance Monitor Unit Tests', () => {
     });
 
     it('should validate CPU utilization target (<60%)', () => {
-      const sessionId = performanceMonitor.startSession('ocr');
-      
+      performanceMonitor.startSession('ocr');
+
       // Track moderate CPU usage
       performanceMonitor.trackResourceUtilization(45);
-      
+
       const metrics = performanceMonitor.endSession();
       expect(metrics).toBeDefined();
       if (metrics) {
@@ -145,22 +145,22 @@ describe('Performance Monitor Unit Tests', () => {
 
   describe('Alert Generation', () => {
     it('should generate alerts for threshold violations', () => {
-      const sessionId = performanceMonitor.startSession('ocr');
-      
+      performanceMonitor.startSession('ocr');
+
       // Simulate high CPU usage
       performanceMonitor.trackResourceUtilization(75); // Above 60% threshold
-      
+
       const metrics = performanceMonitor.endSession();
       expect(metrics).toBeDefined();
       if (metrics) {
         expect(metrics.meetsCpuTarget).toBe(false);
       }
-      
+
       // Check for alerts
       const alerts = performanceMonitor.getRecentAlerts(5);
       expect(alerts.length).toBeGreaterThan(0);
-      
-      const cpuAlert = alerts.find(alert => alert.category === 'cpu');
+
+      const cpuAlert = alerts.find((alert) => alert.category === 'cpu');
       expect(cpuAlert).toBeDefined();
       if (cpuAlert) {
         expect(cpuAlert.type).toBe('warning');
@@ -170,13 +170,13 @@ describe('Performance Monitor Unit Tests', () => {
     });
 
     it('should clear alerts when requested', () => {
-      const sessionId = performanceMonitor.startSession('ocr');
+      performanceMonitor.startSession('ocr');
       performanceMonitor.trackResourceUtilization(75);
       performanceMonitor.endSession();
-      
+
       let alerts = performanceMonitor.getRecentAlerts();
       expect(alerts.length).toBeGreaterThan(0);
-      
+
       performanceMonitor.clearAlerts();
       alerts = performanceMonitor.getRecentAlerts();
       expect(alerts.length).toBe(0);
@@ -187,13 +187,16 @@ describe('Performance Monitor Unit Tests', () => {
     it('should generate benchmark reports', () => {
       // Generate multiple sessions for benchmarking
       for (let i = 0; i < 5; i++) {
-        const sessionId = performanceMonitor.startSession('ocr');
+        performanceMonitor.startSession('ocr');
         performanceMonitor.checkpoint('test_checkpoint');
         performanceMonitor.trackResourceUtilization(40 + i * 2);
         performanceMonitor.endSession();
       }
-      
-      const benchmark = performanceMonitor.generateBenchmarkReport('ocr_test', 5);
+
+      const benchmark = performanceMonitor.generateBenchmarkReport(
+        'ocr_test',
+        5
+      );
       expect(benchmark).toBeDefined();
       if (benchmark) {
         expect(benchmark.testName).toBe('ocr_test');
@@ -207,7 +210,10 @@ describe('Performance Monitor Unit Tests', () => {
     it('should detect performance regression', () => {
       // This test would need baseline data to properly test regression detection
       // For now, we'll just verify the report structure
-      const benchmark = performanceMonitor.generateBenchmarkReport('empty_test', 1);
+      const benchmark = performanceMonitor.generateBenchmarkReport(
+        'empty_test',
+        1
+      );
       expect(benchmark).toBeNull(); // No data available
     });
   });
@@ -229,11 +235,12 @@ describe('Performance Monitor Unit Tests', () => {
       // Start multiple sessions (though only one should be active)
       const sessionId1 = performanceMonitor.startSession('ocr');
       const sessionId2 = performanceMonitor.startSession('barcode'); // Should replace first
-      
+
       performanceMonitor.checkpoint('test');
       const metrics = performanceMonitor.endSession();
-      
+
       expect(metrics).toBeDefined();
+      expect(sessionId1).toContain('ocr_');
       expect(sessionId2).toContain('barcode_');
     });
 
@@ -242,7 +249,7 @@ describe('Performance Monitor Unit Tests', () => {
       performanceMonitor.checkpoint('orphan_checkpoint');
       performanceMonitor.trackMemoryAllocation('orphan_memory');
       performanceMonitor.trackResourceUtilization(50);
-      
+
       const metrics = performanceMonitor.endSession();
       expect(metrics).toBeNull();
     });
@@ -250,13 +257,13 @@ describe('Performance Monitor Unit Tests', () => {
 
   describe('Memory Simulation', () => {
     it('should simulate memory growth patterns', () => {
-      const sessionId = performanceMonitor.startSession('ocr');
-      
+      performanceMonitor.startSession('ocr');
+
       // Simulate memory allocations
       for (let i = 0; i < 5; i++) {
         performanceMonitor.trackMemoryAllocation(`allocation_${i}`, 1024 * i);
       }
-      
+
       const metrics = performanceMonitor.endSession();
       expect(metrics).toBeDefined();
       if (metrics) {

@@ -1,9 +1,8 @@
 import { FallbackController } from '../utils/FallbackController';
 import { performanceMonitor } from '../utils/PerformanceMonitor';
-import type { 
-  PerformanceMetrics, 
-  PerformanceBenchmark, 
-  OCRTextObservation 
+import type {
+  PerformanceMetrics,
+  OCRTextObservation,
 } from '../types/license';
 
 /**
@@ -42,16 +41,16 @@ describe('Performance Benchmarks', () => {
     it('should complete OCR processing in <2 seconds (95th percentile)', async () => {
       const iterations = 20;
       const results: PerformanceMetrics[] = [];
-      
+
       const mockOCRData = generateHighQualityOCRData();
 
       for (let i = 0; i < iterations; i++) {
-        const sessionId = performanceMonitor.startSession('ocr');
-        
+        performanceMonitor.startSession('ocr');
+
         try {
           await controller.scan(mockOCRData, 'ocr');
           const metrics = performanceMonitor.endSession();
-          
+
           if (metrics) {
             results.push(metrics);
           }
@@ -66,15 +65,16 @@ describe('Performance Benchmarks', () => {
 
       // Calculate 95th percentile
       const sortedTimes = results
-        .map(r => r.ocrProcessingTime || 0)
+        .map((r) => r.ocrProcessingTime || 0)
         .sort((a, b) => a - b);
-      
+
       const p95Index = Math.floor(iterations * 0.95);
       const p95Time = sortedTimes[p95Index];
 
       expect(p95Time).toBeLessThan(performanceTargets.ocrProcessingMs);
-      expect(results.filter(r => r.meetsOcrTarget).length / results.length)
-        .toBeGreaterThan(0.95); // 95% should meet target
+      expect(
+        results.filter((r) => r.meetsOcrTarget).length / results.length
+      ).toBeGreaterThan(0.95); // 95% should meet target
     });
 
     /**
@@ -82,17 +82,17 @@ describe('Performance Benchmarks', () => {
      */
     it('should handle poor quality OCR data within performance limits', async () => {
       const mockPoorOCRData = generatePoorQualityOCRData();
-      
-      const sessionId = performanceMonitor.startSession('ocr');
-      
+
+      performanceMonitor.startSession('ocr');
+
       try {
         await controller.scan(mockPoorOCRData, 'ocr');
       } catch (error) {
         // Expected to fail with poor data, but should still meet timing
       }
-      
+
       const metrics = performanceMonitor.endSession();
-      
+
       expect(metrics).toBeDefined();
       if (metrics) {
         // Even with poor data, should not exceed timeout
@@ -108,16 +108,16 @@ describe('Performance Benchmarks', () => {
     it('should complete fallback process in <4 seconds (95th percentile)', async () => {
       const iterations = 15;
       const results: PerformanceMetrics[] = [];
-      
+
       const invalidBarcodeData = 'INVALID_BARCODE_DATA';
 
       for (let i = 0; i < iterations; i++) {
-        const sessionId = performanceMonitor.startSession('fallback');
-        
+        performanceMonitor.startSession('fallback');
+
         try {
           await controller.scan(invalidBarcodeData, 'auto');
           const metrics = performanceMonitor.endSession();
-          
+
           if (metrics) {
             results.push(metrics);
           }
@@ -131,15 +131,16 @@ describe('Performance Benchmarks', () => {
 
       // Calculate 95th percentile
       const sortedTimes = results
-        .map(r => r.totalProcessingTime)
+        .map((r) => r.totalProcessingTime)
         .sort((a, b) => a - b);
-      
+
       const p95Index = Math.floor(iterations * 0.95);
       const p95Time = sortedTimes[p95Index];
 
       expect(p95Time).toBeLessThan(performanceTargets.fallbackProcessingMs);
-      expect(results.filter(r => r.meetsFallbackTarget).length / results.length)
-        .toBeGreaterThan(0.9); // 90% should meet target (allowing some variance for fallback)
+      expect(
+        results.filter((r) => r.meetsFallbackTarget).length / results.length
+      ).toBeGreaterThan(0.9); // 90% should meet target (allowing some variance for fallback)
     });
 
     /**
@@ -148,16 +149,16 @@ describe('Performance Benchmarks', () => {
     it('should complete mode transitions in <200ms', async () => {
       const iterations = 10;
       const transitionTimes: number[] = [];
-      
+
       const invalidBarcodeData = 'INVALID_BARCODE_DATA';
 
       for (let i = 0; i < iterations; i++) {
-        const sessionId = performanceMonitor.startSession('fallback');
-        
+        performanceMonitor.startSession('fallback');
+
         try {
           await controller.scan(invalidBarcodeData, 'auto');
           const metrics = performanceMonitor.endSession();
-          
+
           if (metrics && metrics.modeTransitionTime) {
             transitionTimes.push(metrics.modeTransitionTime);
           }
@@ -170,12 +171,13 @@ describe('Performance Benchmarks', () => {
       }
 
       // All transitions should be under 200ms
-      transitionTimes.forEach(time => {
+      transitionTimes.forEach((time) => {
         expect(time).toBeLessThan(200);
       });
 
       // Average should be well under 200ms
-      const averageTransitionTime = transitionTimes.reduce((a, b) => a + b, 0) / transitionTimes.length;
+      const averageTransitionTime =
+        transitionTimes.reduce((a, b) => a + b, 0) / transitionTimes.length;
       expect(averageTransitionTime).toBeLessThan(100);
     });
   });
@@ -187,16 +189,16 @@ describe('Performance Benchmarks', () => {
     it('should limit memory increase to <50MB during fallback', async () => {
       const iterations = 5;
       const memoryDeltas: number[] = [];
-      
+
       const invalidBarcodeData = 'INVALID_BARCODE_DATA';
 
       for (let i = 0; i < iterations; i++) {
-        const sessionId = performanceMonitor.startSession('fallback');
-        
+        performanceMonitor.startSession('fallback');
+
         try {
           await controller.scan(invalidBarcodeData, 'auto');
           const metrics = performanceMonitor.endSession();
-          
+
           if (metrics) {
             memoryDeltas.push(metrics.memoryDeltaMB);
           }
@@ -209,12 +211,13 @@ describe('Performance Benchmarks', () => {
       }
 
       // All memory deltas should be under 50MB
-      memoryDeltas.forEach(delta => {
+      memoryDeltas.forEach((delta) => {
         expect(delta).toBeLessThan(performanceTargets.memoryDeltaMB);
       });
 
       // Average should be reasonable
-      const averageMemoryDelta = memoryDeltas.reduce((a, b) => a + b, 0) / memoryDeltas.length;
+      const averageMemoryDelta =
+        memoryDeltas.reduce((a, b) => a + b, 0) / memoryDeltas.length;
       expect(averageMemoryDelta).toBeLessThan(30); // Well under target
     });
 
@@ -224,16 +227,16 @@ describe('Performance Benchmarks', () => {
     it('should maintain stable memory usage across multiple scans', async () => {
       const iterations = 10;
       const finalMemoryUsages: number[] = [];
-      
+
       const mockOCRData = generateHighQualityOCRData();
 
       for (let i = 0; i < iterations; i++) {
-        const sessionId = performanceMonitor.startSession('ocr');
-        
+        performanceMonitor.startSession('ocr');
+
         try {
           await controller.scan(mockOCRData, 'ocr');
           const metrics = performanceMonitor.endSession();
-          
+
           if (metrics) {
             finalMemoryUsages.push(metrics.finalMemoryUsageMB);
           }
@@ -248,10 +251,12 @@ describe('Performance Benchmarks', () => {
       // Memory should not continuously grow
       const firstHalf = finalMemoryUsages.slice(0, 5);
       const secondHalf = finalMemoryUsages.slice(5);
-      
-      const firstHalfAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
-      const secondHalfAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
-      
+
+      const firstHalfAvg =
+        firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+      const secondHalfAvg =
+        secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+
       // Memory growth should be minimal
       const memoryGrowth = secondHalfAvg - firstHalfAvg;
       expect(memoryGrowth).toBeLessThan(20); // <20MB growth acceptable
@@ -265,16 +270,16 @@ describe('Performance Benchmarks', () => {
     it('should maintain CPU utilization below 60% during processing', async () => {
       const iterations = 5;
       const peakCpuUsages: number[] = [];
-      
+
       const mockOCRData = generateHighQualityOCRData();
 
       for (let i = 0; i < iterations; i++) {
-        const sessionId = performanceMonitor.startSession('ocr');
-        
+        performanceMonitor.startSession('ocr');
+
         try {
           await controller.scan(mockOCRData, 'ocr');
           const metrics = performanceMonitor.endSession();
-          
+
           if (metrics && metrics.peakCpuUtilization) {
             peakCpuUsages.push(metrics.peakCpuUtilization);
           }
@@ -287,12 +292,13 @@ describe('Performance Benchmarks', () => {
       }
 
       // All peak CPU usages should be under 60%
-      peakCpuUsages.forEach(usage => {
+      peakCpuUsages.forEach((usage) => {
         expect(usage).toBeLessThan(performanceTargets.cpuUtilizationPercent);
       });
 
       // Average should be well under target
-      const averageCpuUsage = peakCpuUsages.reduce((a, b) => a + b, 0) / peakCpuUsages.length;
+      const averageCpuUsage =
+        peakCpuUsages.reduce((a, b) => a + b, 0) / peakCpuUsages.length;
       expect(averageCpuUsage).toBeLessThan(45); // Well under 60% target
     });
   });
@@ -307,12 +313,12 @@ describe('Performance Benchmarks', () => {
       const mockOCRData = generateHighQualityOCRData();
 
       for (let i = 0; i < 10; i++) {
-        const sessionId = performanceMonitor.startSession('ocr');
-        
+        performanceMonitor.startSession('ocr');
+
         try {
           await controller.scan(mockOCRData, 'ocr');
           const metrics = performanceMonitor.endSession();
-          
+
           if (metrics) {
             baselineResults.push(metrics);
           }
@@ -325,16 +331,19 @@ describe('Performance Benchmarks', () => {
       }
 
       // Generate benchmark report
-      const benchmarkReport = performanceMonitor.generateBenchmarkReport('ocr_baseline', 10);
-      
+      const benchmarkReport = performanceMonitor.generateBenchmarkReport(
+        'ocr_baseline',
+        10
+      );
+
       expect(benchmarkReport).toBeDefined();
       if (benchmarkReport) {
         expect(benchmarkReport.results.length).toBeGreaterThan(0);
         expect(benchmarkReport.summary).toBeDefined();
-        
+
         // Check if any regressions detected
         const hasRegressions = benchmarkReport.regressionDetected;
-        
+
         // Log performance summary for analysis
         console.log('Performance Benchmark Summary:', {
           testName: benchmarkReport.testName,
@@ -359,29 +368,34 @@ describe('Performance Benchmarks', () => {
     it('should maintain performance under concurrent scanning', async () => {
       const concurrentScans = 3;
       const mockOCRData = generateHighQualityOCRData();
-      
-      const scanPromises = Array.from({ length: concurrentScans }, async (_, index) => {
-        const sessionId = performanceMonitor.startSession('ocr');
-        
-        try {
-          await controller.scan(mockOCRData, 'ocr');
-          return performanceMonitor.endSession();
-        } catch (error) {
-          return performanceMonitor.endSession();
+
+      const scanPromises = Array.from(
+        { length: concurrentScans },
+        async () => {
+          performanceMonitor.startSession('ocr');
+
+          try {
+            await controller.scan(mockOCRData, 'ocr');
+            return performanceMonitor.endSession();
+          } catch (error) {
+            return performanceMonitor.endSession();
+          }
         }
-      });
+      );
 
       const results = await Promise.allSettled(scanPromises);
-      
+
       // At least 80% should complete successfully
       const successfulResults = results
-        .filter(r => r.status === 'fulfilled' && r.value)
-        .map(r => (r as PromiseFulfilledResult<PerformanceMetrics | null>).value);
-      
+        .filter((r) => r.status === 'fulfilled' && r.value)
+        .map(
+          (r) => (r as PromiseFulfilledResult<PerformanceMetrics | null>).value
+        );
+
       expect(successfulResults.length).toBeGreaterThan(concurrentScans * 0.8);
-      
+
       // Performance should still be reasonable under load
-      successfulResults.forEach(metrics => {
+      successfulResults.forEach((metrics) => {
         if (metrics) {
           expect(metrics.totalProcessingTime).toBeLessThan(3000); // 50% grace period
         }
@@ -397,12 +411,12 @@ describe('Performance Benchmarks', () => {
       const memoryReadings: number[] = [];
 
       for (let i = 0; i < extendedIterations; i++) {
-        const sessionId = performanceMonitor.startSession('ocr');
-        
+        performanceMonitor.startSession('ocr');
+
         try {
           await controller.scan(mockOCRData, 'ocr');
           const metrics = performanceMonitor.endSession();
-          
+
           if (metrics) {
             memoryReadings.push(metrics.finalMemoryUsageMB);
           }
@@ -414,18 +428,25 @@ describe('Performance Benchmarks', () => {
         }
 
         // Small delay between scans
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       // Memory should not show linear growth pattern (indicating leaks)
-      const firstQuarter = memoryReadings.slice(0, Math.floor(extendedIterations / 4));
-      const lastQuarter = memoryReadings.slice(-Math.floor(extendedIterations / 4));
-      
-      const firstQuarterAvg = firstQuarter.reduce((a, b) => a + b, 0) / firstQuarter.length;
-      const lastQuarterAvg = lastQuarter.reduce((a, b) => a + b, 0) / lastQuarter.length;
-      
+      const firstQuarter = memoryReadings.slice(
+        0,
+        Math.floor(extendedIterations / 4)
+      );
+      const lastQuarter = memoryReadings.slice(
+        -Math.floor(extendedIterations / 4)
+      );
+
+      const firstQuarterAvg =
+        firstQuarter.reduce((a, b) => a + b, 0) / firstQuarter.length;
+      const lastQuarterAvg =
+        lastQuarter.reduce((a, b) => a + b, 0) / lastQuarter.length;
+
       const memoryGrowth = lastQuarterAvg - firstQuarterAvg;
-      
+
       // Memory growth should be minimal over extended session
       expect(memoryGrowth).toBeLessThan(30); // <30MB growth over extended session
     });

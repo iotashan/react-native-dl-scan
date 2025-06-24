@@ -1,7 +1,7 @@
 /* eslint-env jest */
 
 // Setup for React Native Testing Library
-// Mock native modules
+// Mock native modules - comprehensive TurboModuleRegistry mocking
 jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => ({
   get: jest.fn(() => ({
     scanLicense: jest.fn(),
@@ -16,6 +16,12 @@ jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => ({
   })),
 }));
 
+// Mock TurboModuleRegistry for Reanimated compatibility
+global.TurboModuleRegistry = {
+  get: jest.fn(() => null),
+  getEnforcing: jest.fn(() => null),
+};
+
 // Mock React Native Feature Flags
 jest.mock(
   'react-native/src/private/featureflags/specs/NativeReactNativeFeatureFlags',
@@ -26,24 +32,27 @@ jest.mock(
 );
 
 // Mock NativeDeviceInfo
-jest.mock('react-native/src/private/specs_DEPRECATED/modules/NativeDeviceInfo', () => ({
-  getConstants: jest.fn(() => ({
-    Dimensions: {
-      windowPhysicalPixels: {
-        width: 375,
-        height: 667,
-        scale: 2.0,
-        fontScale: 1.0,
+jest.mock(
+  'react-native/src/private/specs_DEPRECATED/modules/NativeDeviceInfo',
+  () => ({
+    getConstants: jest.fn(() => ({
+      Dimensions: {
+        windowPhysicalPixels: {
+          width: 375,
+          height: 667,
+          scale: 2.0,
+          fontScale: 1.0,
+        },
+        screenPhysicalPixels: {
+          width: 375,
+          height: 667,
+          scale: 2.0,
+          fontScale: 1.0,
+        },
       },
-      screenPhysicalPixels: {
-        width: 375,
-        height: 667,
-        scale: 2.0,
-        fontScale: 1.0,
-      },
-    },
-  })),
-}));
+    })),
+  })
+);
 
 // Mock react-native-reanimated more comprehensively
 jest.mock('react-native-reanimated', () => {
