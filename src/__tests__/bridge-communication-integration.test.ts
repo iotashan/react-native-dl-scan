@@ -3,24 +3,7 @@
  * Comprehensive tests for React Native bridge communication with enhanced fixtures and utilities
  */
 
-// Mock the modules before importing them
-jest.mock('../index', () => ({
-  scanLicense: jest.fn(),
-  parseOCRText: jest.fn(),
-  ScanError: class MockScanError extends Error {
-    public readonly code: string;
-    public readonly userMessage: string;
-    public readonly recoverable: boolean;
-
-    constructor(error: any) {
-      super(error.message);
-      this.name = 'ScanError';
-      this.code = error.code;
-      this.userMessage = error.userMessage;
-      this.recoverable = error.recoverable;
-    }
-  },
-}));
+// The native module mock is handled in jest.setup.js
 
 // import { NativeModules } from 'react-native';
 import { TestFixtures } from './test-fixtures';
@@ -35,11 +18,14 @@ import { scanLicense, parseOCRText, ScanError } from '../index';
 MockUtils.createPlatformNativeModuleMock('DlScan');
 MockUtils.mockCameraPermissions(true);
 
+// Import the mocked module to get access to the mock instance
+import DlScanModule from '../NativeDlScan';
+
 describe('Bridge Communication Integration Tests', () => {
   let mockNativeModule: any;
 
   beforeEach(() => {
-    // Get the global mock instance instead of clearing all mocks
+    // Get the global mock instance
     mockNativeModule = (global as any).__DL_SCAN_MOCK__;
 
     // Reset mock call counts but preserve implementation

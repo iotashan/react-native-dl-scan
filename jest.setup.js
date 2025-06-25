@@ -4,20 +4,57 @@
 // NativeDlScan mock will be handled by __mocks__/src/NativeDlScan.js
 
 // Mock native modules - defer to __mocks__ directory
-jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => ({
-  get: jest.fn(() => ({
-    commonTestFlag_shouldUseNewFeature: jest.fn().mockReturnValue(false),
-  })),
-  getEnforcing: jest.fn(() => ({
-    commonTestFlag_shouldUseNewFeature: jest.fn().mockReturnValue(false),
-  })),
-}));
+jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => {
+  const dlScanMock = {
+    scanLicense: jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        firstName: 'RAPID',
+        lastName: 'TEST',
+        licenseNumber: 'TEST123',
+        dateOfBirth: new Date('1990-01-01'),
+        expirationDate: new Date('2025-01-01'),
+        sex: 'M',
+        address: {
+          street: '123 TEST ST',
+          city: 'TEST CITY',
+          state: 'CA',
+          postalCode: '90210',
+        },
+      },
+    }),
+    parseOCRText: jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        firstName: 'RAPID',
+        lastName: 'TEST',
+        licenseNumber: 'TEST123',
+      },
+    }),
+    startScanning: jest.fn().mockResolvedValue(undefined),
+    stopScanning: jest.fn().mockResolvedValue(undefined),
+  };
 
-// Mock TurboModuleRegistry for Reanimated compatibility
-global.TurboModuleRegistry = {
-  get: jest.fn(() => null),
-  getEnforcing: jest.fn(() => null),
-};
+  // Store globally for test access
+  global.__DL_SCAN_MOCK__ = dlScanMock;
+
+  return {
+    get: jest.fn((name) => {
+      if (name === 'DlScan') return dlScanMock;
+      return {
+        commonTestFlag_shouldUseNewFeature: jest.fn().mockReturnValue(false),
+      };
+    }),
+    getEnforcing: jest.fn((name) => {
+      if (name === 'DlScan') return dlScanMock;
+      return {
+        commonTestFlag_shouldUseNewFeature: jest.fn().mockReturnValue(false),
+      };
+    }),
+  };
+});
+
+// Mock TurboModuleRegistry for Reanimated compatibility (already handled above)
 
 // Mock React Native Feature Flags
 jest.mock(
@@ -51,22 +88,60 @@ jest.mock(
   })
 );
 
-// Mock react-native-reanimated more comprehensively
-jest.mock('react-native-reanimated', () => {
-  const Reanimated = require('react-native-reanimated/mock');
 
-  // Add any additional functions if needed
-  return {
-    ...Reanimated,
-    runOnJS: (fn) => fn,
-    runOnUI: (fn) => fn,
+// Mock react-native-reanimated more comprehensively
+jest.mock('react-native-reanimated', () => ({
+  default: {
     createAnimatedComponent: (component) => component,
-    useSharedValue: (initial) => ({ value: initial }),
-    useAnimatedStyle: (fn) => fn(),
-    withTiming: (value) => value,
-    withSpring: (value) => value,
-  };
-});
+    Value: jest.fn(),
+    event: jest.fn(),
+    add: jest.fn(),
+    eq: jest.fn(),
+    set: jest.fn(),
+    cond: jest.fn(),
+    interpolate: jest.fn(),
+    View: 'Animated.View',
+    Text: 'Animated.Text',
+    Image: 'Animated.Image',
+    ScrollView: 'Animated.ScrollView',
+    FlatList: 'Animated.FlatList',
+  },
+  Easing: {
+    linear: jest.fn(),
+    ease: jest.fn(),
+    quad: jest.fn(),
+    cubic: jest.fn(),
+    poly: jest.fn(),
+    sin: jest.fn(),
+    circle: jest.fn(),
+    exp: jest.fn(),
+    elastic: jest.fn(),
+    back: jest.fn(),
+    bounce: jest.fn(),
+    bezier: jest.fn(),
+    in: jest.fn(),
+    out: jest.fn(),
+    inOut: jest.fn(),
+  },
+  Extrapolate: {
+    EXTEND: 'extend',
+    CLAMP: 'clamp',
+    IDENTITY: 'identity',
+  },
+  runOnJS: (fn) => fn,
+  runOnUI: (fn) => fn,
+  createAnimatedComponent: (component) => component,
+  useSharedValue: (initial) => ({ value: initial }),
+  useAnimatedStyle: (fn) => fn(),
+  withTiming: (value) => value,
+  withSpring: (value) => value,
+  withDelay: (delay, animation) => animation,
+  withRepeat: (animation) => animation,
+  withSequence: (...animations) => animations[0],
+  cancelAnimation: jest.fn(),
+  useAnimatedGestureHandler: () => ({}),
+  useAnimatedScrollHandler: () => ({}),
+}));
 
 // Auto-mock these modules - Jest will use __mocks__ directory
 jest.mock('react-native-svg');
@@ -94,7 +169,17 @@ jest.mock('react-native', () => {
       OS: 'ios',
       select: jest.fn((obj) => obj.ios || obj.default),
       Version: '14.0',
-      constants: {},
+      constants: {
+        isTesting: true,
+        osVersion: '14.0',
+        reactNativeVersion: {
+          major: 0,
+          minor: 79,
+          patch: 0,
+        },
+        systemName: 'iOS',
+      },
+      isDisableAnimations: false,
     },
     writable: true,
     configurable: true,
@@ -147,15 +232,3 @@ jest.mock('react-native-permissions', () => ({
   openSettings: jest.fn().mockResolvedValue(true),
 }));
 
-// Setup global mock access for tests after all other mocks are configured
-try {
-  global.__DL_SCAN_MOCK__ = require('./__mocks__/src/NativeDlScan');
-
-  // Add the mock to NativeModules after global setup
-  const RN = require('react-native');
-  if (RN.NativeModules) {
-    RN.NativeModules.DlScan = global.__DL_SCAN_MOCK__;
-  }
-} catch (error) {
-  console.warn('Failed to setup DlScan mock:', error);
-}
