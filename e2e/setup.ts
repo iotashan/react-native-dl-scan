@@ -9,9 +9,11 @@ import specReporter from 'detox/runners/jest/specReporter';
 
 // Set the default timeout for all waitFor operations
 jest.setTimeout(300000);
+// @ts-ignore - jasmine is available in Detox environment
 jasmine.getEnv().addReporter(adapter);
 
 // Add the spec reporter for better test output
+// @ts-ignore - jasmine is available in Detox environment
 jasmine.getEnv().addReporter(specReporter);
 
 // Global test setup
@@ -143,6 +145,7 @@ expect.extend({
 });
 
 // Global test utilities
+// @ts-ignore - Global assignment for E2E test utilities
 global.TestUtils = {
   async navigateToScanner() {
     await element(by.id('scan-button')).tap();
@@ -191,6 +194,7 @@ global.TestUtils = {
 };
 
 // Test data for E2E scenarios
+// @ts-ignore - Global assignment for E2E test data
 global.TestData = {
   validBarcodes: {
     california: 'validPDF417CaliforniaBarcode',

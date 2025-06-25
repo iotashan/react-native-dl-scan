@@ -142,7 +142,7 @@ const AutoModeStateIndicator: React.FC<AutoModeStateIndicatorProps> = ({
   // Update progress animation based on time remaining
   useEffect(() => {
     if (timeRemaining !== undefined && timeRemaining > 0) {
-      const progress = 1 - (timeRemaining / 10000); // Assuming 10s total timeout
+      const progress = 1 - timeRemaining / 10000; // Assuming 10s total timeout
       Animated.timing(progressAnim, {
         toValue: progress,
         duration: 300,
@@ -206,7 +206,7 @@ const AutoModeStateIndicator: React.FC<AutoModeStateIndicatorProps> = ({
     <Animated.View
       style={[
         styles.stateIndicator,
-        { 
+        {
           backgroundColor: getStateColor(),
           transform: [{ scale: pulseAnim }],
         },
@@ -215,26 +215,26 @@ const AutoModeStateIndicator: React.FC<AutoModeStateIndicatorProps> = ({
       <View style={styles.stateContent}>
         <Text style={styles.stateIcon}>{getStateIcon()}</Text>
         <Text style={styles.stateText}>{getStateText()}</Text>
-        
+
         {/* Progress bar for timeout states */}
-        {(autoModeState === AutoModeState.INITIAL_PDF417 || 
-          autoModeState === AutoModeState.PDF417_TIMEOUT_WARNING) && 
+        {(autoModeState === AutoModeState.INITIAL_PDF417 ||
+          autoModeState === AutoModeState.PDF417_TIMEOUT_WARNING) &&
           timeRemaining !== undefined && (
-          <View style={styles.progressContainer}>
-            <Animated.View
-              style={[
-                styles.progressBar,
-                {
-                  width: progressAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0%', '100%'],
-                  }),
-                },
-              ]}
-            />
-          </View>
-        )}
-        
+            <View style={styles.progressContainer}>
+              <Animated.View
+                style={[
+                  styles.progressBar,
+                  {
+                    width: progressAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0%', '100%'],
+                    }),
+                  },
+                ]}
+              />
+            </View>
+          )}
+
         {/* Time remaining indicator */}
         {timeRemaining !== undefined && timeRemaining > 0 && (
           <Text style={styles.timeText}>
@@ -477,7 +477,12 @@ export const ModeSelector: React.FC<ModeSelectorProps> = ({
 
       {/* Auto-mode indicator */}
       {currentMode === 'auto' && autoModeState && (
-        <View style={[styles.autoModeIndicator, isDarkMode && styles.autoModeIndicatorDark]}>
+        <View
+          style={[
+            styles.autoModeIndicator,
+            isDarkMode && styles.autoModeIndicatorDark,
+          ]}
+        >
           <AutoModeStateIndicator
             autoModeState={autoModeState}
             isTransitioning={isTransitioning}

@@ -46,7 +46,9 @@ describe('GuidanceOverlay', () => {
         <GuidanceOverlay metrics={noDocMetrics} mode="pdf417" />
       );
 
-      expect(getByText('Position the back of your license in the frame')).toBeTruthy();
+      expect(
+        getByText('Position the back of your license in the frame')
+      ).toBeTruthy();
     });
 
     it('should show different message for OCR mode when no document detected', () => {
@@ -68,7 +70,9 @@ describe('GuidanceOverlay', () => {
         <GuidanceOverlay metrics={noDocMetrics} mode="ocr" />
       );
 
-      expect(getByText('Position the front of your license in the frame')).toBeTruthy();
+      expect(
+        getByText('Position the front of your license in the frame')
+      ).toBeTruthy();
     });
 
     it('should prioritize positioning issues over blur', () => {
@@ -167,7 +171,9 @@ describe('GuidanceOverlay', () => {
         <GuidanceOverlay metrics={criticalMetrics} mode="pdf417" />
       );
 
-      const messageElement = getByText('Position the back of your license in the frame');
+      const messageElement = getByText(
+        'Position the back of your license in the frame'
+      );
       expect(messageElement.props.style).toEqual(
         expect.objectContaining({
           color: '#F44336', // Red
@@ -214,9 +220,9 @@ describe('GuidanceOverlay', () => {
   describe('Dismiss functionality', () => {
     it('should show dismiss button when enabled', () => {
       const { getByText } = render(
-        <GuidanceOverlay 
-          metrics={goodMetrics} 
-          mode="pdf417" 
+        <GuidanceOverlay
+          metrics={goodMetrics}
+          mode="pdf417"
           showDismissButton={true}
         />
       );
@@ -226,11 +232,11 @@ describe('GuidanceOverlay', () => {
 
     it('should call onDismiss when dismiss button is pressed', () => {
       const onDismiss = jest.fn();
-      
+
       const { getByText } = render(
-        <GuidanceOverlay 
-          metrics={goodMetrics} 
-          mode="pdf417" 
+        <GuidanceOverlay
+          metrics={goodMetrics}
+          mode="pdf417"
           showDismissButton={true}
           onDismiss={onDismiss}
         />

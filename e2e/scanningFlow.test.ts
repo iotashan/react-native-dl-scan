@@ -3,7 +3,8 @@
  * End-to-end tests for driver license scanning workflows
  */
 
-import { device, expect, element, by, waitFor } from 'detox';
+import { device, expect as detoxExpect, element, by, waitFor } from 'detox';
+const { expect } = require('@jest/globals');
 
 describe('Driver License Scanning Flow E2E', () => {
   beforeAll(async () => {
@@ -34,11 +35,11 @@ describe('Driver License Scanning Flow E2E', () => {
       await TestUtils.navigateToScanner();
 
       // Verify camera view is visible and permissions granted
-      await expect(element(by.id('camera-view'))).toBeVisibleOnScreen();
-      await expect(element(by.id('scan-guide-overlay'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisibleOnScreen();
+      await detoxExpect(element(by.id('scan-guide-overlay'))).toBeVisible();
 
       // Verify scanning instructions are shown
-      await expect(
+      await detoxExpect(
         element(by.text('Position barcode on back of license'))
       ).toBeVisible();
 
@@ -50,14 +51,18 @@ describe('Driver License Scanning Flow E2E', () => {
 
       // Verify extracted license data is displayed
       const expectedData = TestData.expectedResults.california;
-      await expect(element(by.text(expectedData.firstName))).toBeVisible();
-      await expect(element(by.text(expectedData.lastName))).toBeVisible();
-      await expect(element(by.text(expectedData.licenseNumber))).toBeVisible();
-      await expect(element(by.text(expectedData.dateOfBirth))).toBeVisible();
+      await detoxExpect(element(by.text(expectedData.firstName))).toBeVisible();
+      await detoxExpect(element(by.text(expectedData.lastName))).toBeVisible();
+      await detoxExpect(
+        element(by.text(expectedData.licenseNumber))
+      ).toBeVisible();
+      await detoxExpect(
+        element(by.text(expectedData.dateOfBirth))
+      ).toBeVisible();
 
       // Verify action buttons are available
-      await expect(element(by.id('confirm-button'))).toBeVisible();
-      await expect(element(by.id('retry-button'))).toBeVisible();
+      await detoxExpect(element(by.id('confirm-button'))).toBeVisible();
+      await detoxExpect(element(by.id('retry-button'))).toBeVisible();
 
       // Confirm the scan results
       await element(by.id('confirm-button')).tap();
@@ -82,11 +87,11 @@ describe('Driver License Scanning Flow E2E', () => {
       await TestUtils.waitForScanResult();
 
       const expectedData = TestData.expectedResults.texas;
-      await expect(element(by.text(expectedData.firstName))).toBeVisible();
-      await expect(element(by.text(expectedData.lastName))).toBeVisible();
+      await detoxExpect(element(by.text(expectedData.firstName))).toBeVisible();
+      await detoxExpect(element(by.text(expectedData.lastName))).toBeVisible();
 
       await element(by.id('confirm-button')).tap();
-      await expect(element(by.id('success-screen'))).toBeVisible();
+      await detoxExpect(element(by.id('success-screen'))).toBeVisible();
 
       console.log('✅ Texas license scanning completed successfully');
     });
@@ -97,20 +102,20 @@ describe('Driver License Scanning Flow E2E', () => {
       await TestUtils.navigateToScanner();
 
       // Verify initial scanning state
-      await expect(element(by.id('scanning-status'))).toHaveText(
+      await detoxExpect(element(by.id('scanning-status'))).toHaveText(
         'Ready to scan'
       );
-      await expect(element(by.id('progress-indicator'))).not.toBeVisible();
+      await detoxExpect(element(by.id('progress-indicator'))).not.toBeVisible();
 
       // Simulate barcode detection and verify processing state
       await TestUtils.simulateBarcodeScan(TestData.validBarcodes.california);
 
       // Should show processing state (might be brief in E2E)
       try {
-        await expect(element(by.id('scanning-status'))).toHaveText(
+        await detoxExpect(element(by.id('scanning-status'))).toHaveText(
           'Processing...'
         );
-        await expect(element(by.id('progress-indicator'))).toBeVisible();
+        await detoxExpect(element(by.id('progress-indicator'))).toBeVisible();
       } catch (error) {
         // Processing might complete too quickly in simulation
         console.log(
@@ -120,7 +125,7 @@ describe('Driver License Scanning Flow E2E', () => {
 
       // Verify final result state
       await TestUtils.waitForScanResult();
-      await expect(element(by.id('scan-result'))).toBeVisible();
+      await detoxExpect(element(by.id('scan-result'))).toBeVisible();
 
       console.log('✅ Progress indicators working correctly');
     });
@@ -131,7 +136,7 @@ describe('Driver License Scanning Flow E2E', () => {
       console.log('🔍 Testing OCR fallback activation on timeout');
 
       await TestUtils.navigateToScanner();
-      await expect(element(by.id('camera-view'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
 
       // Simulate scanning timeout (no barcode detected)
       await device.sendToHome();
@@ -146,12 +151,14 @@ describe('Driver License Scanning Flow E2E', () => {
         .withTimeout(TestData.timeouts.ocrFallback);
 
       // Verify OCR mode UI changes
-      await expect(element(by.text('Position front of license'))).toBeVisible();
-      await expect(element(by.id('ocr-instructions'))).toBeVisible();
-      await expect(element(by.id('capture-button'))).toBeVisible();
+      await detoxExpect(
+        element(by.text('Position front of license'))
+      ).toBeVisible();
+      await detoxExpect(element(by.id('ocr-instructions'))).toBeVisible();
+      await detoxExpect(element(by.id('capture-button'))).toBeVisible();
 
       // Verify scanning mode indicator
-      await expect(element(by.text('OCR Mode'))).toBeVisible();
+      await detoxExpect(element(by.text('OCR Mode'))).toBeVisible();
 
       console.log('✅ OCR fallback activated successfully');
     });
@@ -188,11 +195,11 @@ describe('Driver License Scanning Flow E2E', () => {
         .withTimeout(TestData.timeouts.processing);
 
       // Verify OCR results displayed
-      await expect(element(by.id('ocr-extracted-text'))).toBeVisible();
-      await expect(element(by.id('confirm-ocr-button'))).toBeVisible();
+      await detoxExpect(element(by.id('ocr-extracted-text'))).toBeVisible();
+      await detoxExpect(element(by.id('confirm-ocr-button'))).toBeVisible();
 
       await element(by.id('confirm-ocr-button')).tap();
-      await expect(element(by.id('success-screen'))).toBeVisible();
+      await detoxExpect(element(by.id('success-screen'))).toBeVisible();
 
       console.log('✅ OCR scanning workflow completed successfully');
     });
@@ -205,26 +212,28 @@ describe('Driver License Scanning Flow E2E', () => {
       await TestUtils.navigateToScanner();
 
       // Verify initial PDF417 mode
-      await expect(
+      await detoxExpect(
         element(by.text('Position barcode on back of license'))
       ).toBeVisible();
-      await expect(element(by.id('mode-toggle'))).toBeVisible();
+      await detoxExpect(element(by.id('mode-toggle'))).toBeVisible();
 
       // Switch to OCR mode manually
       await element(by.id('mode-toggle')).tap();
 
       // Verify OCR mode activated
-      await expect(element(by.text('Position front of license'))).toBeVisible();
-      await expect(element(by.id('capture-button'))).toBeVisible();
+      await detoxExpect(
+        element(by.text('Position front of license'))
+      ).toBeVisible();
+      await detoxExpect(element(by.id('capture-button'))).toBeVisible();
 
       // Switch back to PDF417 mode
       await element(by.id('mode-toggle')).tap();
 
       // Verify back to PDF417 mode
-      await expect(
+      await detoxExpect(
         element(by.text('Position barcode on back of license'))
       ).toBeVisible();
-      await expect(element(by.id('scan-guide-overlay'))).toBeVisible();
+      await detoxExpect(element(by.id('scan-guide-overlay'))).toBeVisible();
 
       console.log('✅ Mode switching working correctly');
     });
@@ -241,14 +250,14 @@ describe('Driver License Scanning Flow E2E', () => {
       await element(by.id('mode-toggle')).tap();
 
       // Verify mode switched but no data lost
-      await expect(element(by.id('ocr-mode-indicator'))).toBeVisible();
+      await detoxExpect(element(by.id('ocr-mode-indicator'))).toBeVisible();
 
       // Switch back
       await element(by.id('mode-toggle')).tap();
 
       // Should be able to continue scanning
-      await expect(element(by.id('camera-view'))).toBeVisible();
-      await expect(element(by.id('scan-guide-overlay'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
+      await detoxExpect(element(by.id('scan-guide-overlay'))).toBeVisible();
 
       console.log('✅ State persistence during mode switches verified');
     });
@@ -265,17 +274,19 @@ describe('Driver License Scanning Flow E2E', () => {
         .toBeVisible()
         .withTimeout(25000); // Should show warning before full timeout
 
-      await expect(
+      await detoxExpect(
         element(by.text('Taking longer than expected'))
       ).toBeVisible();
-      await expect(element(by.id('continue-scanning-button'))).toBeVisible();
-      await expect(element(by.id('switch-to-ocr-button'))).toBeVisible();
+      await detoxExpect(
+        element(by.id('continue-scanning-button'))
+      ).toBeVisible();
+      await detoxExpect(element(by.id('switch-to-ocr-button'))).toBeVisible();
 
       // Test continue scanning option
       await element(by.id('continue-scanning-button')).tap();
 
       // Should return to scanning state
-      await expect(element(by.id('camera-view'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
 
       console.log('✅ PDF417 timeout handling verified');
     });
@@ -287,7 +298,7 @@ describe('Driver License Scanning Flow E2E', () => {
 
       // Switch to OCR mode
       await element(by.id('mode-toggle')).tap();
-      await expect(element(by.id('ocr-mode-indicator'))).toBeVisible();
+      await detoxExpect(element(by.id('ocr-mode-indicator'))).toBeVisible();
 
       // Simulate OCR timeout
       await device.sendToHome();
@@ -301,15 +312,17 @@ describe('Driver License Scanning Flow E2E', () => {
         .toBeVisible()
         .withTimeout(15000);
 
-      await expect(element(by.text('OCR processing timed out'))).toBeVisible();
-      await expect(element(by.id('retry-ocr-button'))).toBeVisible();
-      await expect(element(by.id('back-to-barcode-button'))).toBeVisible();
+      await detoxExpect(
+        element(by.text('OCR processing timed out'))
+      ).toBeVisible();
+      await detoxExpect(element(by.id('retry-ocr-button'))).toBeVisible();
+      await detoxExpect(element(by.id('back-to-barcode-button'))).toBeVisible();
 
       // Test retry OCR option
       await element(by.id('retry-ocr-button')).tap();
 
       // Should return to OCR capture mode
-      await expect(element(by.id('capture-button'))).toBeVisible();
+      await detoxExpect(element(by.id('capture-button'))).toBeVisible();
 
       console.log('✅ OCR timeout handling verified');
     });
@@ -325,10 +338,14 @@ describe('Driver License Scanning Flow E2E', () => {
         .withTimeout(25000);
 
       // Verify helpful guidance is shown
-      await expect(element(by.text('Tips for better scanning:'))).toBeVisible();
-      await expect(element(by.text('• Ensure good lighting'))).toBeVisible();
-      await expect(element(by.text('• Hold device steady'))).toBeVisible();
-      await expect(
+      await detoxExpect(
+        element(by.text('Tips for better scanning:'))
+      ).toBeVisible();
+      await detoxExpect(
+        element(by.text('• Ensure good lighting'))
+      ).toBeVisible();
+      await detoxExpect(element(by.text('• Hold device steady'))).toBeVisible();
+      await detoxExpect(
         element(by.text('• Position barcode clearly'))
       ).toBeVisible();
 
@@ -343,10 +360,10 @@ describe('Driver License Scanning Flow E2E', () => {
       await TestUtils.navigateToScanner();
 
       // PDF417 mode instructions
-      await expect(
+      await detoxExpect(
         element(by.text('Position barcode on back of license'))
       ).toBeVisible();
-      await expect(
+      await detoxExpect(
         element(by.text('Align within the guide frame'))
       ).toBeVisible();
 
@@ -354,8 +371,10 @@ describe('Driver License Scanning Flow E2E', () => {
       await element(by.id('mode-toggle')).tap();
 
       // OCR mode instructions
-      await expect(element(by.text('Position front of license'))).toBeVisible();
-      await expect(
+      await detoxExpect(
+        element(by.text('Position front of license'))
+      ).toBeVisible();
+      await detoxExpect(
         element(by.text('Ensure text is clear and readable'))
       ).toBeVisible();
 
@@ -366,22 +385,24 @@ describe('Driver License Scanning Flow E2E', () => {
       console.log('🔍 Testing scan cancellation flow');
 
       await TestUtils.navigateToScanner();
-      await expect(element(by.id('camera-view'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
 
       // Cancel scanning
       await element(by.id('cancel-scan-button')).tap();
 
       // Should show confirmation dialog
-      await expect(element(by.text('Cancel scanning?'))).toBeVisible();
-      await expect(element(by.id('confirm-cancel-button'))).toBeVisible();
-      await expect(element(by.id('continue-scanning-button'))).toBeVisible();
+      await detoxExpect(element(by.text('Cancel scanning?'))).toBeVisible();
+      await detoxExpect(element(by.id('confirm-cancel-button'))).toBeVisible();
+      await detoxExpect(
+        element(by.id('continue-scanning-button'))
+      ).toBeVisible();
 
       // Confirm cancellation
       await element(by.id('confirm-cancel-button')).tap();
 
       // Should return to main screen
-      await expect(element(by.id('main-screen'))).toBeVisible();
-      await expect(element(by.id('scan-button'))).toBeVisible();
+      await detoxExpect(element(by.id('main-screen'))).toBeVisible();
+      await detoxExpect(element(by.id('scan-button'))).toBeVisible();
 
       console.log('✅ Scan cancellation flow working correctly');
     });
@@ -394,7 +415,7 @@ describe('Driver License Scanning Flow E2E', () => {
       const startTime = Date.now();
 
       await TestUtils.navigateToScanner();
-      await expect(element(by.id('camera-view'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
 
       const loadTime = Date.now() - startTime;
 
@@ -427,20 +448,20 @@ describe('Driver License Scanning Flow E2E', () => {
 
       // UI should remain responsive during scanning
       await element(by.id('mode-toggle')).tap();
-      await expect(element(by.id('ocr-mode-indicator'))).toBeVisible();
+      await detoxExpect(element(by.id('ocr-mode-indicator'))).toBeVisible();
 
       await element(by.id('mode-toggle')).tap();
-      await expect(
+      await detoxExpect(
         element(by.text('Position barcode on back of license'))
       ).toBeVisible();
 
       // Cancel button should remain responsive
       await element(by.id('cancel-scan-button')).tap();
-      await expect(element(by.text('Cancel scanning?'))).toBeVisible();
+      await detoxExpect(element(by.text('Cancel scanning?'))).toBeVisible();
 
       // Continue scanning
       await element(by.id('continue-scanning-button')).tap();
-      await expect(element(by.id('camera-view'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
 
       console.log('✅ UI remains responsive during scanning operations');
     });

@@ -16,12 +16,12 @@ export type {
 } from './hooks/useLicenseScanner';
 export { scanLicense as scanLicenseFrame } from './frameProcessors/scanLicense';
 export type { ScanLicenseResult } from './frameProcessors/scanLicense';
-export { 
+export {
   calculateQualityMetrics,
   convertLegacyMetrics,
   shouldAnalyzeFrame,
   getCachedQualityMetrics,
-  setCachedQualityMetrics
+  setCachedQualityMetrics,
 } from './frameProcessors/qualityMetrics';
 export { CameraScanner } from './components/CameraScanner';
 export type { CameraScannerProps } from './components/CameraScanner';

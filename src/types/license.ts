@@ -85,7 +85,7 @@ export enum AutoModeState {
   PDF417_TIMEOUT_WARNING = 'pdf417_timeout_warning',
   SWITCHING_TO_OCR = 'switching_to_ocr',
   OCR_ACTIVE = 'ocr_active',
-  SUCCESS = 'success'
+  SUCCESS = 'success',
 }
 
 export interface AutoModeConfig {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useCallback, useRef } from 'react';
 
 interface RealTimeQualityMetrics {
@@ -35,17 +36,20 @@ export const useThrottledQualityMetrics = () => {
   const lastUpdateTime = useRef<number>(0);
   const throttleDelay = 100; // 100ms = 10fps max
 
-  const updateMetrics = useCallback((newMetrics: RealTimeQualityMetrics) => {
-    const now = Date.now();
-    if (now - lastUpdateTime.current >= throttleDelay) {
-      setMetrics(newMetrics);
-      lastUpdateTime.current = now;
-    }
-  }, [throttleDelay]);
+  const updateMetrics = useCallback(
+    (newMetrics: RealTimeQualityMetrics) => {
+      const now = Date.now();
+      if (now - lastUpdateTime.current >= throttleDelay) {
+        setMetrics(newMetrics);
+        lastUpdateTime.current = now;
+      }
+    },
+    [throttleDelay]
+  );
 
-  return { 
-    metrics, 
+  return {
+    metrics,
     updateMetrics,
-    setMetrics: updateMetrics
+    setMetrics: updateMetrics,
   };
 };

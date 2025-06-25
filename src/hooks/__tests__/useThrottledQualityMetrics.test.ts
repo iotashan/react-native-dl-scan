@@ -56,7 +56,7 @@ describe('useThrottledQualityMetrics', () => {
 
   it('should throttle metrics updates', async () => {
     jest.useFakeTimers();
-    
+
     const { result } = renderHook(() => useThrottledQualityMetrics());
 
     act(() => {
@@ -78,12 +78,21 @@ describe('useThrottledQualityMetrics', () => {
 
   it('should handle multiple rapid updates with throttling', async () => {
     jest.useFakeTimers();
-    
+
     const { result } = renderHook(() => useThrottledQualityMetrics());
 
-    const metrics1 = { ...mockMetrics, overall: { score: 0.5, readyToScan: false } };
-    const metrics2 = { ...mockMetrics, overall: { score: 0.7, readyToScan: false } };
-    const metrics3 = { ...mockMetrics, overall: { score: 0.9, readyToScan: true } };
+    const metrics1 = {
+      ...mockMetrics,
+      overall: { score: 0.5, readyToScan: false },
+    };
+    const metrics2 = {
+      ...mockMetrics,
+      overall: { score: 0.7, readyToScan: false },
+    };
+    const metrics3 = {
+      ...mockMetrics,
+      overall: { score: 0.9, readyToScan: true },
+    };
 
     // Send multiple updates rapidly
     act(() => {
@@ -108,7 +117,7 @@ describe('useThrottledQualityMetrics', () => {
 
   it('should handle setMetrics as an alias for updateMetrics', async () => {
     jest.useFakeTimers();
-    
+
     const { result } = renderHook(() => useThrottledQualityMetrics());
 
     act(() => {
@@ -129,9 +138,9 @@ describe('useThrottledQualityMetrics', () => {
     const { result, rerender } = renderHook(() => useThrottledQualityMetrics());
 
     const firstUpdateFunction = result.current.updateMetrics;
-    
+
     rerender();
-    
+
     const secondUpdateFunction = result.current.updateMetrics;
 
     expect(firstUpdateFunction).toBe(secondUpdateFunction);
@@ -142,7 +151,7 @@ describe('useThrottledQualityMetrics', () => {
       processFrame: jest.fn().mockReturnValue(mockMetrics),
     };
 
-    const { result } = renderHook(() => 
+    const { result } = renderHook(() =>
       useThrottledQualityMetrics(mockFrameProcessor)
     );
 
@@ -152,7 +161,7 @@ describe('useThrottledQualityMetrics', () => {
 
   it('should handle null metrics gracefully', async () => {
     jest.useFakeTimers();
-    
+
     const { result } = renderHook(() => useThrottledQualityMetrics());
 
     act(() => {
@@ -172,7 +181,7 @@ describe('useThrottledQualityMetrics', () => {
 
   it('should respect the 100ms throttle interval for 10fps max update rate', () => {
     renderHook(() => useThrottledQualityMetrics());
-    
+
     // This test verifies the throttle interval is implemented correctly
     // The actual throttling behavior is tested in the performance tests
   });

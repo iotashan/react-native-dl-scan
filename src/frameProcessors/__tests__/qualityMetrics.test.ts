@@ -41,7 +41,9 @@ describe('qualityMetrics', () => {
       expect(metrics.positioning).toHaveProperty('status');
       expect(typeof metrics.positioning.documentDetected).toBe('boolean');
       expect(typeof metrics.positioning.alignment).toBe('number');
-      expect(['too_close', 'optimal', 'too_far']).toContain(metrics.positioning.distance);
+      expect(['too_close', 'optimal', 'too_far']).toContain(
+        metrics.positioning.distance
+      );
       expect(['good', 'warning', 'poor']).toContain(metrics.positioning.status);
 
       expect(metrics).toHaveProperty('overall');
@@ -175,9 +177,15 @@ describe('qualityMetrics', () => {
         overall: 'poor' as const,
       };
 
-      expect(convertLegacyMetrics(optimalPositioning).positioning.distance).toBe('optimal');
-      expect(convertLegacyMetrics(farPositioning).positioning.distance).toBe('too_far');
-      expect(convertLegacyMetrics(closePositioning).positioning.distance).toBe('too_close');
+      expect(
+        convertLegacyMetrics(optimalPositioning).positioning.distance
+      ).toBe('optimal');
+      expect(convertLegacyMetrics(farPositioning).positioning.distance).toBe(
+        'too_far'
+      );
+      expect(convertLegacyMetrics(closePositioning).positioning.distance).toBe(
+        'too_close'
+      );
     });
   });
 
@@ -226,7 +234,12 @@ describe('qualityMetrics', () => {
       const mockMetrics = {
         blur: { value: 0.2, status: 'good' as const },
         lighting: { brightness: 0.8, uniformity: 0.9, status: 'good' as const },
-        positioning: { documentDetected: true, alignment: 0.85, distance: 'optimal' as const, status: 'good' as const },
+        positioning: {
+          documentDetected: true,
+          alignment: 0.85,
+          distance: 'optimal' as const,
+          status: 'good' as const,
+        },
         overall: { score: 0.85, readyToScan: true },
       };
 
@@ -245,12 +258,17 @@ describe('qualityMetrics', () => {
       const mockMetrics = {
         blur: { value: 0.2, status: 'good' as const },
         lighting: { brightness: 0.8, uniformity: 0.9, status: 'good' as const },
-        positioning: { documentDetected: true, alignment: 0.85, distance: 'optimal' as const, status: 'good' as const },
+        positioning: {
+          documentDetected: true,
+          alignment: 0.85,
+          distance: 'optimal' as const,
+          status: 'good' as const,
+        },
         overall: { score: 0.85, readyToScan: true },
       };
 
       setCachedQualityMetrics('test-frame-2', mockMetrics);
-      
+
       // Mock old timestamp by setting maxAge to 0
       const retrieved = getCachedQualityMetrics('test-frame-2', 0);
       expect(retrieved).toBeNull();
@@ -260,7 +278,12 @@ describe('qualityMetrics', () => {
       const mockMetrics = {
         blur: { value: 0.2, status: 'good' as const },
         lighting: { brightness: 0.8, uniformity: 0.9, status: 'good' as const },
-        positioning: { documentDetected: true, alignment: 0.85, distance: 'optimal' as const, status: 'good' as const },
+        positioning: {
+          documentDetected: true,
+          alignment: 0.85,
+          distance: 'optimal' as const,
+          status: 'good' as const,
+        },
         overall: { score: 0.85, readyToScan: true },
       };
 

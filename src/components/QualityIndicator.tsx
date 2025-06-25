@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, AccessibilityInfo } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -15,51 +17,54 @@ const qualityMessages = {
   blur: {
     poor: 'Hold device steady',
     warning: 'Slight movement detected',
-    good: 'Image is sharp'
+    good: 'Image is sharp',
   },
   lighting: {
     poor: 'Find better lighting',
     warning: 'Lighting could be better',
-    good: 'Good lighting'
+    good: 'Good lighting',
   },
   positioning: {
     too_close: 'Move device farther away',
     too_far: 'Move device closer',
-    optimal: 'Good distance'
-  }
+    optimal: 'Good distance',
+  },
 };
 
 // Helper function to get appropriate quality message
-const getQualityMessages = (metrics: RealTimeQualityMetrics, mode: 'pdf417' | 'ocr'): string => {
+const getQualityMessages = (
+  metrics: RealTimeQualityMetrics,
+  mode: 'pdf417' | 'ocr'
+): string => {
   // Check positioning first as it's most critical
   if (metrics.positioning.status === 'poor') {
     return qualityMessages.positioning[metrics.positioning.distance];
   }
-  
+
   // Then check blur (camera stability)
   if (metrics.blur.status === 'poor') {
     return qualityMessages.blur.poor;
   }
-  
+
   // Then check lighting
   if (metrics.lighting.status === 'poor') {
     return qualityMessages.lighting.poor;
   }
-  
+
   // If only warnings, prioritize based on mode
   if (mode === 'ocr' && metrics.lighting.status === 'warning') {
     return qualityMessages.lighting.warning;
   }
-  
+
   if (metrics.blur.status === 'warning') {
     return qualityMessages.blur.warning;
   }
-  
+
   // All good
   if (metrics.overall.readyToScan) {
     return 'Ready to scan';
   }
-  
+
   return 'Adjust positioning';
 };
 
@@ -122,7 +127,7 @@ export const QualityIndicator: React.FC<QualityIndicatorProps> = ({
   showDetails = true,
   compact = false,
   mode = 'pdf417',
-  onDismiss,
+  onDismiss: _onDismiss,
   enableHapticFeedback = true,
   enableAccessibilityAnnouncements = true,
 }) => {
@@ -142,19 +147,29 @@ export const QualityIndicator: React.FC<QualityIndicatorProps> = ({
   if (isRealTimeMetrics(metrics)) {
     overallScore = metrics.overall.score;
     readyToScan = metrics.overall.readyToScan;
-    overallStatus = overallScore > 0.7 ? 'good' : overallScore > 0.4 ? 'warning' : 'poor';
+    overallStatus =
+      overallScore > 0.7 ? 'good' : overallScore > 0.4 ? 'warning' : 'poor';
   } else {
     // Legacy interface conversion
-    overallScore = (metrics.lighting + metrics.positioning + (1 - metrics.blur)) / 3;
-    overallStatus = metrics.overall === 'good' ? 'good' : metrics.overall === 'fair' ? 'warning' : 'poor';
+    overallScore =
+      (metrics.lighting + metrics.positioning + (1 - metrics.blur)) / 3;
+    overallStatus =
+      metrics.overall === 'good'
+        ? 'good'
+        : metrics.overall === 'fair'
+          ? 'warning'
+          : 'poor';
     readyToScan = overallStatus === 'good';
   }
 
   // Handle haptic feedback and accessibility announcements
   useEffect(() => {
     const currentStatus = overallStatus;
-    
-    if (previousStatusRef.current && previousStatusRef.current !== currentStatus) {
+
+    if (
+      previousStatusRef.current &&
+      previousStatusRef.current !== currentStatus
+    ) {
       // Provide haptic feedback on status change
       if (enableHapticFeedback) {
         switch (currentStatus) {
@@ -176,7 +191,7 @@ export const QualityIndicator: React.FC<QualityIndicatorProps> = ({
         AccessibilityInfo.announceForAccessibility(message);
       }
     }
-    
+
     previousStatusRef.current = currentStatus;
   }, [overallStatus, enableHapticFeedback, enableAccessibilityAnnouncements]);
 
@@ -303,7 +318,12 @@ interface QualityBarProps {
   status?: 'good' | 'warning' | 'poor';
 }
 
-const QualityBar: React.FC<QualityBarProps> = ({ label, value, color, status }) => {
+const QualityBar: React.FC<QualityBarProps> = ({
+  label,
+  value,
+  color,
+  status,
+}) => {
   const progress = useSharedValue(0);
 
   useEffect(() => {

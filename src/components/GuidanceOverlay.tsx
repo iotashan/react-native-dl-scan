@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -51,23 +51,28 @@ export const GuidanceOverlay: React.FC<GuidanceOverlayProps> = ({
   const opacity = useSharedValue(1);
 
   // Get primary guidance message
-  const getPrimaryGuidance = (): { message: string; priority: 'high' | 'medium' | 'low' } => {
+  const getPrimaryGuidance = (): {
+    message: string;
+    priority: 'high' | 'medium' | 'low';
+  } => {
     // Critical positioning issues
     if (!metrics.positioning.documentDetected) {
       return {
-        message: mode === 'pdf417' 
-          ? 'Position the back of your license in the frame'
-          : 'Position the front of your license in the frame',
-        priority: 'high'
+        message:
+          mode === 'pdf417'
+            ? 'Position the back of your license in the frame'
+            : 'Position the front of your license in the frame',
+        priority: 'high',
       };
     }
 
     if (metrics.positioning.status === 'poor') {
-      const distanceMessage = metrics.positioning.distance === 'too_close' 
-        ? 'Move device farther away'
-        : metrics.positioning.distance === 'too_far'
-        ? 'Move device closer'
-        : 'Center license in frame';
+      const distanceMessage =
+        metrics.positioning.distance === 'too_close'
+          ? 'Move device farther away'
+          : metrics.positioning.distance === 'too_far'
+            ? 'Move device closer'
+            : 'Center license in frame';
       return { message: distanceMessage, priority: 'high' };
     }
 
@@ -134,7 +139,7 @@ export const GuidanceOverlay: React.FC<GuidanceOverlayProps> = ({
     if (!metrics.positioning.documentDetected) {
       return '📱';
     }
-    
+
     switch (guidance.priority) {
       case 'high':
         return '⚠️';
@@ -156,7 +161,7 @@ export const GuidanceOverlay: React.FC<GuidanceOverlayProps> = ({
         {
           backgroundColor: `${getGuidanceColor()}15`, // 15% opacity
           borderColor: getGuidanceColor(),
-        }
+        },
       ]}
     >
       <Animated.View style={[styles.content, animatedStyle]}>
@@ -164,7 +169,7 @@ export const GuidanceOverlay: React.FC<GuidanceOverlayProps> = ({
         <Text style={[styles.message, { color: getGuidanceColor() }]}>
           {guidance.message}
         </Text>
-        
+
         {showDismissButton && onDismiss && (
           <TouchableOpacity
             style={styles.dismissButton}
@@ -179,10 +184,9 @@ export const GuidanceOverlay: React.FC<GuidanceOverlayProps> = ({
       {/* Additional context for specific situations */}
       {!metrics.positioning.documentDetected && (
         <Text style={styles.subMessage}>
-          {mode === 'pdf417' 
+          {mode === 'pdf417'
             ? 'Look for the barcode on the back'
-            : 'Ensure all corners are visible'
-          }
+            : 'Ensure all corners are visible'}
         </Text>
       )}
     </Animated.View>

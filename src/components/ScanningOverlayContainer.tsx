@@ -74,7 +74,7 @@ export const ScanningOverlayContainer: React.FC<
     const isGoodQuality = realTimeQualityMetrics
       ? realTimeQualityMetrics.overall.readyToScan
       : imageQuality.overall === 'good';
-      
+
     if (isScanning && isGoodQuality) {
       setDetectionState('detecting');
     } else {
@@ -102,7 +102,7 @@ export const ScanningOverlayContainer: React.FC<
     // Use real-time metrics if available, otherwise fall back to legacy
     if (realTimeQualityMetrics) {
       if (!realTimeQualityMetrics.positioning.documentDetected) {
-        return mode === 'barcode' 
+        return mode === 'barcode'
           ? 'Position the back of your license in the frame'
           : 'Position the front of your license in the frame';
       }
@@ -113,11 +113,11 @@ export const ScanningOverlayContainer: React.FC<
         return 'Find better lighting';
       }
       if (realTimeQualityMetrics.positioning.status === 'poor') {
-        return realTimeQualityMetrics.positioning.distance === 'too_close' 
+        return realTimeQualityMetrics.positioning.distance === 'too_close'
           ? 'Move device farther away'
           : realTimeQualityMetrics.positioning.distance === 'too_far'
-          ? 'Move device closer'
-          : 'Center license in frame';
+            ? 'Move device closer'
+            : 'Center license in frame';
       }
     } else if (imageQuality.overall === 'poor') {
       if (imageQuality.blur > 0.7) {
@@ -180,12 +180,16 @@ export const ScanningOverlayContainer: React.FC<
       {showQualityIndicator && isScanning && (
         <QualityIndicator
           metrics={realTimeQualityMetrics || imageQuality}
-          showDetails={realTimeQualityMetrics 
-            ? !realTimeQualityMetrics.overall.readyToScan 
-            : imageQuality.overall !== 'good'}
-          compact={realTimeQualityMetrics 
-            ? realTimeQualityMetrics.overall.readyToScan 
-            : imageQuality.overall === 'good'}
+          showDetails={
+            realTimeQualityMetrics
+              ? !realTimeQualityMetrics.overall.readyToScan
+              : imageQuality.overall !== 'good'
+          }
+          compact={
+            realTimeQualityMetrics
+              ? realTimeQualityMetrics.overall.readyToScan
+              : imageQuality.overall === 'good'
+          }
           mode={mode === 'barcode' ? 'pdf417' : 'ocr'}
           enableHapticFeedback={enableHapticFeedback}
           enableAccessibilityAnnouncements={enableAccessibilityAnnouncements}

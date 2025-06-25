@@ -68,8 +68,11 @@ export function useLicenseScanner(
   const [scanMetrics, setScanMetrics] = useState<ScanMetrics | null>(null);
   const [performanceMetrics, setPerformanceMetrics] =
     useState<ScanMetrics | null>(null);
-  const [autoModeState, setAutoModeState] = useState<AutoModeState | null>(null);
-  const [lastQualityMetrics, setLastQualityMetrics] = useState<QualityMetrics | null>(null);
+  const [autoModeState, setAutoModeState] = useState<AutoModeState | null>(
+    null
+  );
+  const [lastQualityMetrics, setLastQualityMetrics] =
+    useState<QualityMetrics | null>(null);
 
   const fallbackControllerRef = useRef<FallbackController | null>(null);
 
@@ -129,9 +132,15 @@ export function useLicenseScanner(
           );
         }
       },
-      onAutoModeStateChange: (oldState: AutoModeState, newState: AutoModeState) => {
+      onAutoModeStateChange: (
+        oldState: AutoModeState,
+        newState: AutoModeState
+      ) => {
         setAutoModeState(newState);
-        logger.debug('Auto-mode state changed', { from: oldState, to: newState });
+        logger.debug('Auto-mode state changed', {
+          from: oldState,
+          to: newState,
+        });
       },
       onModeRecommendation: (recommendedMode: ScanMode, reason: string) => {
         logger.info('Mode recommendation', { mode: recommendedMode, reason });
@@ -293,12 +302,15 @@ export function useLicenseScanner(
   );
 
   // Process quality metrics for intelligent mode switching
-  const processQualityMetrics = useCallback((metrics: QualityMetrics): boolean => {
-    if (fallbackControllerRef.current) {
-      return fallbackControllerRef.current.processQualityMetrics(metrics);
-    }
-    return false;
-  }, []);
+  const processQualityMetrics = useCallback(
+    (metrics: QualityMetrics): boolean => {
+      if (fallbackControllerRef.current) {
+        return fallbackControllerRef.current.processQualityMetrics(metrics);
+      }
+      return false;
+    },
+    []
+  );
 
   const reset = useCallback(() => {
     setLicenseData(null);

@@ -3,7 +3,8 @@
  * Tests across different device types, screen sizes, and orientations
  */
 
-import { device, expect, element, by, waitFor } from 'detox';
+import { device, expect as detoxExpect, element, by, waitFor } from 'detox';
+const { expect } = require('@jest/globals');
 
 // Device matrix configuration
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -98,22 +99,22 @@ describe('Device Matrix E2E Tests', () => {
       await TestUtils.navigateToScanner();
 
       // Verify essential UI elements are visible and accessible on small screens
-      await expect(element(by.id('camera-view'))).toBeVisible();
-      await expect(element(by.id('scan-guide-overlay'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
+      await detoxExpect(element(by.id('scan-guide-overlay'))).toBeVisible();
 
       // Check that scan guide is appropriately sized for small screen
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const scanGuide = element(by.id('scan-guide-overlay'));
 
       // Verify mode toggle is accessible (not hidden by safe area)
-      await expect(element(by.id('mode-toggle'))).toBeVisible();
+      await detoxExpect(element(by.id('mode-toggle'))).toBeVisible();
 
       // Verify cancel button is accessible
-      await expect(element(by.id('cancel-scan-button'))).toBeVisible();
+      await detoxExpect(element(by.id('cancel-scan-button'))).toBeVisible();
 
       // Test that all interactive elements can be tapped
       await element(by.id('mode-toggle')).tap();
-      await expect(element(by.id('ocr-mode-indicator'))).toBeVisible();
+      await detoxExpect(element(by.id('ocr-mode-indicator'))).toBeVisible();
 
       console.log('✅ Small screen adaptation verified');
     });
@@ -124,12 +125,12 @@ describe('Device Matrix E2E Tests', () => {
       await TestUtils.navigateToScanner();
 
       // Verify UI takes advantage of larger screen real estate
-      await expect(element(by.id('camera-view'))).toBeVisible();
-      await expect(element(by.id('scan-guide-overlay'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
+      await detoxExpect(element(by.id('scan-guide-overlay'))).toBeVisible();
 
       // On larger screens, should show additional UI elements
-      await expect(element(by.id('scan-tips-panel'))).toBeVisible();
-      await expect(element(by.id('scan-history-button'))).toBeVisible();
+      await detoxExpect(element(by.id('scan-tips-panel'))).toBeVisible();
+      await detoxExpect(element(by.id('scan-history-button'))).toBeVisible();
 
       // Verify scan guide is optimally sized for license scanning
       // (should not be too large that it's impractical)
@@ -150,14 +151,16 @@ describe('Device Matrix E2E Tests', () => {
       await TestUtils.navigateToScanner();
 
       // On tablets, should use split or enhanced layout
-      await expect(element(by.id('camera-view'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
 
       // Tablets should show enhanced UI with more information
-      await expect(element(by.id('enhanced-instructions-panel'))).toBeVisible();
-      await expect(element(by.id('scan-history-sidebar'))).toBeVisible();
+      await detoxExpect(
+        element(by.id('enhanced-instructions-panel'))
+      ).toBeVisible();
+      await detoxExpect(element(by.id('scan-history-sidebar'))).toBeVisible();
 
       // Verify tablet-specific navigation patterns
-      await expect(element(by.id('tablet-navigation-bar'))).toBeVisible();
+      await detoxExpect(element(by.id('tablet-navigation-bar'))).toBeVisible();
 
       console.log('✅ Tablet layout adaptation verified');
     });
@@ -171,12 +174,12 @@ describe('Device Matrix E2E Tests', () => {
 
       // Start in portrait
       await device.setOrientation('portrait');
-      await expect(element(by.id('camera-view'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
 
       // Verify portrait layout
-      await expect(element(by.id('scan-guide-overlay'))).toBeVisible();
+      await detoxExpect(element(by.id('scan-guide-overlay'))).toBeVisible();
       const portraitInstructions = element(by.id('scanning-instructions'));
-      await expect(portraitInstructions).toBeVisible();
+      await detoxExpect(portraitInstructions).toBeVisible();
 
       // Change to landscape
       await device.setOrientation('landscape');
@@ -185,8 +188,8 @@ describe('Device Matrix E2E Tests', () => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Verify landscape layout
-      await expect(element(by.id('camera-view'))).toBeVisible();
-      await expect(element(by.id('scan-guide-overlay'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
+      await detoxExpect(element(by.id('scan-guide-overlay'))).toBeVisible();
 
       // In landscape, scan guide should maintain proper aspect ratio
       // UI elements should reposition appropriately
@@ -201,7 +204,7 @@ describe('Device Matrix E2E Tests', () => {
 
       // Start in landscape
       await device.setOrientation('landscape');
-      await expect(element(by.id('camera-view'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
 
       // Simulate scanning in landscape
       await TestUtils.simulateBarcodeScan(TestData.validBarcodes.california);
@@ -214,10 +217,10 @@ describe('Device Matrix E2E Tests', () => {
 
       // Verify scan results display correctly in portrait
       await TestUtils.waitForScanResult();
-      await expect(element(by.id('scan-result'))).toBeVisible();
+      await detoxExpect(element(by.id('scan-result'))).toBeVisible();
 
       // UI should be properly laid out in portrait
-      await expect(element(by.id('confirm-button'))).toBeVisible();
+      await detoxExpect(element(by.id('confirm-button'))).toBeVisible();
 
       console.log('✅ Landscape to portrait orientation change handled');
     });
@@ -229,14 +232,14 @@ describe('Device Matrix E2E Tests', () => {
 
       // Test in portrait
       await device.setOrientation('portrait');
-      await expect(element(by.id('scan-guide-overlay'))).toBeVisible();
+      await detoxExpect(element(by.id('scan-guide-overlay'))).toBeVisible();
 
       // Scan guide should maintain license aspect ratio (1.586:1)
       // This would require custom matchers or visual regression testing
 
       // Test in landscape
       await device.setOrientation('landscape');
-      await expect(element(by.id('scan-guide-overlay'))).toBeVisible();
+      await detoxExpect(element(by.id('scan-guide-overlay'))).toBeVisible();
 
       // Aspect ratio should remain consistent
 
@@ -262,13 +265,13 @@ describe('Device Matrix E2E Tests', () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Should stabilize and function correctly
-      await expect(element(by.id('camera-view'))).toBeVisible();
-      await expect(element(by.id('scan-guide-overlay'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
+      await detoxExpect(element(by.id('scan-guide-overlay'))).toBeVisible();
 
       // Should still be able to scan
       await TestUtils.simulateBarcodeScan(TestData.validBarcodes.california);
       await TestUtils.waitForScanResult();
-      await expect(element(by.id('scan-result'))).toBeVisible();
+      await detoxExpect(element(by.id('scan-result'))).toBeVisible();
 
       console.log('✅ Rapid orientation changes handled gracefully');
     });
@@ -418,7 +421,7 @@ describe('Device Matrix E2E Tests', () => {
       }
 
       // Should remain stable throughout
-      await expect(element(by.id('camera-view'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
 
       console.log('✅ Memory constraints handled appropriately');
     });
@@ -436,7 +439,7 @@ describe('Device Matrix E2E Tests', () => {
       await TestUtils.navigateToScanner();
 
       // Verify accessibility elements are present
-      await expect(element(by.id('camera-view'))).toBeVisible();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
 
       // Test with accessibility services enabled
       // (Detailed accessibility testing would require additional tooling)
@@ -449,7 +452,7 @@ describe('Device Matrix E2E Tests', () => {
       });
 
       // UI should adapt to larger text
-      await expect(element(by.id('scanning-instructions'))).toBeVisible();
+      await detoxExpect(element(by.id('scanning-instructions'))).toBeVisible();
 
       console.log('✅ Accessibility supported across device sizes');
     });

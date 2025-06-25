@@ -138,8 +138,8 @@ describe('QualityIndicator Enhanced Features', () => {
   describe('Haptic feedback', () => {
     it('should trigger haptic feedback on status change', async () => {
       const { rerender } = render(
-        <QualityIndicator 
-          metrics={mockRealTimeMetrics} 
+        <QualityIndicator
+          metrics={mockRealTimeMetrics}
           enableHapticFeedback={true}
         />
       );
@@ -158,10 +158,7 @@ describe('QualityIndicator Enhanced Features', () => {
 
       await act(async () => {
         rerender(
-          <QualityIndicator 
-            metrics={poorMetrics} 
-            enableHapticFeedback={true}
-          />
+          <QualityIndicator metrics={poorMetrics} enableHapticFeedback={true} />
         );
       });
 
@@ -171,8 +168,8 @@ describe('QualityIndicator Enhanced Features', () => {
 
     it('should not trigger haptic feedback when disabled', async () => {
       const { rerender } = render(
-        <QualityIndicator 
-          metrics={mockRealTimeMetrics} 
+        <QualityIndicator
+          metrics={mockRealTimeMetrics}
           enableHapticFeedback={false}
         />
       );
@@ -191,8 +188,8 @@ describe('QualityIndicator Enhanced Features', () => {
 
       await act(async () => {
         rerender(
-          <QualityIndicator 
-            metrics={poorMetrics} 
+          <QualityIndicator
+            metrics={poorMetrics}
             enableHapticFeedback={false}
           />
         );
@@ -206,8 +203,8 @@ describe('QualityIndicator Enhanced Features', () => {
   describe('Accessibility announcements', () => {
     it('should announce status changes for accessibility', async () => {
       const { rerender } = render(
-        <QualityIndicator 
-          metrics={mockRealTimeMetrics} 
+        <QualityIndicator
+          metrics={mockRealTimeMetrics}
           enableAccessibilityAnnouncements={true}
         />
       );
@@ -226,8 +223,8 @@ describe('QualityIndicator Enhanced Features', () => {
 
       await act(async () => {
         rerender(
-          <QualityIndicator 
-            metrics={poorMetrics} 
+          <QualityIndicator
+            metrics={poorMetrics}
             enableAccessibilityAnnouncements={true}
           />
         );
@@ -241,8 +238,8 @@ describe('QualityIndicator Enhanced Features', () => {
   describe('Visual feedback', () => {
     it('should render quality bars for detailed view', () => {
       const { getByText } = render(
-        <QualityIndicator 
-          metrics={mockRealTimeMetrics} 
+        <QualityIndicator
+          metrics={mockRealTimeMetrics}
           showDetails={true}
           compact={false}
         />
@@ -255,10 +252,7 @@ describe('QualityIndicator Enhanced Features', () => {
 
     it('should render compact view when specified', () => {
       const { queryByText } = render(
-        <QualityIndicator 
-          metrics={mockRealTimeMetrics} 
-          compact={true}
-        />
+        <QualityIndicator metrics={mockRealTimeMetrics} compact={true} />
       );
 
       expect(queryByText('Sharpness')).toBeNull();
