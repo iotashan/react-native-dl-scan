@@ -128,7 +128,8 @@ function analyzeCoverage(coverage) {
         (sum, file) => sum + file[metric].covered,
         0
       );
-      const pct = moduleTotal > 0 ? ((moduleCovered / moduleTotal) * 100).toFixed(2) : 0;
+      const pct =
+        moduleTotal > 0 ? ((moduleCovered / moduleTotal) * 100).toFixed(2) : 0;
       const threshold = thresholds[module][metric];
       const color = pct >= threshold ? 'green' : 'red';
       const icon = pct >= threshold ? '✅' : '❌';
