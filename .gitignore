@@ -87,3 +87,5 @@ nitrogen/
 
 # Test Coverage
 coverage/
+# Serena cache files
+.serena/

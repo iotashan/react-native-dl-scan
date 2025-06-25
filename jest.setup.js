@@ -1,17 +1,14 @@
 /* eslint-env jest */
 
 // Setup for React Native Testing Library
-// Mock native modules - comprehensive TurboModuleRegistry mocking
+// NativeDlScan mock will be handled by __mocks__/src/NativeDlScan.js
+
+// Mock native modules - defer to __mocks__ directory
 jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => ({
   get: jest.fn(() => ({
-    scanLicense: jest.fn(),
-    parseOCRText: jest.fn(),
-    // Default feature flags mock
     commonTestFlag_shouldUseNewFeature: jest.fn().mockReturnValue(false),
   })),
   getEnforcing: jest.fn(() => ({
-    scanLicense: jest.fn(),
-    parseOCRText: jest.fn(),
     commonTestFlag_shouldUseNewFeature: jest.fn().mockReturnValue(false),
   })),
 }));
@@ -84,10 +81,7 @@ jest.mock('react-native', () => {
   Object.defineProperty(RN, 'NativeModules', {
     value: {
       ...RN.NativeModules,
-      DlScan: {
-        scanLicense: jest.fn(),
-        parseOCRText: jest.fn(),
-      },
+      // DlScan to be added after global setup
       // Add other native modules if needed
     },
     writable: true,
@@ -153,23 +147,15 @@ jest.mock('react-native-permissions', () => ({
   openSettings: jest.fn().mockResolvedValue(true),
 }));
 
-// Mock native DL Scanner module with comprehensive functionality
-jest.mock('DLScanModule', () => ({
-  scanLicense: jest.fn().mockResolvedValue({
-    success: true,
-    data: {
-      firstName: 'JOHN',
-      lastName: 'DOE',
-      documentNumber: '123456789',
-    },
-  }),
-  parseOCRText: jest.fn().mockResolvedValue({
-    success: true,
-    fields: {
-      firstName: 'JOHN',
-      lastName: 'DOE',
-    },
-  }),
-  startScanning: jest.fn().mockResolvedValue(true),
-  stopScanning: jest.fn().mockResolvedValue(true),
-}));
+// Setup global mock access for tests after all other mocks are configured
+try {
+  global.__DL_SCAN_MOCK__ = require('./__mocks__/src/NativeDlScan');
+
+  // Add the mock to NativeModules after global setup
+  const RN = require('react-native');
+  if (RN.NativeModules) {
+    RN.NativeModules.DlScan = global.__DL_SCAN_MOCK__;
+  }
+} catch (error) {
+  console.warn('Failed to setup DlScan mock:', error);
+}

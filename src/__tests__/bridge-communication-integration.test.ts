@@ -22,7 +22,7 @@ jest.mock('../index', () => ({
   },
 }));
 
-import { NativeModules } from 'react-native';
+// import { NativeModules } from 'react-native';
 import { TestFixtures } from './test-fixtures';
 import {
   PlatformTestUtils,
@@ -39,8 +39,14 @@ describe('Bridge Communication Integration Tests', () => {
   let mockNativeModule: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockNativeModule = NativeModules.DlScan;
+    // Get the global mock instance instead of clearing all mocks
+    mockNativeModule = (global as any).__DL_SCAN_MOCK__;
+
+    // Reset mock call counts but preserve implementation
+    mockNativeModule.scanLicense.mockClear();
+    mockNativeModule.parseOCRText.mockClear();
+    mockNativeModule.startScanning.mockClear();
+    mockNativeModule.stopScanning.mockClear();
   });
 
   describe('Native Module Method Invocation', () => {
