@@ -6,7 +6,7 @@
  */
 
 import type { ScanMode, ScanningState, ScanProgress } from '../types/license';
-import { ScanError } from '../index.js';
+import { ScanError } from '../index';
 
 export interface StateConfig {
   maxBarcodeAttempts: number;

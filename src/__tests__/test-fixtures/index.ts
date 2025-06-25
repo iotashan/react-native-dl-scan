@@ -438,8 +438,7 @@ export class MockResponseGenerator {
   ) {
     return {
       success: true,
-      fields: this.extractFieldsFromOCR(observations),
-      confidence: this.calculateOverallConfidence(observations),
+      data: this.extractFieldsFromOCR(observations),
       processingTime: Math.random() * 200 + 100, // 100-300ms
     };
   }

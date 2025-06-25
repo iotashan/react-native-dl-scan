@@ -88,7 +88,6 @@ jest.mock(
   })
 );
 
-
 // Mock react-native-reanimated more comprehensively
 jest.mock('react-native-reanimated', () => ({
   default: {
@@ -231,4 +230,3 @@ jest.mock('react-native-permissions', () => ({
   request: jest.fn().mockResolvedValue('granted'),
   openSettings: jest.fn().mockResolvedValue(true),
 }));
-

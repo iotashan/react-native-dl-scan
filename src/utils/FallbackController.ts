@@ -17,6 +17,21 @@ import { logger } from './logger';
 import { performanceMonitor } from './PerformanceMonitor';
 import { IntelligentModeManager } from './IntelligentModeManager';
 import type { IntelligentModeManagerEvents } from './IntelligentModeManager';
+import {
+  ScanTimeoutManager,
+  type TimeoutConfig,
+  type TimeoutEvents,
+} from './ScanTimeoutManager';
+import {
+  QualityMetricsProcessor,
+  type QualityConfig,
+  type QualityEvents,
+} from './QualityMetricsProcessor';
+import {
+  StateTransitionManager,
+  type StateConfig,
+  type StateEvents,
+} from './StateTransitionManager';
 
 export interface FallbackControllerEvents {
   onProgressUpdate: (progress: ScanProgress) => void;
@@ -50,6 +65,10 @@ export class FallbackController {
   private _ocrProcessorReady: boolean = false;
   private activeTimers: Set<NodeJS.Timeout> = new Set(); // Track active timers for cleanup
   private intelligentModeManager?: IntelligentModeManager;
+  // Integration layer - extracted classes for enhanced coordination
+  private timeoutManager?: ScanTimeoutManager;
+  private qualityProcessor?: QualityMetricsProcessor;
+  private stateManager?: StateTransitionManager;
 
   constructor(
     config: Partial<FallbackConfig> = {},
@@ -104,6 +123,9 @@ export class FallbackController {
       autoModeConfig,
       intelligentEvents
     );
+
+    // Initialize extracted classes for enhanced coordination
+    this.initializeExtractedClasses();
 
     // Start preparing OCR processor in parallel
     this.prepareOCRProcessor();
@@ -321,6 +343,7 @@ export class FallbackController {
       return await this.optimizedRetry(
         async () => {
           this.barcodeAttempts++;
+          this.notifyProgress(); // Notify progress with updated attempt count
 
           // Fast timeout wrapper
           const timeoutPromise = new Promise<never>((_, reject) => {
@@ -338,7 +361,13 @@ export class FallbackController {
           });
 
           const scanPromise = scanLicense(barcodeData);
-          const result = await Promise.race([scanPromise, timeoutPromise]);
+          let result;
+          try {
+            result = await Promise.race([scanPromise, timeoutPromise]);
+          } catch (scanError) {
+            // If the scan itself failed, preserve the original error
+            throw scanError;
+          }
 
           // Ensure we have a valid result
           if (!result) {
@@ -354,17 +383,19 @@ export class FallbackController {
           this.notifyMetrics({
             success: true,
             finalMode: 'barcode',
+            barcodeAttemptTime: Date.now() - this.scanStartTime,
           });
           return result;
         },
         3 // maxAttempts
       );
     } catch (error) {
-      // Wrap unknown errors in ScanError
+      // Preserve original ScanError instances for test compatibility
       if (error instanceof ScanError) {
         throw error;
       }
 
+      // Wrap unknown errors in ScanError
       throw new ScanError({
         code: 'BARCODE_SCAN_ERROR',
         message: 'Barcode scanning failed',
@@ -404,10 +435,13 @@ export class FallbackController {
         const optimizedParsePromise =
           this.parseOCRWithNeuralEngineOptimization(textObservations);
 
-        const result = await Promise.race([
-          optimizedParsePromise,
-          timeoutPromise,
-        ]);
+        let result;
+        try {
+          result = await Promise.race([optimizedParsePromise, timeoutPromise]);
+        } catch (ocrError) {
+          // If the OCR itself failed, preserve the original error
+          throw ocrError;
+        }
 
         // Fast confidence calculation with null safety
         const fieldsFound = [
@@ -587,6 +621,16 @@ export class FallbackController {
    * Process quality metrics for intelligent mode switching
    */
   processQualityMetrics(metrics: QualityMetrics): boolean {
+    // Use extracted quality processor if available
+    if (this.qualityProcessor && this.currentMode === 'auto') {
+      const shouldSwitch = this.qualityProcessor.processQualityMetrics(metrics);
+      if (shouldSwitch && this.events?.onQualityAssessment) {
+        this.events.onQualityAssessment(metrics, shouldSwitch);
+      }
+      return shouldSwitch;
+    }
+
+    // Fallback to intelligent mode manager for compatibility
     if (this.currentMode === 'auto' && this.intelligentModeManager) {
       return this.intelligentModeManager.processQualityMetrics(metrics);
     }
@@ -941,6 +985,98 @@ export class FallbackController {
   }
 
   /**
+   * Initialize extracted classes for enhanced coordination
+   */
+  private initializeExtractedClasses(): void {
+    // Initialize timeout manager
+    const timeoutConfig: TimeoutConfig = {
+      barcodeTimeout: this.config.barcodeTimeoutMs,
+      ocrTimeout: this.config.ocrTimeoutMs,
+      maxRetries: this.config.maxBarcodeAttempts,
+      retryDelay: 100,
+    };
+
+    const timeoutEvents: TimeoutEvents = {
+      onTimeout: (type, elapsed) => {
+        logger.info(`Timeout manager: ${type} timeout after ${elapsed}ms`);
+      },
+      onRetryAttempt: (attempt, max) => {
+        logger.info(`Timeout manager: Retry attempt ${attempt}/${max}`);
+      },
+    };
+
+    this.timeoutManager = new ScanTimeoutManager(timeoutConfig, timeoutEvents);
+
+    // Initialize quality processor
+    const qualityConfig: QualityConfig = {
+      minQualityThreshold: 0.4,
+      bufferSize: 10,
+      consistencyWindowMs: 2000,
+      autoSwitchEnabled: this.config.enableQualityAssessment,
+    };
+
+    const qualityEvents: QualityEvents = {
+      onQualityAssessment: (metrics, shouldSwitch) => {
+        if (shouldSwitch && this.events?.onQualityAssessment) {
+          // Convert RealTimeQualityMetrics to simple QualityMetrics for compatibility
+          const simpleMetrics: QualityMetrics = {
+            brightness: metrics.lighting.brightness,
+            blur: metrics.blur.value,
+            glare: 1 - metrics.lighting.uniformity, // Approximate glare from uniformity
+            documentAlignment: metrics.positioning.alignment,
+          };
+          this.events.onQualityAssessment(simpleMetrics, shouldSwitch);
+        }
+      },
+      onQualityImprovement: (oldScore, newScore) => {
+        logger.info('Quality improvement detected', { oldScore, newScore });
+      },
+      onModeRecommendation: (mode, reason) => {
+        logger.info('Quality processor mode recommendation', { mode, reason });
+      },
+    };
+
+    this.qualityProcessor = new QualityMetricsProcessor(
+      qualityConfig,
+      qualityEvents
+    );
+
+    // Initialize state manager
+    const stateConfig: StateConfig = {
+      maxBarcodeAttempts: this.config.maxBarcodeAttempts,
+      barcodeTimeoutMs: this.config.barcodeTimeoutMs,
+      maxFallbackProcessingTimeMs: this.config.maxFallbackProcessingTimeMs,
+      enableAutoFallback: true,
+    };
+
+    const stateEvents: StateEvents = {
+      onStateChange: (oldState, newState) => {
+        // Sync with local state for compatibility
+        this.currentState = newState;
+        logger.info('State transition via StateManager', {
+          from: oldState,
+          to: newState,
+        });
+      },
+      onModeSwitch: (fromMode, toMode, reason) => {
+        // Sync with local state for compatibility
+        this.currentMode = toMode;
+        this.notifyModeSwitch(fromMode, toMode, reason);
+      },
+      onProgressUpdate: (progress) => {
+        // Sync with local tracking for compatibility
+        this.scanStartTime = progress.startTime;
+        this.barcodeAttempts = progress.barcodeAttempts;
+        this.notifyProgress();
+      },
+    };
+
+    this.stateManager = new StateTransitionManager(stateConfig, stateEvents);
+
+    logger.info('Extracted classes initialized for enhanced coordination');
+  }
+
+  /**
    * Cleanup method for proper disposal with guaranteed resource cleanup
    */
   destroy(): void {
@@ -957,6 +1093,20 @@ export class FallbackController {
       if (this.intelligentModeManager) {
         this.intelligentModeManager.destroy();
         this.intelligentModeManager = undefined;
+      }
+
+      // Cleanup extracted classes
+      if (this.timeoutManager) {
+        this.timeoutManager.destroy();
+        this.timeoutManager = undefined;
+      }
+      if (this.qualityProcessor) {
+        this.qualityProcessor.reset();
+        this.qualityProcessor = undefined;
+      }
+      if (this.stateManager) {
+        this.stateManager.reset();
+        this.stateManager = undefined;
       }
 
       // Reset state

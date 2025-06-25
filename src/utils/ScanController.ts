@@ -14,7 +14,7 @@ import type {
   LicenseData,
   OCRTextObservation,
 } from '../types/license';
-import { scanLicense, parseOCRText, ScanError } from '../index.js';
+import { scanLicense, parseOCRText, ScanError } from '../index';
 import { logger } from './logger';
 import {
   ScanTimeoutManager,

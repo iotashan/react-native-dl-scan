@@ -5,7 +5,11 @@
  * Responsible for processing quality metrics and determining scan readiness.
  */
 
-import type { RealTimeQualityMetrics, ScanMode } from '../types/license';
+import type {
+  RealTimeQualityMetrics,
+  QualityMetrics,
+  ScanMode,
+} from '../types/license';
 
 export interface QualityConfig {
   minQualityThreshold: number;
@@ -31,6 +35,7 @@ interface QualityEntry {
 
 export class QualityMetricsProcessor {
   private qualityBuffer: QualityEntry[] = [];
+  private lastAssessmentTime: number = 0;
 
   constructor(
     private config: QualityConfig,
@@ -40,13 +45,19 @@ export class QualityMetricsProcessor {
   /**
    * Process incoming quality metrics and determine if mode switching is needed
    */
-  processQualityMetrics(metrics: RealTimeQualityMetrics): boolean {
+  processQualityMetrics(metrics: QualityMetrics): boolean;
+  processQualityMetrics(metrics: RealTimeQualityMetrics): boolean;
+  processQualityMetrics(
+    metrics: QualityMetrics | RealTimeQualityMetrics
+  ): boolean {
+    // Convert simple QualityMetrics to RealTimeQualityMetrics if needed
+    const realTimeMetrics = this.convertToRealTimeMetrics(metrics);
     const now = Date.now();
-    const overallScore = this.calculateOverallScore(metrics);
+    const overallScore = this.calculateOverallScore(realTimeMetrics);
 
     // Add to buffer
     const entry: QualityEntry = {
-      metrics,
+      metrics: realTimeMetrics,
       timestamp: now,
       overallScore,
     };
@@ -57,16 +68,19 @@ export class QualityMetricsProcessor {
     this.cleanBuffer(now);
 
     // Determine if we should switch modes
-    const shouldSwitch = this.shouldSwitchMode(metrics, overallScore);
+    const shouldSwitch = this.shouldSwitchMode(realTimeMetrics, overallScore);
 
     // Emit assessment event
-    this.events?.onQualityAssessment(metrics, shouldSwitch);
+    this.events?.onQualityAssessment(realTimeMetrics, shouldSwitch);
 
     // Check for quality improvements
     this.checkQualityImprovement(overallScore);
 
+    // Update last assessment time
+    this.lastAssessmentTime = now;
+
     // Generate mode recommendations
-    this.generateModeRecommendation(metrics, overallScore);
+    this.generateModeRecommendation(realTimeMetrics, overallScore);
 
     return shouldSwitch;
   }
@@ -179,7 +193,7 @@ export class QualityMetricsProcessor {
 
     const previousEntry = this.qualityBuffer[this.qualityBuffer.length - 2];
     if (!previousEntry) return;
-    
+
     const improvement = currentScore - previousEntry.overallScore;
 
     if (improvement > 0.1) {
@@ -246,6 +260,70 @@ export class QualityMetricsProcessor {
   }
 
   /**
+   * Convert simple QualityMetrics to RealTimeQualityMetrics
+   */
+  private convertToRealTimeMetrics(
+    metrics: QualityMetrics | RealTimeQualityMetrics
+  ): RealTimeQualityMetrics {
+    // If already RealTimeQualityMetrics, return as-is
+    if (
+      'blur' in metrics &&
+      typeof metrics.blur === 'object' &&
+      'value' in metrics.blur
+    ) {
+      return metrics as RealTimeQualityMetrics;
+    }
+
+    // Convert simple QualityMetrics to RealTimeQualityMetrics
+    const simple = metrics as QualityMetrics;
+    return {
+      blur: {
+        value: simple.blur,
+        status:
+          simple.blur < 0.3 ? 'good' : simple.blur < 0.6 ? 'warning' : 'poor',
+      },
+      lighting: {
+        brightness: simple.brightness,
+        uniformity: 0.8, // Default reasonable value
+        status:
+          simple.brightness > 0.3 && simple.brightness < 0.8
+            ? 'good'
+            : simple.brightness >= 0.2 && simple.brightness <= 0.9
+              ? 'warning'
+              : 'poor',
+      },
+      positioning: {
+        documentDetected: simple.documentAlignment > 0.5,
+        alignment: simple.documentAlignment,
+        distance:
+          simple.documentAlignment > 0.8
+            ? 'optimal'
+            : simple.documentAlignment > 0.5
+              ? 'optimal'
+              : 'too_far',
+        status:
+          simple.documentAlignment > 0.7
+            ? 'good'
+            : simple.documentAlignment > 0.4
+              ? 'warning'
+              : 'poor',
+      },
+      overall: {
+        score:
+          (simple.brightness +
+            (1 - simple.blur) +
+            (1 - simple.glare) +
+            simple.documentAlignment) /
+          4,
+        readyToScan:
+          simple.blur < 0.5 &&
+          simple.glare < 0.5 &&
+          simple.documentAlignment > 0.5,
+      },
+    };
+  }
+
+  /**
    * Reset processor state
    */
   reset(): void {
@@ -258,6 +336,15 @@ export class QualityMetricsProcessor {
    */
   updateConfig(newConfig: Partial<QualityConfig>): void {
     this.config = { ...this.config, ...newConfig };
+  }
+
+  /**
+   * Get time since last assessment
+   */
+  getTimeSinceLastAssessment(): number {
+    return this.lastAssessmentTime > 0
+      ? Date.now() - this.lastAssessmentTime
+      : 0;
   }
 
   /**

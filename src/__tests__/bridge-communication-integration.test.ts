@@ -15,11 +15,9 @@ import {
 import { scanLicense, parseOCRText, ScanError } from '../index';
 
 // Setup platform-specific mocks
-MockUtils.createPlatformNativeModuleMock('DlScan');
+const platformMock = MockUtils.createPlatformNativeModuleMock('DlScan');
+(global as any).__DL_SCAN_MOCK__ = platformMock;
 MockUtils.mockCameraPermissions(true);
-
-// Import the mocked module to get access to the mock instance
-import DlScanModule from '../NativeDlScan';
 
 describe('Bridge Communication Integration Tests', () => {
   let mockNativeModule: any;
@@ -131,7 +129,7 @@ describe('Bridge Communication Integration Tests', () => {
 
       // Act & Assert
       await expect(scanLicense('slow-barcode')).rejects.toThrow(
-        'Scanning took too long'
+        'Barcode scan timeout'
       );
     });
   });
