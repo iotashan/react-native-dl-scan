@@ -1,0 +1,444 @@
+# T03_S08: E2E Tests CI/CD Pipeline
+# Comprehensive E2E testing workflow for React Native DL Scan
+
+name: E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run nightly tests at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      device_matrix:
+        description: 'Device matrix to test (full, ios-only, android-only, quick)'
+        required: false
+        default: 'quick'
+        type: choice
+        options:
+          - full
+          - ios-only
+          - android-only
+          - quick
+      test_suite:
+        description: 'Test suite to run (all, core, error-scenarios, device-matrix)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - core
+          - error-scenarios
+          - device-matrix
+
+env:
+  NODE_VERSION: '18'
+  JAVA_VERSION: '11'
+  XCODE_VERSION: '14.3'
+  ANDROID_API_LEVEL: '33'
+  DETOX_CONFIGURATION: 'ios.sim.debug'
+
+jobs:
+  # Setup and validation job
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      should-run-ios: ${{ steps.matrix.outputs.ios }}
+      should-run-android: ${{ steps.matrix.outputs.android }}
+      test-suite: ${{ steps.matrix.outputs.test-suite }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine test matrix
+        id: matrix
+        run: |
+          DEVICE_MATRIX="${{ github.event.inputs.device_matrix || 'quick' }}"
+          TEST_SUITE="${{ github.event.inputs.test_suite || 'all' }}"
+
+          case "$DEVICE_MATRIX" in
+            "full")
+              echo "ios=true" >> $GITHUB_OUTPUT
+              echo "android=true" >> $GITHUB_OUTPUT
+              ;;
+            "ios-only")
+              echo "ios=true" >> $GITHUB_OUTPUT
+              echo "android=false" >> $GITHUB_OUTPUT
+              ;;
+            "android-only")
+              echo "ios=false" >> $GITHUB_OUTPUT
+              echo "android=true" >> $GITHUB_OUTPUT
+              ;;
+            "quick")
+              echo "ios=true" >> $GITHUB_OUTPUT
+              echo "android=false" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+          echo "test-suite=$TEST_SUITE" >> $GITHUB_OUTPUT
+
+  # iOS E2E Tests
+  e2e-ios:
+    runs-on: macos-13
+    needs: setup
+    if: needs.setup.outputs.should-run-ios == 'true'
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        device:
+          - iPhone 14
+          - iPhone 14 Pro Max
+          - iPad Pro (12.9-inch) (6th generation)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'yarn'
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          yarn install --frozen-lockfile
+          cd example && yarn install --frozen-lockfile
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v3
+        with:
+          path: |
+            example/ios/Pods
+            ~/Library/Caches/CocoaPods
+            ~/.cocoapods
+          key: ${{ runner.os }}-pods-${{ hashFiles('example/ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
+      - name: Install CocoaPods
+        run: |
+          cd example/ios
+          bundle install
+          bundle exec pod install
+
+      - name: Build iOS app for Detox
+        run: |
+          cd example
+          npx detox build --configuration ios.sim.debug
+
+      - name: Start Metro bundler
+        run: |
+          cd example
+          npx react-native start --reset-cache &
+          echo $! > metro.pid
+          # Wait for Metro to start
+          timeout 60 bash -c 'until nc -z localhost 8081; do sleep 1; done'
+
+      - name: Create iOS Simulator
+        run: |
+          DEVICE_NAME="${{ matrix.device }}"
+          xcrun simctl create "E2E-$DEVICE_NAME" "$DEVICE_NAME"
+          xcrun simctl boot "E2E-$DEVICE_NAME"
+
+      - name: Run E2E tests
+        run: |
+          export DETOX_CONFIGURATION="ios.sim.debug"
+          export DETOX_DEVICE_NAME="E2E-${{ matrix.device }}"
+
+          # Set test suite
+          TEST_PATTERN="e2e/**/*.test.ts"
+          case "${{ needs.setup.outputs.test-suite }}" in
+            "core")
+              TEST_PATTERN="e2e/scanningFlow.test.ts"
+              ;;
+            "error-scenarios")
+              TEST_PATTERN="e2e/errorScenarios.test.ts"
+              ;;
+            "device-matrix")
+              TEST_PATTERN="e2e/deviceMatrix.test.ts"
+              ;;
+          esac
+
+          npx detox test \
+            --configuration ios.sim.debug \
+            --device-name "E2E-${{ matrix.device }}" \
+            --testNamePattern="$TEST_PATTERN" \
+            --maxWorkers 1 \
+            --forceExit \
+            --detectOpenHandles
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: e2e-artifacts-ios-${{ matrix.device }}
+          path: |
+            e2e/artifacts/
+            e2e/reports/
+          retention-days: 7
+
+      - name: Upload test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: E2E Test Results (iOS ${{ matrix.device }})
+          path: e2e/reports/junit-report-*.xml
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Stop Metro bundler
+          if [ -f metro.pid ]; then
+            kill $(cat metro.pid) || true
+          fi
+
+          # Shutdown simulator
+          xcrun simctl shutdown "E2E-${{ matrix.device }}" || true
+          xcrun simctl delete "E2E-${{ matrix.device }}" || true
+
+  # Android E2E Tests
+  e2e-android:
+    runs-on: macos-13 # Use macOS for better Android emulator performance
+    needs: setup
+    if: needs.setup.outputs.should-run-android == 'true'
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [31, 33]
+        target: [google_apis]
+        arch: [x86_64]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'yarn'
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+
+      - name: Install dependencies
+        run: |
+          yarn install --frozen-lockfile
+          cd example && yarn install --frozen-lockfile
+
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            example/android/.gradle
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: AVD cache
+        uses: actions/cache@v3
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ matrix.api-level }}-${{ matrix.target }}-${{ matrix.arch }}
+
+      - name: Create AVD and generate snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: ${{ matrix.target }}
+          arch: ${{ matrix.arch }}
+          avd-name: e2e-emulator
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: Build Android app for Detox
+        run: |
+          cd example/android
+          ./gradlew assembleDebug assembleAndroidTest -DtestBuildType=debug
+
+      - name: Start Metro bundler
+        run: |
+          cd example
+          npx react-native start --reset-cache &
+          echo $! > metro.pid
+          # Wait for Metro to start
+          timeout 60 bash -c 'until nc -z localhost 8081; do sleep 1; done'
+
+      - name: Run E2E tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: ${{ matrix.target }}
+          arch: ${{ matrix.arch }}
+          avd-name: e2e-emulator
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            export DETOX_CONFIGURATION="android.emu.debug"
+
+            # Set test suite
+            TEST_PATTERN="e2e/**/*.test.ts"
+            case "${{ needs.setup.outputs.test-suite }}" in
+              "core")
+                TEST_PATTERN="e2e/scanningFlow.test.ts"
+                ;;
+              "error-scenarios")
+                TEST_PATTERN="e2e/errorScenarios.test.ts"
+                ;;
+              "device-matrix")
+                TEST_PATTERN="e2e/deviceMatrix.test.ts"
+                ;;
+            esac
+
+            npx detox test \
+              --configuration android.emu.debug \
+              --testNamePattern="$TEST_PATTERN" \
+              --maxWorkers 1 \
+              --forceExit \
+              --detectOpenHandles
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: e2e-artifacts-android-api${{ matrix.api-level }}
+          path: |
+            e2e/artifacts/
+            e2e/reports/
+          retention-days: 7
+
+      - name: Upload test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: E2E Test Results (Android API ${{ matrix.api-level }})
+          path: e2e/reports/junit-report-*.xml
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Stop Metro bundler
+          if [ -f metro.pid ]; then
+            kill $(cat metro.pid) || true
+          fi
+
+  # Test result aggregation and reporting
+  report:
+    runs-on: ubuntu-latest
+    needs: [e2e-ios, e2e-android]
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Generate consolidated report
+        run: |
+          # Create consolidated report directory
+          mkdir -p consolidated-report
+
+          # Combine all test reports
+          find artifacts -name "*.xml" -exec cp {} consolidated-report/ \;
+          find artifacts -name "*.html" -exec cp {} consolidated-report/ \;
+          find artifacts -name "*.json" -exec cp {} consolidated-report/ \;
+
+          # Create summary
+          echo "# E2E Test Results Summary" > consolidated-report/README.md
+          echo "" >> consolidated-report/README.md
+          echo "Generated: $(date)" >> consolidated-report/README.md
+          echo "Workflow: ${{ github.workflow }}" >> consolidated-report/README.md
+          echo "Run ID: ${{ github.run_id }}" >> consolidated-report/README.md
+          echo "" >> consolidated-report/README.md
+
+          # Count artifacts
+          SCREENSHOT_COUNT=$(find artifacts -name "*.png" | wc -l)
+          VIDEO_COUNT=$(find artifacts -name "*.mp4" | wc -l)
+          LOG_COUNT=$(find artifacts -name "*.log" | wc -l)
+
+          echo "## Artifacts Summary" >> consolidated-report/README.md
+          echo "- Screenshots: $SCREENSHOT_COUNT" >> consolidated-report/README.md
+          echo "- Videos: $VIDEO_COUNT" >> consolidated-report/README.md
+          echo "- Logs: $LOG_COUNT" >> consolidated-report/README.md
+
+      - name: Upload consolidated report
+        uses: actions/upload-artifact@v3
+        with:
+          name: e2e-consolidated-report
+          path: consolidated-report/
+          retention-days: 30
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Read summary from artifact
+            const summaryPath = 'consolidated-report/README.md';
+            let summary = 'E2E Test Results Summary not available';
+
+            if (fs.existsSync(summaryPath)) {
+              summary = fs.readFileSync(summaryPath, 'utf8');
+            }
+
+            const comment = `## 🧪 E2E Test Results
+
+            ${summary}
+
+            [View detailed results](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # Notification job
+  notify:
+    runs-on: ubuntu-latest
+    needs: [e2e-ios, e2e-android, report]
+    if: always() && (needs.e2e-ios.result == 'failure' || needs.e2e-android.result == 'failure')
+    steps:
+      - name: Notify on failure
+        run: |
+          echo "E2E tests failed. Check the logs and artifacts for details."
+          echo "iOS Result: ${{ needs.e2e-ios.result }}"
+          echo "Android Result: ${{ needs.e2e-android.result }}"
+          # Add Slack/email notification here if needed

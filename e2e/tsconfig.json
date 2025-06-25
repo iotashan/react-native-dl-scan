@@ -1,0 +1,20 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["jest", "detox", "node"],
+    "lib": ["es2020"],
+    "module": "commonjs",
+    "target": "es2020",
+    "moduleResolution": "node"
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.js",
+    "globals.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "artifacts",
+    "reports"
+  ]
+}
