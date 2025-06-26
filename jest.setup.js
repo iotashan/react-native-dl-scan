@@ -147,6 +147,18 @@ jest.mock('react-native-svg');
 jest.mock('react-native-vision-camera');
 jest.mock('expo-haptics');
 
+// Mock platform constants before React Native import
+jest.mock('react-native/Libraries/Utilities/Platform.ios.js', () => ({
+  default: {
+    getConstants: jest.fn(() => ({
+      osVersion: '14.0',
+      systemName: 'iOS',
+      reactNativeVersion: { major: 0, minor: 79, patch: 0 },
+      isTesting: true,
+    })),
+  },
+}));
+
 // Mock React Native modules that might be missing
 jest.mock('react-native', () => {
   const RN = jest.requireActual('react-native');
@@ -206,6 +218,22 @@ afterEach(() => {
   if (jest.isMockFunction(setTimeout)) {
     jest.runOnlyPendingTimers();
     jest.clearAllTimers();
+  }
+
+  // Force garbage collection to help with memory cleanup
+  if (global.gc) {
+    global.gc();
+  }
+});
+
+// Global cleanup on exit
+afterAll(() => {
+  jest.clearAllTimers();
+  jest.clearAllMocks();
+
+  // Force garbage collection
+  if (global.gc) {
+    global.gc();
   }
 });
 

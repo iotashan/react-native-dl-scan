@@ -1,5 +1,5 @@
 import { NativeModules } from 'react-native';
-import DLScanModule from '../DLScanModule';
+import DLScanModule from '../NativeDlScan';
 
 // Mock the native module
 jest.mock('react-native', () => ({
@@ -10,6 +10,14 @@ jest.mock('react-native', () => ({
       startScanning: jest.fn(),
       stopScanning: jest.fn(),
     },
+  },
+  TurboModuleRegistry: {
+    getEnforcing: jest.fn(() => ({
+      scanLicense: jest.fn(),
+      parseOCRText: jest.fn(),
+      startScanning: jest.fn(),
+      stopScanning: jest.fn(),
+    })),
   },
 }));
 
