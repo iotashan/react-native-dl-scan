@@ -76,7 +76,7 @@ export const AccessibilityGestures: React.FC<AccessibilityGesturesProps> = ({
    */
   const helpGesture = Gesture.Pan()
     .numberOfPointers(3)
-    .onEnd((event) => {
+    .onEnd((event: any) => {
       if (!shouldProcessGesture()) return;
 
       // Check if it's an upward swipe
@@ -91,7 +91,7 @@ export const AccessibilityGestures: React.FC<AccessibilityGesturesProps> = ({
    */
   const scanTriggerGesture = Gesture.Pan()
     .numberOfPointers(3)
-    .onEnd((event) => {
+    .onEnd((event: any) => {
       if (!shouldProcessGesture()) return;
 
       // Check if it's a downward swipe

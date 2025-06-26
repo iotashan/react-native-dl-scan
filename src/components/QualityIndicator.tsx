@@ -1,7 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, AccessibilityInfo, Vibration, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  AccessibilityInfo,
+  Vibration,
+  Platform,
+} from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -141,11 +147,9 @@ export const QualityIndicator: React.FC<QualityIndicatorProps> = ({
   // Calculate overall quality score and status
   let overallScore: number;
   let overallStatus: 'good' | 'warning' | 'poor';
-  let readyToScan: boolean;
 
   if (isRealTimeMetrics(metrics)) {
     overallScore = metrics.overall.score;
-    readyToScan = metrics.overall.readyToScan;
     overallStatus =
       overallScore > 0.7 ? 'good' : overallScore > 0.4 ? 'warning' : 'poor';
   } else {
@@ -158,7 +162,6 @@ export const QualityIndicator: React.FC<QualityIndicatorProps> = ({
         : metrics.overall === 'fair'
           ? 'warning'
           : 'poor';
-    readyToScan = overallStatus === 'good';
   }
 
   // Handle haptic feedback and accessibility announcements
@@ -320,12 +323,7 @@ interface QualityBarProps {
   status?: 'good' | 'warning' | 'poor';
 }
 
-const QualityBar: React.FC<QualityBarProps> = ({
-  label,
-  value,
-  color,
-  status,
-}) => {
+const QualityBar: React.FC<QualityBarProps> = ({ label, value, color }) => {
   const progress = useSharedValue(0);
 
   useEffect(() => {

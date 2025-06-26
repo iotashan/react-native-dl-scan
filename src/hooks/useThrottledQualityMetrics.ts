@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useCallback, useRef } from 'react';
 
 interface RealTimeQualityMetrics {
@@ -21,10 +20,6 @@ interface RealTimeQualityMetrics {
     score: number; // 0-1
     readyToScan: boolean;
   };
-}
-
-interface FrameProcessor {
-  processFrame: (frame: any) => RealTimeQualityMetrics | null;
 }
 
 /**

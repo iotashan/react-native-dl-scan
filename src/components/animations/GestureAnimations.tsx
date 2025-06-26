@@ -137,16 +137,16 @@ export const GestureAnimations = forwardRef<
      */
     const panGestureHandler = useAnimatedGestureHandler({
       onStart: (_, context) => {
-        context.startX = translateX.value;
-        context.startY = translateY.value;
+        (context as any).startX = translateX.value;
+        (context as any).startY = translateY.value;
         panStartX.value = translateX.value;
         panStartY.value = translateY.value;
       },
       onActive: (event, context) => {
         if (!enablePan) return;
 
-        const newX = context.startX + event.translationX;
-        const newY = context.startY + event.translationY;
+        const newX = (context as any).startX + (event as any).translationX;
+        const newY = (context as any).startY + (event as any).translationY;
 
         const constrained = getConstrainedTranslation(newX, newY, scale.value);
 
@@ -184,16 +184,16 @@ export const GestureAnimations = forwardRef<
      */
     const pinchGestureHandler = useAnimatedGestureHandler({
       onStart: (event, context) => {
-        context.startScale = scale.value;
+        (context as any).startScale = scale.value;
         pinchStartScale.value = scale.value;
-        focalX.value = event.focalX;
-        focalY.value = event.focalY;
+        focalX.value = (event as any).focalX;
+        focalY.value = (event as any).focalY;
       },
       onActive: (event, context) => {
         if (!enableZoom) return;
 
         const newScale = interpolate(
-          context.startScale * event.scale,
+          (context as any).startScale * (event as any).scale,
           [minZoom, maxZoom],
           [minZoom, maxZoom],
           Extrapolate.CLAMP
@@ -203,9 +203,9 @@ export const GestureAnimations = forwardRef<
         pinchScale.value = newScale;
 
         // Adjust translation to keep focal point centered
-        const deltaScale = newScale - context.startScale;
-        const focalPointX = event.focalX - screenWidth / 2;
-        const focalPointY = event.focalY - screenHeight / 2;
+        const deltaScale = newScale - (context as any).startScale;
+        const focalPointX = (event as any).focalX - screenWidth / 2;
+        const focalPointY = (event as any).focalY - screenHeight / 2;
 
         const deltaX = focalPointX * deltaScale;
         const deltaY = focalPointY * deltaScale;

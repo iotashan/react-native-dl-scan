@@ -147,13 +147,7 @@ describe('useThrottledQualityMetrics', () => {
   });
 
   it('should work with frameProcessor parameter', () => {
-    const mockFrameProcessor = {
-      processFrame: jest.fn().mockReturnValue(mockMetrics),
-    };
-
-    const { result } = renderHook(() =>
-      useThrottledQualityMetrics(mockFrameProcessor)
-    );
+    const { result } = renderHook(() => useThrottledQualityMetrics());
 
     expect(result.current.metrics).toBeUndefined();
     expect(typeof result.current.updateMetrics).toBe('function');

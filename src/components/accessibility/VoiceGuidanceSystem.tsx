@@ -58,7 +58,7 @@ const VoiceGuidanceSystem: React.FC<VoiceGuidanceSystemProps> = ({
   const previousQualityLevel = useRef<string>('');
   const previousDistance = useRef<string>('');
   const lastGuidanceTime = useRef<number>(0);
-  const guidanceIntervalRef = useRef<NodeJS.Timeout>();
+  const guidanceIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Minimum time between guidance announcements (in milliseconds)
   const GUIDANCE_THROTTLE = 2000;
