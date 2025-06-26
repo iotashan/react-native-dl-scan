@@ -1,10 +1,10 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useImperativeHandle, forwardRef } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   useAnimatedGestureHandler,
-  withTiming,
   withSpring,
   withDecay,
   runOnJS,
@@ -15,9 +15,8 @@ import {
   PanGestureHandler,
   PinchGestureHandler,
   TapGestureHandler,
-  State,
 } from 'react-native-gesture-handler';
-import { useAnimationConfig, AnimationValues } from '../../utils/animations';
+import { useAnimationConfig } from '../../utils/animations';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -73,13 +72,15 @@ export const GestureAnimations = forwardRef<
     ref
   ) => {
     const animationConfig = useAnimationConfig();
-  
-  // Helper to safely access spring configurations
-  const getSpringConfig = (type: 'default' | 'gentle' | 'bouncy' = 'default') => {
-    return 'default' in animationConfig.spring 
-      ? animationConfig.spring[type]
-      : animationConfig.spring;
-  };
+
+    // Helper to safely access spring configurations
+    const getSpringConfig = (
+      type: 'default' | 'gentle' | 'bouncy' = 'default'
+    ) => {
+      return 'default' in animationConfig.spring
+        ? animationConfig.spring[type]
+        : animationConfig.spring;
+    };
 
     // Gesture state
     const scale = useSharedValue(1);
@@ -244,8 +245,14 @@ export const GestureAnimations = forwardRef<
           translateY.value,
           scale.value
         );
-        translateX.value = withSpring(constrained.x, getSpringConfig('default'));
-        translateY.value = withSpring(constrained.y, getSpringConfig('default'));
+        translateX.value = withSpring(
+          constrained.x,
+          getSpringConfig('default')
+        );
+        translateY.value = withSpring(
+          constrained.y,
+          getSpringConfig('default')
+        );
       },
     });
 
@@ -320,8 +327,14 @@ export const GestureAnimations = forwardRef<
         scale.value = withSpring(clampedScale, getSpringConfig('default'));
 
         const constrained = getConstrainedTranslation(x, y, clampedScale);
-        translateX.value = withSpring(constrained.x, getSpringConfig('default'));
-        translateY.value = withSpring(constrained.y, getSpringConfig('default'));
+        translateX.value = withSpring(
+          constrained.x,
+          getSpringConfig('default')
+        );
+        translateY.value = withSpring(
+          constrained.y,
+          getSpringConfig('default')
+        );
 
         onZoomChange?.(clampedScale);
         onPanChange?.(constrained.x, constrained.y);
@@ -336,8 +349,14 @@ export const GestureAnimations = forwardRef<
       (x: number, y: number) => {
         const constrained = getConstrainedTranslation(x, y, scale.value);
 
-        translateX.value = withSpring(constrained.x, getSpringConfig('default'));
-        translateY.value = withSpring(constrained.y, getSpringConfig('default'));
+        translateX.value = withSpring(
+          constrained.x,
+          getSpringConfig('default')
+        );
+        translateY.value = withSpring(
+          constrained.y,
+          getSpringConfig('default')
+        );
 
         onPanChange?.(constrained.x, constrained.y);
       },

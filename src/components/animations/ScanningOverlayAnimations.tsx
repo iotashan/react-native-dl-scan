@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useImperativeHandle, forwardRef, useEffect } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import Animated, {
@@ -9,7 +10,11 @@ import Animated, {
   interpolate,
   Extrapolate,
 } from 'react-native-reanimated';
-import { useAnimationConfig, AnimationTimings } from '../../utils/animations';
+import {
+  useAnimationConfig,
+  AnimationTimings,
+  useReducedMotion,
+} from '../../utils/animations';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -50,6 +55,7 @@ const ScanningOverlayAnimations = forwardRef<
     ref
   ) => {
     const animationConfig = useAnimationConfig();
+    const reducedMotion = useReducedMotion();
 
     // Scan line animation
     const scanLinePosition = useSharedValue(0);
@@ -106,7 +112,7 @@ const ScanningOverlayAnimations = forwardRef<
      * Start scanning animations
      */
     const startScanning = React.useCallback(() => {
-      if (animationConfig.duration === 0) return;
+      if (reducedMotion) return;
 
       // Show scan line
       scanLineOpacity.value = withTiming(1, { duration: 200 });
@@ -131,7 +137,7 @@ const ScanningOverlayAnimations = forwardRef<
         -1,
         false
       );
-    }, [animationConfig]);
+    }, [reducedMotion, animationConfig]);
 
     /**
      * Stop scanning animations
@@ -150,7 +156,7 @@ const ScanningOverlayAnimations = forwardRef<
      * Show document detected animation
      */
     const showDocumentDetected = React.useCallback(() => {
-      if (animationConfig.duration === 0) {
+      if (reducedMotion) {
         onDocumentDetected?.();
         return;
       }
@@ -185,7 +191,7 @@ const ScanningOverlayAnimations = forwardRef<
       setTimeout(() => {
         onDocumentDetected?.();
       }, 400);
-    }, [animationConfig, onDocumentDetected]);
+    }, [reducedMotion, animationConfig, onDocumentDetected]);
 
     /**
      * Update quality indicator

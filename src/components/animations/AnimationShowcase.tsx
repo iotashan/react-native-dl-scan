@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
   SafeAreaView,
 } from 'react-native';
 import {
@@ -24,8 +23,6 @@ import GestureAnimations, {
   type GestureAnimationsRef,
 } from './GestureAnimations';
 import type { ScanMode } from '../../types/license';
-
-const { width: screenWidth } = Dimensions.get('window');
 
 /**
  * Animation Showcase Component
@@ -50,7 +47,7 @@ const AnimationShowcase: React.FC = () => {
   const [gestureInfo, setGestureInfo] = useState({ scale: 1, x: 0, y: 0 });
 
   // Available scan modes for demo
-  const scanModes: ScanMode[] = ['auto', 'manual', 'batch'];
+  const scanModes: ScanMode[] = ['auto', 'barcode', 'ocr'];
   const qualityLevels: Array<'poor' | 'good' | 'excellent'> = [
     'poor',
     'good',
@@ -76,7 +73,7 @@ const AnimationShowcase: React.FC = () => {
   const handleQualityChange = () => {
     const currentIndex = qualityLevels.indexOf(scanQuality);
     const nextIndex = (currentIndex + 1) % qualityLevels.length;
-    const newQuality = qualityLevels[nextIndex];
+    const newQuality = qualityLevels[nextIndex] || 'poor';
 
     setScanQuality(newQuality);
     scanningOverlayRef.current?.updateQualityIndicator(newQuality);
@@ -88,9 +85,9 @@ const AnimationShowcase: React.FC = () => {
 
   const handleGestureChange = (type: 'zoom' | 'pan', ...args: number[]) => {
     if (type === 'zoom') {
-      setGestureInfo((prev) => ({ ...prev, scale: args[0] }));
+      setGestureInfo((prev) => ({ ...prev, scale: args[0] || 1 }));
     } else if (type === 'pan') {
-      setGestureInfo((prev) => ({ ...prev, x: args[0], y: args[1] }));
+      setGestureInfo((prev) => ({ ...prev, x: args[0] || 0, y: args[1] || 0 }));
     }
   };
 

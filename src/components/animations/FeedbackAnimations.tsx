@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useImperativeHandle, forwardRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, {
@@ -10,8 +11,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import {
   useAnimationConfig,
-  createSequence,
   AnimationValues,
+  useReducedMotion,
 } from '../../utils/animations';
 
 interface FeedbackAnimationProps {
@@ -34,6 +35,7 @@ export const SuccessAnimation = forwardRef<
   FeedbackAnimationProps
 >(({ children, onAnimationComplete }, ref) => {
   const animationConfig = useAnimationConfig();
+  const reducedMotion = useReducedMotion();
 
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
@@ -46,7 +48,7 @@ export const SuccessAnimation = forwardRef<
 
   const playSuccess = React.useCallback(() => {
     // Skip animation if reduced motion is enabled
-    if (animationConfig.duration === 0) {
+    if (reducedMotion) {
       onAnimationComplete?.();
       return;
     }
@@ -107,6 +109,7 @@ export const ErrorAnimation = forwardRef<
   FeedbackAnimationProps
 >(({ children, onAnimationComplete }, ref) => {
   const animationConfig = useAnimationConfig();
+  const reducedMotion = useReducedMotion();
 
   const translateX = useSharedValue(0);
   const scale = useSharedValue(1);
@@ -119,7 +122,7 @@ export const ErrorAnimation = forwardRef<
 
   const playError = React.useCallback(() => {
     // Skip animation if reduced motion is enabled
-    if (animationConfig.duration === 0) {
+    if (reducedMotion) {
       onAnimationComplete?.();
       return;
     }
@@ -184,6 +187,7 @@ export const FeedbackAnimation = forwardRef<
   FeedbackAnimationProps
 >(({ children, onAnimationComplete }, ref) => {
   const animationConfig = useAnimationConfig();
+  const reducedMotion = useReducedMotion();
 
   const scale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -200,7 +204,7 @@ export const FeedbackAnimation = forwardRef<
   }));
 
   const playSuccess = React.useCallback(() => {
-    if (animationConfig.duration === 0) {
+    if (reducedMotion) {
       onAnimationComplete?.();
       return;
     }
@@ -228,10 +232,10 @@ export const FeedbackAnimation = forwardRef<
         }
       }
     );
-  }, [animationConfig, onAnimationComplete]);
+  }, [reducedMotion, animationConfig, onAnimationComplete]);
 
   const playError = React.useCallback(() => {
-    if (animationConfig.duration === 0) {
+    if (reducedMotion) {
       onAnimationComplete?.();
       return;
     }
@@ -257,7 +261,7 @@ export const FeedbackAnimation = forwardRef<
       withTiming(1, { duration: 100 }),
       withTiming(0, { duration: 200 })
     );
-  }, [animationConfig, onAnimationComplete]);
+  }, [reducedMotion, animationConfig, onAnimationComplete]);
 
   const reset = React.useCallback(() => {
     scale.value = 1;

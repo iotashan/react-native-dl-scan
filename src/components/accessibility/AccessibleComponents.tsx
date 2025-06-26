@@ -1,12 +1,6 @@
 import React, { forwardRef, useRef, useImperativeHandle } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ViewStyle,
-  TouchableOpacityProps,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import type { ViewStyle, TouchableOpacityProps } from 'react-native';
 import {
   getAccessibilityProps,
   useDynamicType,
@@ -32,7 +26,7 @@ interface AccessibleButtonProps extends TouchableOpacityProps {
 }
 
 export const AccessibleButton = forwardRef<
-  TouchableOpacity,
+  React.ElementRef<typeof TouchableOpacity>,
   AccessibleButtonProps
 >(
   (
@@ -128,7 +122,7 @@ export const AccessibleCameraView: React.FC<AccessibleCameraViewProps> = ({
   const accessibilityProps = getAccessibilityProps({
     label: AccessibilityConfig.labels.cameraView,
     hint: AccessibilityConfig.hints.positioningGuide,
-    role: 'none',
+    role: 'text',
     liveRegion: 'polite',
     value: { text: statusText },
   });
@@ -173,10 +167,10 @@ export const AccessibleModeSelector: React.FC<AccessibleModeSelectorProps> = ({
   const isBoldText = useBoldText();
   const highContrastColors = getHighContrastColors(isHighContrast);
 
-  const modeLabels = {
+  const modeLabels: Record<ScanMode, string> = {
     auto: 'Automatic',
-    manual: 'Manual',
-    batch: 'Batch',
+    barcode: 'Barcode',
+    ocr: 'OCR',
   };
 
   return (
