@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, AccessibilityInfo } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { View, Text, StyleSheet, AccessibilityInfo, Vibration, Platform } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -171,16 +170,19 @@ export const QualityIndicator: React.FC<QualityIndicatorProps> = ({
       previousStatusRef.current !== currentStatus
     ) {
       // Provide haptic feedback on status change
-      if (enableHapticFeedback) {
+      if (enableHapticFeedback && Platform.OS !== 'web') {
         switch (currentStatus) {
           case 'good':
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            // Light vibration for success
+            Vibration.vibrate(10);
             break;
           case 'warning':
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            // Medium vibration for warning
+            Vibration.vibrate(20);
             break;
           case 'poor':
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            // Stronger vibration for error
+            Vibration.vibrate([0, 30, 50, 30]);
             break;
         }
       }

@@ -34,6 +34,23 @@ export const IntelligentScannerExample: React.FC = () => {
     enableFallback: true,
   });
 
+  // Define callbacks before using them in effects
+  const handleRetry = useCallback(() => {
+    clearError();
+    setIsScanning(false);
+  }, [clearError]);
+
+  const handleReset = useCallback(() => {
+    reset();
+    setScannedData(null);
+    setIsScanning(false);
+  }, [reset]);
+
+  const handleCancel = useCallback(() => {
+    setIsScanning(false);
+    reset();
+  }, [reset]);
+
   // Handle successful scan
   useEffect(() => {
     if (licenseData) {
@@ -109,22 +126,6 @@ export const IntelligentScannerExample: React.FC = () => {
     },
     [setScanMode, scanMode]
   );
-
-  const handleRetry = useCallback(() => {
-    clearError();
-    setIsScanning(false);
-  }, [clearError]);
-
-  const handleReset = useCallback(() => {
-    reset();
-    setScannedData(null);
-    setIsScanning(false);
-  }, [reset]);
-
-  const handleCancel = useCallback(() => {
-    setIsScanning(false);
-    reset();
-  }, [reset]);
 
   return (
     <View style={styles.container}>

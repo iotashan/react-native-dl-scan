@@ -2,23 +2,16 @@ import { render, act } from '@testing-library/react-native';
 import { QualityIndicator } from '../QualityIndicator';
 import type { RealTimeQualityMetrics } from '../../types/license';
 
-// Mock expo-haptics
-jest.mock('expo-haptics', () => ({
-  notificationAsync: jest.fn(),
-  NotificationFeedbackType: {
-    Success: 'success',
-    Warning: 'warning',
-    Error: 'error',
-  },
-}));
-
-// Mock AccessibilityInfo
+// Mock React Native APIs
 jest.mock('react-native', () => {
   const RN = jest.requireActual('react-native');
   return {
     ...RN,
     AccessibilityInfo: {
       announceForAccessibility: jest.fn(),
+    },
+    Vibration: {
+      vibrate: jest.fn(),
     },
   };
 });
