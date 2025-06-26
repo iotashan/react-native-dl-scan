@@ -8,9 +8,13 @@ import type { Frame } from 'react-native-vision-camera';
 
 // Mock react-native-vision-camera
 jest.mock('react-native-vision-camera', () => {
+  // Create mock plugin inside the jest.mock callback
   const mockPlugin = {
     call: jest.fn(),
   };
+  
+  // Store globally for test access
+  (global as any).__FRAME_PROCESSOR_PLUGIN_MOCK__ = mockPlugin;
 
   return {
     VisionCameraProxy: {
@@ -99,15 +103,11 @@ describe('Frame Processor Integration Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    const { VisionCameraProxy } = require('react-native-vision-camera');
-    mockPlugin = VisionCameraProxy.initFrameProcessorPlugin();
-
-    // Ensure mockPlugin is properly set up
-    if (!mockPlugin || !mockPlugin.call) {
-      mockPlugin = {
-        call: jest.fn(),
-      };
-    }
+    // Get the global mock instance
+    mockPlugin = (global as any).__FRAME_PROCESSOR_PLUGIN_MOCK__;
+    
+    // Reset mock call counts but preserve implementation
+    mockPlugin.call.mockClear();
   });
 
   describe('PDF417 Barcode Detection', () => {

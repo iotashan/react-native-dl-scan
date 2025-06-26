@@ -209,6 +209,33 @@ export const MockUtils = {
    * Create platform-specific native module mock
    */
   createPlatformNativeModuleMock: (moduleName: string) => {
+    // Use existing global mock if available, otherwise create new one
+    const existingMock = (global as any).__DL_SCAN_MOCK__;
+    if (existingMock && moduleName === 'DlScan') {
+      // Add platform-specific methods to existing mock
+      const platformSpecific = Platform.select({
+        ios: {
+          // iOS-specific methods
+          configureVisionFramework: jest.fn(),
+          enableHapticFeedback: jest.fn(),
+          setProcessingPriority: jest.fn(),
+        },
+        android: {
+          // Android-specific methods
+          configureMLKit: jest.fn(),
+          enableVibration: jest.fn(),
+          setProcessingThread: jest.fn(),
+        },
+        native: {},
+      } as any) || {};
+
+      return {
+        ...existingMock,
+        ...platformSpecific,
+      };
+    }
+
+    // Fallback to creating new mock for other modules
     const baseMock = {
       scanLicense: jest.fn(),
       parseOCRText: jest.fn(),
