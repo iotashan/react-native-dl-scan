@@ -89,3 +89,6 @@ nitrogen/
 coverage/
 # Serena cache files
 .serena/
+
+# Test artifacts
+test-output.log
