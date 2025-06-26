@@ -7,7 +7,7 @@ import { device, expect as detoxExpect, element, by, waitFor } from 'detox';
 const { expect } = require('@jest/globals');
 
 // Device matrix configuration
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// @ts-ignore - Configuration for future device matrix testing
 const deviceMatrix = {
   ios: [
     {
@@ -103,7 +103,7 @@ describe('Device Matrix E2E Tests', () => {
       await detoxExpect(element(by.id('scan-guide-overlay'))).toBeVisible();
 
       // Check that scan guide is appropriately sized for small screen
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      // @ts-ignore - Element for future scan guide testing
       const scanGuide = element(by.id('scan-guide-overlay'));
 
       // Verify mode toggle is accessible (not hidden by safe area)

@@ -39,10 +39,10 @@ beforeEach(async () => {
 
 afterEach(async () => {
   // Take screenshot on test failure
-  const testName = expect.getState().currentTestName || 'unknown-test';
+  const testName = (expect as any).getState().currentTestName || 'unknown-test';
   const hasFailures =
-    expect.getState().numPassingAsserts === 0 &&
-    expect.getState().suppressedErrors.length > 0;
+    (expect as any).getState().numPassingAsserts === 0 &&
+    (expect as any).getState().suppressedErrors.length > 0;
 
   if (hasFailures) {
     await device.takeScreenshot(`${testName}-failure`);
@@ -51,8 +51,8 @@ afterEach(async () => {
     try {
       const logs =
         (await device.getPlatform()) === 'ios'
-          ? await device.getUiDevice().getDeviceLog()
-          : await device.getUiDevice().getAdbLog();
+          ? await (device.getUiDevice() as any).getDeviceLog()
+          : await (device.getUiDevice() as any).getAdbLog();
 
       console.log(`📱 Device logs for failed test: ${testName}`);
       console.log(logs);
@@ -79,8 +79,8 @@ declare global {
 }
 
 // Add custom Detox matchers
-expect.extend({
-  async toBeVisibleOnScreen(received) {
+(expect as any).extend({
+  async toBeVisibleOnScreen(received: any) {
     try {
       await waitFor(received).toBeVisible().withTimeout(5000);
       return {
@@ -115,7 +115,7 @@ expect.extend({
     }
   },
 
-  async toCompleteWithinTimeout(received, timeout: number) {
+  async toCompleteWithinTimeout(received: any, timeout: number) {
     const startTime = Date.now();
 
     try {

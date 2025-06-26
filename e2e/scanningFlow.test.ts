@@ -35,7 +35,7 @@ describe('Driver License Scanning Flow E2E', () => {
       await TestUtils.navigateToScanner();
 
       // Verify camera view is visible and permissions granted
-      await detoxExpect(element(by.id('camera-view'))).toBeVisibleOnScreen();
+      await detoxExpect(element(by.id('camera-view'))).toBeVisible();
       await detoxExpect(element(by.id('scan-guide-overlay'))).toBeVisible();
 
       // Verify scanning instructions are shown
