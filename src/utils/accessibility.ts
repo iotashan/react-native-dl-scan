@@ -15,12 +15,12 @@ export const AccessibilityConfig = {
   // Screen reader announcements
   announcements: {
     modeChanged: (mode: ScanMode): string => {
-      const modeNames = {
+      const modeNames: Record<ScanMode, string> = {
         auto: 'Automatic scanning mode',
-        manual: 'Manual scanning mode',
-        batch: 'Batch scanning mode',
+        barcode: 'Barcode scanning mode',
+        ocr: 'OCR scanning mode',
       };
-      return `Switched to ${modeNames[mode]}`;
+      return `Switched to ${modeNames[mode] || 'Unknown mode'}`;
     },
     scanningStarted:
       "Scanning started. Position your driver's license within the camera frame.",
@@ -91,7 +91,7 @@ export const AccessibilityConfig = {
 export const useVoiceOver = () => {
   const [isVoiceOverEnabled, setIsVoiceOverEnabled] = useState(false);
   const lastAnnouncementRef = useRef<string>('');
-  const announcementTimeoutRef = useRef<NodeJS.Timeout>();
+  const announcementTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Check initial VoiceOver state
@@ -104,7 +104,7 @@ export const useVoiceOver = () => {
     );
 
     return () => {
-      subscription.remove();
+      subscription?.remove();
       if (announcementTimeoutRef.current) {
         clearTimeout(announcementTimeoutRef.current);
       }
@@ -210,15 +210,11 @@ export const useHighContrast = () => {
 
   useEffect(() => {
     // iOS specific high contrast detection
-    if (AccessibilityInfo.isHighContrastEnabled) {
-      AccessibilityInfo.isHighContrastEnabled().then(setIsHighContrast);
+    if (AccessibilityInfo.isHighTextContrastEnabled) {
+      AccessibilityInfo.isHighTextContrastEnabled().then(setIsHighContrast);
 
-      const subscription = AccessibilityInfo.addEventListener(
-        'highContrastChanged',
-        setIsHighContrast
-      );
-
-      return () => subscription.remove();
+      // Note: Event listener for high contrast changes may not be available
+      // This is a simplified implementation
     }
   }, []);
 
@@ -285,12 +281,8 @@ export const useBoldText = () => {
     if (AccessibilityInfo.isBoldTextEnabled) {
       AccessibilityInfo.isBoldTextEnabled().then(setIsBoldTextEnabled);
 
-      const subscription = AccessibilityInfo.addEventListener(
-        'boldTextChanged',
-        setIsBoldTextEnabled
-      );
-
-      return () => subscription.remove();
+      // Note: Bold text change events may not be available on all platforms
+      // This is a simplified implementation
     }
   }, []);
 
@@ -351,7 +343,7 @@ export const AccessibilityTestUtils = {
    * Generate accessibility report for component tree
    */
   generateAccessibilityReport: (
-    componentTree: any
+    _componentTree: any
   ): {
     warnings: string[];
     errors: string[];

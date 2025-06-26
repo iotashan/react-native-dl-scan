@@ -351,9 +351,9 @@ export const AccessibilityTestHelpers = {
    * Mock high contrast being enabled
    */
   mockHighContrastEnabled: (enabled: boolean = true) => {
-    if (AccessibilityInfo.isHighContrastEnabled) {
+    if (typeof AccessibilityInfo.isHighTextContrastEnabled === 'function') {
       jest
-        .spyOn(AccessibilityInfo, 'isHighContrastEnabled')
+        .spyOn(AccessibilityInfo, 'isHighTextContrastEnabled')
         .mockResolvedValue(enabled);
     }
   },

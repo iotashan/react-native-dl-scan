@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ViewStyle,
-  TextStyle,
   TouchableOpacityProps,
 } from 'react-native';
 import {
@@ -346,7 +345,7 @@ interface AccessibleQualityIndicatorProps {
 
 export const AccessibleQualityIndicator: React.FC<
   AccessibleQualityIndicatorProps
-> = ({ quality, qualityLevel, animated = true }) => {
+> = ({ quality, qualityLevel }) => {
   const { fontSize } = useDynamicType();
   const isHighContrast = useHighContrast();
   const highContrastColors = getHighContrastColors(isHighContrast);

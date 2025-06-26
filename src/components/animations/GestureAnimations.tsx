@@ -73,6 +73,13 @@ const GestureAnimations = forwardRef<
     ref
   ) => {
     const animationConfig = useAnimationConfig();
+  
+  // Helper to safely access spring configurations
+  const getSpringConfig = (type: 'default' | 'gentle' | 'bouncy' = 'default') => {
+    return 'default' in animationConfig.spring 
+      ? animationConfig.spring[type]
+      : animationConfig.spring;
+  };
 
     // Gesture state
     const scale = useSharedValue(1);
@@ -220,12 +227,12 @@ const GestureAnimations = forwardRef<
 
         // Smooth spring animation back to bounds if needed
         if (scale.value < minZoom) {
-          scale.value = withSpring(minZoom, animationConfig.spring.default);
+          scale.value = withSpring(minZoom, getSpringConfig('default'));
           if (onZoomChange) {
             runOnJS(onZoomChange)(minZoom);
           }
         } else if (scale.value > maxZoom) {
-          scale.value = withSpring(maxZoom, animationConfig.spring.default);
+          scale.value = withSpring(maxZoom, getSpringConfig('default'));
           if (onZoomChange) {
             runOnJS(onZoomChange)(maxZoom);
           }
@@ -237,14 +244,8 @@ const GestureAnimations = forwardRef<
           translateY.value,
           scale.value
         );
-        translateX.value = withSpring(
-          constrained.x,
-          animationConfig.spring.default
-        );
-        translateY.value = withSpring(
-          constrained.y,
-          animationConfig.spring.default
-        );
+        translateX.value = withSpring(constrained.x, getSpringConfig('default'));
+        translateY.value = withSpring(constrained.y, getSpringConfig('default'));
       },
     });
 
@@ -265,9 +266,9 @@ const GestureAnimations = forwardRef<
           }
 
           // Reset zoom on double tap
-          scale.value = withSpring(1, animationConfig.spring.bouncy);
-          translateX.value = withSpring(0, animationConfig.spring.bouncy);
-          translateY.value = withSpring(0, animationConfig.spring.bouncy);
+          scale.value = withSpring(1, getSpringConfig('bouncy'));
+          translateX.value = withSpring(0, getSpringConfig('bouncy'));
+          translateY.value = withSpring(0, getSpringConfig('bouncy'));
 
           if (onZoomChange) {
             runOnJS(onZoomChange)(1);
@@ -301,9 +302,9 @@ const GestureAnimations = forwardRef<
      * Reset transform to initial state
      */
     const resetTransform = React.useCallback(() => {
-      scale.value = withSpring(1, animationConfig.spring.gentle);
-      translateX.value = withSpring(0, animationConfig.spring.gentle);
-      translateY.value = withSpring(0, animationConfig.spring.gentle);
+      scale.value = withSpring(1, getSpringConfig('gentle'));
+      translateX.value = withSpring(0, getSpringConfig('gentle'));
+      translateY.value = withSpring(0, getSpringConfig('gentle'));
 
       onZoomChange?.(1);
       onPanChange?.(0, 0);
@@ -316,17 +317,11 @@ const GestureAnimations = forwardRef<
       (targetScale: number, x: number = 0, y: number = 0) => {
         const clampedScale = Math.max(minZoom, Math.min(maxZoom, targetScale));
 
-        scale.value = withSpring(clampedScale, animationConfig.spring.default);
+        scale.value = withSpring(clampedScale, getSpringConfig('default'));
 
         const constrained = getConstrainedTranslation(x, y, clampedScale);
-        translateX.value = withSpring(
-          constrained.x,
-          animationConfig.spring.default
-        );
-        translateY.value = withSpring(
-          constrained.y,
-          animationConfig.spring.default
-        );
+        translateX.value = withSpring(constrained.x, getSpringConfig('default'));
+        translateY.value = withSpring(constrained.y, getSpringConfig('default'));
 
         onZoomChange?.(clampedScale);
         onPanChange?.(constrained.x, constrained.y);
@@ -341,14 +336,8 @@ const GestureAnimations = forwardRef<
       (x: number, y: number) => {
         const constrained = getConstrainedTranslation(x, y, scale.value);
 
-        translateX.value = withSpring(
-          constrained.x,
-          animationConfig.spring.default
-        );
-        translateY.value = withSpring(
-          constrained.y,
-          animationConfig.spring.default
-        );
+        translateX.value = withSpring(constrained.x, getSpringConfig('default'));
+        translateY.value = withSpring(constrained.y, getSpringConfig('default'));
 
         onPanChange?.(constrained.x, constrained.y);
       },

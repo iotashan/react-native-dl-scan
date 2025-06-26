@@ -45,11 +45,10 @@ const ModeTransitionAnimation = forwardRef<
    */
   const transitionToMode = React.useCallback(
     (newMode: ScanMode) => {
-      const previousMode = currentMode.current;
       currentMode.current = newMode;
 
       // Skip animation if reduced motion is enabled
-      if (animationConfig.duration === 0) {
+      if (animationConfig.duration.normal === 0) {
         onTransitionComplete?.(newMode);
         return;
       }
