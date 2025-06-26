@@ -1,0 +1,238 @@
+name: Performance Monitoring
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run performance benchmarks daily at 4 AM UTC
+    - cron: '0 4 * * *'
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  bundle-size-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Build package
+        run: yarn prepare
+
+      - name: Analyze bundle size
+        run: |
+          # Install bundle analyzer
+          npm install -g bundlewatch
+          
+          # Check if bundlewatch config exists, create if not
+          if [ ! -f .bundlewatchrc.json ]; then
+            cat > .bundlewatchrc.json << 'EOF'
+          {
+            "files": [
+              {
+                "path": "lib/commonjs/index.js",
+                "maxSize": "150kb",
+                "compression": "gzip"
+              },
+              {
+                "path": "lib/module/index.js",
+                "maxSize": "100kb",
+                "compression": "gzip"
+              }
+            ],
+            "ci": {
+              "trackBranches": ["main"],
+              "compareOnly": ["main"]
+            }
+          }
+          EOF
+          fi
+          
+          # Run bundle size analysis
+          bundlewatch --config .bundlewatchrc.json
+        env:
+          BUNDLEWATCH_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate bundle report
+        run: |
+          echo "## Bundle Size Analysis 📦" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| File | Size (gzipped) |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|----------------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Check CommonJS build
+          if [ -f lib/commonjs/index.js ]; then
+            CJS_SIZE=$(gzip -c lib/commonjs/index.js | wc -c | tr -d ' ')
+            echo "| CommonJS | ${CJS_SIZE} bytes |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Check ES Module build
+          if [ -f lib/module/index.js ]; then
+            ESM_SIZE=$(gzip -c lib/module/index.js | wc -c | tr -d ' ')
+            echo "| ES Module | ${ESM_SIZE} bytes |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  performance-benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Run performance benchmarks
+        run: |
+          # Run the performance regression tests specifically
+          yarn test --testNamePattern="Performance.*Benchmarks" --maxWorkers=1 --verbose
+        continue-on-error: true  # Don't fail the workflow if benchmarks fail
+
+      - name: Upload performance results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-benchmarks
+          path: |
+            performance-results.json
+            coverage/
+          retention-days: 30
+
+  test-performance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Run tests with timing
+        run: |
+          # Run tests and measure execution time
+          START_TIME=$(date +%s)
+          yarn test --maxWorkers=2 --verbose --testTimeout=30000 > test-output.log 2>&1 || true
+          END_TIME=$(date +%s)
+          
+          DURATION=$((END_TIME - START_TIME))
+          echo "Test execution took $DURATION seconds"
+          
+          # Extract test summary
+          PASSING=$(grep -o '[0-9]* passed' test-output.log | tail -1 | grep -o '[0-9]*' || echo "0")
+          FAILING=$(grep -o '[0-9]* failed' test-output.log | tail -1 | grep -o '[0-9]*' || echo "0")
+          TOTAL=$(grep -o '[0-9]* total' test-output.log | tail -1 | grep -o '[0-9]*' || echo "0")
+          
+          echo "PASS_COUNT=$PASSING" >> $GITHUB_ENV
+          echo "FAIL_COUNT=$FAILING" >> $GITHUB_ENV
+          echo "TOTAL_COUNT=$TOTAL" >> $GITHUB_ENV
+          echo "DURATION=$DURATION" >> $GITHUB_ENV
+
+      - name: Performance regression check
+        run: |
+          # Simple performance regression check
+          # In a real scenario, you'd compare against historical data
+          if [ "$DURATION" -gt 300 ]; then  # 5 minutes threshold
+            echo "::warning::Test execution took longer than expected: ${DURATION}s"
+          fi
+          
+          # Calculate pass rate
+          if [ "$TOTAL_COUNT" -gt 0 ]; then
+            PASS_RATE=$(echo "scale=2; $PASS_COUNT * 100 / $TOTAL_COUNT" | bc -l)
+            echo "PASS_RATE=$PASS_RATE" >> $GITHUB_ENV
+            
+            # Check if pass rate is below threshold
+            if [ $(echo "$PASS_RATE < 80" | bc -l) -eq 1 ]; then
+              echo "::warning::Test pass rate is below 80%: ${PASS_RATE}%"
+            fi
+          fi
+
+      - name: Generate performance summary
+        run: |
+          echo "## Test Performance Summary ⚡" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Duration | ${DURATION}s |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests Passed | $PASS_COUNT |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests Failed | $FAIL_COUNT |" >> $GITHUB_STEP_SUMMARY
+          echo "| Total Tests | $TOTAL_COUNT |" >> $GITHUB_STEP_SUMMARY
+          echo "| Pass Rate | ${PASS_RATE:-N/A}% |" >> $GITHUB_STEP_SUMMARY
+
+  memory-profiling:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'  # Only run on scheduled builds
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Memory profiling
+        run: |
+          # Install clinic.js for memory profiling
+          npm install -g clinic
+          
+          # Create a simple memory test script
+          cat > memory-test.js << 'EOF'
+          const { scanLicense, parseOCRText } = require('./lib/commonjs/index.js');
+          
+          async function memoryTest() {
+            const iterations = 1000;
+            console.log(`Running ${iterations} iterations of scanning operations`);
+            
+            for (let i = 0; i < iterations; i++) {
+              try {
+                // Simulate scanning operations
+                await scanLicense('test-barcode-data-' + i);
+                
+                if (i % 100 === 0) {
+                  console.log(`Completed ${i} iterations`);
+                  // Force garbage collection if available
+                  if (global.gc) global.gc();
+                }
+              } catch (error) {
+                // Expected in test environment
+              }
+            }
+            
+            console.log('Memory test completed');
+          }
+          
+          memoryTest().catch(console.error);
+          EOF
+          
+          # Run memory profiling
+          clinic heapprofiler -- node --expose-gc memory-test.js || true
+
+      - name: Upload memory profile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-profile
+          path: |
+            .clinic/
+            *.clinic-*
+          retention-days: 7
+
+  performance-summary:
+    runs-on: ubuntu-latest
+    needs: [bundle-size-analysis, performance-benchmarks, test-performance]
+    if: always()
+    steps:
+      - name: Performance Summary
+        run: |
+          echo "## Performance Monitoring Summary 📊" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Bundle Size Analysis | ${{ needs.bundle-size-analysis.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Performance Benchmarks | ${{ needs.performance-benchmarks.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Performance | ${{ needs.test-performance.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check individual jobs for detailed performance metrics and artifacts." >> $GITHUB_STEP_SUMMARY

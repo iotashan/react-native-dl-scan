@@ -213,21 +213,22 @@ export const MockUtils = {
     const existingMock = (global as any).__DL_SCAN_MOCK__;
     if (existingMock && moduleName === 'DlScan') {
       // Add platform-specific methods to existing mock
-      const platformSpecific = Platform.select({
-        ios: {
-          // iOS-specific methods
-          configureVisionFramework: jest.fn(),
-          enableHapticFeedback: jest.fn(),
-          setProcessingPriority: jest.fn(),
-        },
-        android: {
-          // Android-specific methods
-          configureMLKit: jest.fn(),
-          enableVibration: jest.fn(),
-          setProcessingThread: jest.fn(),
-        },
-        native: {},
-      } as any) || {};
+      const platformSpecific =
+        Platform.select({
+          ios: {
+            // iOS-specific methods
+            configureVisionFramework: jest.fn(),
+            enableHapticFeedback: jest.fn(),
+            setProcessingPriority: jest.fn(),
+          },
+          android: {
+            // Android-specific methods
+            configureMLKit: jest.fn(),
+            enableVibration: jest.fn(),
+            setProcessingThread: jest.fn(),
+          },
+          native: {},
+        } as any) || {};
 
       return {
         ...existingMock,

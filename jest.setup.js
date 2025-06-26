@@ -14,7 +14,8 @@ jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => {
           error: {
             code: 'INVALID_BARCODE_DATA',
             message: 'Invalid barcode data provided',
-            userMessage: 'The barcode data is invalid. Please try scanning again.',
+            userMessage:
+              'The barcode data is invalid. Please try scanning again.',
             recoverable: true,
           },
         });
@@ -27,19 +28,24 @@ jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => {
           error: {
             code: 'BARCODE_READ_ERROR',
             message: 'Could not read barcode data',
-            userMessage: 'Unable to read the barcode. Please ensure the license is clearly visible.',
+            userMessage:
+              'Unable to read the barcode. Please ensure the license is clearly visible.',
             recoverable: true,
           },
         });
       }
 
-      if (barcodeData.includes('corrupted') || barcodeData.includes('CORRUPTED')) {
+      if (
+        barcodeData.includes('corrupted') ||
+        barcodeData.includes('CORRUPTED')
+      ) {
         return Promise.resolve({
           success: false,
           error: {
             code: 'CORRUPTED_BARCODE',
             message: 'Corrupted barcode data detected',
-            userMessage: 'The barcode appears damaged. Please try with a different license.',
+            userMessage:
+              'The barcode appears damaged. Please try with a different license.',
             recoverable: false,
           },
         });
@@ -66,10 +72,12 @@ jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => {
 
       // Use hash of barcode data to consistently return same result for same input
       const hash = barcodeData.split('').reduce((a, b) => {
-        a = ((a << 5) - a) + b.charCodeAt(0);
+        // eslint-disable-next-line no-bitwise
+        a = (a << 5) - a + b.charCodeAt(0);
+        // eslint-disable-next-line no-bitwise
         return a & a;
       }, 0);
-      
+
       const variation = testVariations[Math.abs(hash) % testVariations.length];
 
       return Promise.resolve({
@@ -102,7 +110,7 @@ jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => {
       }
 
       // Simulate OCR parsing logic
-      const allText = textObservations.map(obs => obs.text).join(' ');
+      const allText = textObservations.map((obs) => obs.text).join(' ');
       const result = {
         firstName: 'RAPID',
         lastName: 'TEST',
@@ -121,14 +129,17 @@ jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => {
       }
 
       // Simulate low confidence OCR failure
-      const averageConfidence = textObservations.reduce((sum, obs) => sum + obs.confidence, 0) / textObservations.length;
+      const averageConfidence =
+        textObservations.reduce((sum, obs) => sum + obs.confidence, 0) /
+        textObservations.length;
       if (averageConfidence < 0.5) {
         return Promise.resolve({
           success: false,
           error: {
             code: 'LOW_OCR_CONFIDENCE',
             message: 'OCR confidence too low',
-            userMessage: 'The text is not clear enough. Please improve lighting and try again.',
+            userMessage:
+              'The text is not clear enough. Please improve lighting and try again.',
             recoverable: true,
           },
         });

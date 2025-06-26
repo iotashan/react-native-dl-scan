@@ -1,0 +1,19 @@
+{
+  "files": [
+    {
+      "path": "lib/commonjs/index.js",
+      "maxSize": "150kb",
+      "compression": "gzip"
+    },
+    {
+      "path": "lib/module/index.js", 
+      "maxSize": "100kb",
+      "compression": "gzip"
+    }
+  ],
+  "ci": {
+    "trackBranches": ["main"],
+    "compareOnly": ["main"]
+  },
+  "normalizeFilenames": "^.+/(.+)$"
+}

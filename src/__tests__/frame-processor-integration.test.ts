@@ -12,7 +12,7 @@ jest.mock('react-native-vision-camera', () => {
   const mockPlugin = {
     call: jest.fn(),
   };
-  
+
   // Store globally for test access
   (global as any).__FRAME_PROCESSOR_PLUGIN_MOCK__ = mockPlugin;
 
@@ -105,7 +105,7 @@ describe('Frame Processor Integration Tests', () => {
     jest.clearAllMocks();
     // Get the global mock instance
     mockPlugin = (global as any).__FRAME_PROCESSOR_PLUGIN_MOCK__;
-    
+
     // Reset mock call counts but preserve implementation
     mockPlugin.call.mockClear();
   });
