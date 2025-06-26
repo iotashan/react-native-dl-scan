@@ -12,8 +12,8 @@ export type { FeedbackAnimationRef } from './FeedbackAnimations';
 export { default as ScanningOverlayAnimations } from './ScanningOverlayAnimations';
 export type { ScanningOverlayAnimationsRef } from './ScanningOverlayAnimations';
 
-export { default as GestureAnimations } from './GestureAnimations';
-export type { GestureAnimationsRef } from './GestureAnimations';
+export { GestureAnimations } from './GestureAnimationsWrapper';
+export type { GestureAnimationsRef, GestureAnimationsProps } from './GestureAnimationsWrapper';
 
 export { default as AnimationShowcase } from './AnimationShowcase';
 

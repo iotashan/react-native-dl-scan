@@ -21,7 +21,7 @@ import { useAnimationConfig, AnimationValues } from '../../utils/animations';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-interface GestureAnimationsProps {
+export interface GestureAnimationsProps {
   children: React.ReactNode;
   onZoomChange?: (scale: number) => void;
   onPanChange?: (x: number, y: number) => void;
@@ -53,7 +53,7 @@ export interface GestureAnimationsRef {
  * - Tap and double-tap gestures
  * - Smooth spring animations for gesture completion
  */
-const GestureAnimations = forwardRef<
+export const GestureAnimations = forwardRef<
   GestureAnimationsRef,
   GestureAnimationsProps
 >(

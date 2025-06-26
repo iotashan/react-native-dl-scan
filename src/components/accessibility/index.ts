@@ -4,8 +4,9 @@ export {
   useVoiceGuidance,
   VoiceGuidanceScenarios,
 } from './VoiceGuidanceSystem';
+export { AccessibilityGestures } from './AccessibilityGesturesWrapper';
+export type { AccessibilityGesturesProps } from './AccessibilityGesturesWrapper';
 export {
-  default as AccessibilityGestures,
   useAccessibilityGestures,
   AccessibilityGestureHelp,
   getAccessibilityActions,

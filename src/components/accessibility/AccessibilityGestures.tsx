@@ -4,7 +4,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useVoiceOver, AccessibilityConfig } from '../../utils/accessibility';
 import type { ScanMode } from '../../types/license';
 
-interface AccessibilityGesturesProps {
+export interface AccessibilityGesturesProps {
   children: React.ReactNode;
   onModeToggle?: () => void;
   onHelp?: () => void;
@@ -23,7 +23,7 @@ interface AccessibilityGesturesProps {
  * - Three-finger swipe down: Trigger scan
  * - Four-finger tap: Reset
  */
-const AccessibilityGestures: React.FC<AccessibilityGesturesProps> = ({
+export const AccessibilityGestures: React.FC<AccessibilityGesturesProps> = ({
   children,
   onModeToggle,
   onHelp,
