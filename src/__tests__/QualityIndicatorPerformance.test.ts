@@ -50,7 +50,7 @@ describe('Quality Indicator Performance Tests', () => {
 
       performanceMonitor.checkpoint('quality_calculation_end');
 
-      performanceMonitor.endSession();
+      const metrics = performanceMonitor.endSession();
 
       // Total time should be reasonable for 60 frames
       expect(totalTime).toBeLessThan(200); // Less than 200ms for 60 frames
@@ -155,7 +155,7 @@ describe('Quality Indicator Performance Tests', () => {
 
       performanceMonitor.trackMemoryAllocation('final_state');
 
-      performanceMonitor.endSession();
+      const metrics = performanceMonitor.endSession();
 
       // Memory delta should be within acceptable bounds
       expect(metrics?.memoryDeltaMB).toBeLessThan(10); // Less than 10MB increase
@@ -163,7 +163,9 @@ describe('Quality Indicator Performance Tests', () => {
       // Should meet memory target
       expect(metrics?.meetsMemoryTarget).toBe(true);
 
-      console.log(`Memory usage delta: ${metrics?.memoryDeltaMB.toFixed(2)}MB`);
+      console.log(
+        `Memory usage delta: ${metrics?.memoryDeltaMB?.toFixed(2)}MB`
+      );
     });
 
     it('should efficiently cache quality metrics', () => {
@@ -302,7 +304,7 @@ describe('Quality Indicator Performance Tests', () => {
 
       performanceMonitor.checkpoint('integration_end');
 
-      performanceMonitor.endSession();
+      const metrics = performanceMonitor.endSession();
 
       // Should meet all performance targets
       expect(metrics?.meetsFallbackTarget).toBe(true);
@@ -316,7 +318,7 @@ describe('Quality Indicator Performance Tests', () => {
         totalTime: `${totalTime.toFixed(2)}ms`,
         framesProcessed: metrics?.framesProcessed,
         avgCpu: `${metrics?.averageCpuUtilization?.toFixed(1)}%`,
-        memoryDelta: `${metrics?.memoryDeltaMB.toFixed(2)}MB`,
+        memoryDelta: `${metrics?.memoryDeltaMB?.toFixed(2)}MB`,
       });
     });
   });

@@ -315,6 +315,7 @@ export class MockFrameGenerator {
       pixelFormat: options.pixelFormat || 'yuv',
       planarImage: true,
       pixelBuffer: null, // Not used in mock
+      toArrayBuffer: () => new ArrayBuffer(0), // Mock implementation
     } as Frame;
   }
 
@@ -459,25 +460,13 @@ export class MockResponseGenerator {
       }
       if (obs.text.includes('DOB')) {
         const match = obs.text.match(/(\d{2}\/\d{2}\/\d{4})/);
-        if (match) {
+        if (match && match[1]) {
           fields.dateOfBirth = new Date(match[1]);
         }
       }
     });
 
     return fields;
-  }
-
-  private static calculateOverallConfidence(
-    observations: OCRTextObservation[]
-  ): number {
-    if (observations.length === 0) return 0;
-
-    const totalConfidence = observations.reduce(
-      (sum, obs) => sum + obs.confidence,
-      0
-    );
-    return totalConfidence / observations.length;
   }
 }
 

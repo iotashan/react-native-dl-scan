@@ -78,11 +78,12 @@ export const PlatformTestUtils = {
    * Mock platform-specific module
    */
   mockPlatformSpecificModule: (moduleName: string) => {
-    const mockModule = Platform.select({
-      ios: require(`../mocks/ios/${moduleName}`),
-      android: require(`../mocks/android/${moduleName}`),
-      default: require(`../mocks/default/${moduleName}`),
-    });
+    const mockModule =
+      Platform.select({
+        ios: require(`../mocks/ios/${moduleName}`),
+        android: require(`../mocks/android/${moduleName}`),
+        native: require(`../mocks/default/${moduleName}`),
+      }) || require(`../mocks/default/${moduleName}`);
 
     jest.doMock(moduleName, () => mockModule);
     return mockModule;
@@ -159,7 +160,7 @@ export const PerformanceTestUtils = {
   /**
    * Test memory usage patterns
    */
-  measureMemoryUsage: (testName: string, operation: () => void) => {
+  measureMemoryUsage: (_testName: string, operation: () => void) => {
     const initialMemory = (global as any).gc ? process.memoryUsage() : null;
 
     operation();
@@ -215,23 +216,24 @@ export const MockUtils = {
       stopScanning: jest.fn(),
     };
 
-    const platformSpecific = Platform.select({
-      ios: {
-        ...baseMock,
-        // iOS-specific methods
-        configureVisionFramework: jest.fn(),
-        enableHapticFeedback: jest.fn(),
-        setProcessingPriority: jest.fn(),
-      },
-      android: {
-        ...baseMock,
-        // Android-specific methods
-        configureMLKit: jest.fn(),
-        enableVibration: jest.fn(),
-        setProcessingThread: jest.fn(),
-      },
-      default: baseMock,
-    });
+    const platformSpecific =
+      Platform.select({
+        ios: {
+          ...baseMock,
+          // iOS-specific methods
+          configureVisionFramework: jest.fn(),
+          enableHapticFeedback: jest.fn(),
+          setProcessingPriority: jest.fn(),
+        },
+        android: {
+          ...baseMock,
+          // Android-specific methods
+          configureMLKit: jest.fn(),
+          enableVibration: jest.fn(),
+          setProcessingThread: jest.fn(),
+        },
+        native: baseMock,
+      } as any) || baseMock;
 
     jest.doMock(`react-native`, () => ({
       NativeModules: {
@@ -311,11 +313,14 @@ export const MockUtils = {
         request: jest.fn().mockResolvedValue(permissionResult),
         openSettings: jest.fn().mockResolvedValue(true),
       },
-      default: {
+      native: {
         check: jest.fn().mockResolvedValue(permissionResult),
         request: jest.fn().mockResolvedValue(permissionResult),
       },
-    });
+    }) || {
+      check: jest.fn().mockResolvedValue(permissionResult),
+      request: jest.fn().mockResolvedValue(permissionResult),
+    };
 
     jest.doMock('react-native-permissions', () => mockPermissions);
     return mockPermissions;
@@ -384,23 +389,24 @@ export const DeviceSimulationUtils = {
     hasMLProcessing?: boolean;
     memoryLimit?: number;
   }) => {
-    const mockCapabilities = Platform.select({
-      ios: {
-        hasCamera: capabilities.hasCamera ?? true,
-        hasHaptics: capabilities.hasHaptics ?? true,
-        hasVisionFramework: true,
-        hasMLProcessing: capabilities.hasMLProcessing ?? true,
-        memoryLimit: capabilities.memoryLimit ?? 512 * 1024 * 1024, // 512MB
-      },
-      android: {
-        hasCamera: capabilities.hasCamera ?? true,
-        hasHaptics: capabilities.hasHaptics ?? false,
-        hasMLKit: capabilities.hasMLProcessing ?? false,
-        hasMLProcessing: capabilities.hasMLProcessing ?? false,
-        memoryLimit: capabilities.memoryLimit ?? 256 * 1024 * 1024, // 256MB
-      },
-      default: capabilities,
-    });
+    const mockCapabilities =
+      Platform.select({
+        ios: {
+          hasCamera: capabilities.hasCamera ?? true,
+          hasHaptics: capabilities.hasHaptics ?? true,
+          hasVisionFramework: true,
+          hasMLProcessing: capabilities.hasMLProcessing ?? true,
+          memoryLimit: capabilities.memoryLimit ?? 512 * 1024 * 1024, // 512MB
+        },
+        android: {
+          hasCamera: capabilities.hasCamera ?? true,
+          hasHaptics: capabilities.hasHaptics ?? false,
+          hasMLKit: capabilities.hasMLProcessing ?? false,
+          hasMLProcessing: capabilities.hasMLProcessing ?? false,
+          memoryLimit: capabilities.memoryLimit ?? 256 * 1024 * 1024, // 256MB
+        },
+        native: capabilities,
+      } as any) || capabilities;
 
     return mockCapabilities;
   },
@@ -486,15 +492,6 @@ export const IntegrationTestHelpers = {
 };
 
 // ===== EXPORT UTILITIES =====
-
-export {
-  PlatformTestUtils,
-  PerformanceTestUtils,
-  MockUtils,
-  ErrorSimulationUtils,
-  DeviceSimulationUtils,
-  IntegrationTestHelpers,
-};
 
 export default {
   Platform: PlatformTestUtils,

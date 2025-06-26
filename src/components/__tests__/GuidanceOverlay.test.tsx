@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { GuidanceOverlay } from '../GuidanceOverlay';
 import type { RealTimeQualityMetrics } from '../../types/license';

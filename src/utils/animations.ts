@@ -67,14 +67,18 @@ export const useAnimationConfig = () => {
 
   return reducedMotion
     ? {
-        duration: 0,
+        duration: { fast: 0, normal: 0, slow: 0 },
         easing: {
           standard: Easing.linear,
           decelerate: Easing.linear,
           accelerate: Easing.linear,
           linear: Easing.linear,
         },
-        spring: { damping: 100, stiffness: 100, mass: 1 },
+        spring: {
+          default: { damping: 100, stiffness: 100, mass: 1 },
+          gentle: { damping: 100, stiffness: 100, mass: 1 },
+          bouncy: { damping: 100, stiffness: 100, mass: 1 },
+        },
       }
     : AnimationConfig;
 };

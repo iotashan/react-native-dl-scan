@@ -37,6 +37,7 @@ class MockFrameGenerator {
       pixelFormat: options.pixelFormat || 'yuv',
       planarImage: true,
       pixelBuffer: null, // Not used in mock
+      toArrayBuffer: () => new ArrayBuffer(0),
     } as Frame;
   }
 
