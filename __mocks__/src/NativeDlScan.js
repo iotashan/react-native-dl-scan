@@ -159,7 +159,7 @@ const mockDlScan = {
   stopScanning: jest.fn().mockResolvedValue(undefined),
 };
 
-// Export for global access
+// Store in global for test access
 global.__DL_SCAN_MOCK__ = mockDlScan;
 
 module.exports = mockDlScan;
