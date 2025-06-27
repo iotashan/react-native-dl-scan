@@ -188,7 +188,7 @@ jobs:
           retention-days: 7
 
       - name: Upload test results
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v2
         if: always()
         with:
           name: E2E Test Results (iOS ${{ matrix.device }})
@@ -335,7 +335,7 @@ jobs:
           retention-days: 7
 
       - name: Upload test results
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v2
         if: always()
         with:
           name: E2E Test Results (Android API ${{ matrix.api-level }})
