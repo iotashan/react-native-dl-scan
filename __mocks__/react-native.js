@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 const React = require('react');
 const RN = jest.requireActual('react-native');
 
