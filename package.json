@@ -168,6 +168,6 @@
   },
   "dependencies": {
     "react-native-reanimated": "^3.18.0",
-    "react-native-vision-camera": "^3.0.0"
+    "react-native-vision-camera": "^4.7.0"
   }
 }
