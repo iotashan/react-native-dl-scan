@@ -130,7 +130,7 @@ describe('qualityMetrics', () => {
       const converted = convertLegacyMetrics(legacyMetrics);
 
       // Uniformity should be estimated as brightness * 0.9
-      expect(converted.lighting.uniformity).toBe(0.72);
+      expect(converted.lighting.uniformity).toBeCloseTo(0.72, 10);
     });
 
     it('should set document detected based on positioning', () => {

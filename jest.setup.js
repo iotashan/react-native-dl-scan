@@ -293,6 +293,9 @@ jest.mock('react-native-reanimated', () => ({
   cancelAnimation: jest.fn(),
   useAnimatedGestureHandler: () => ({}),
   useAnimatedScrollHandler: () => ({}),
+  interpolateColor: (value, inputRange, outputRange) => outputRange[0],
+  FadeIn: { duration: () => ({ delay: () => ({}) }) },
+  FadeOut: { duration: () => ({ delay: () => ({}) }) },
 }));
 
 // Auto-mock these modules - Jest will use __mocks__ directory

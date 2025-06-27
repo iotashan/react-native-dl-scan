@@ -5,9 +5,9 @@
 
 import { device, expect as detoxExpect, element, by, waitFor } from 'detox';
 const { expect } = require('@jest/globals');
+import './setup';
 
-// Device matrix configuration
-// @ts-ignore - Configuration for future device matrix testing
+// Device matrix configuration for future testing
 const deviceMatrix = {
   ios: [
     {
@@ -83,6 +83,10 @@ describe('Device Matrix E2E Tests', () => {
   beforeAll(async () => {
     console.log('📱 Starting Device Matrix E2E Tests');
     console.log(`Current platform: ${device.getPlatform()}`);
+    // Log device matrix info for test context
+    const platform = device.getPlatform();
+    const devices = deviceMatrix[platform as keyof typeof deviceMatrix] || [];
+    console.log(`Available ${platform} devices: ${devices.length}`);
   });
 
   beforeEach(async () => {
@@ -103,8 +107,8 @@ describe('Device Matrix E2E Tests', () => {
       await detoxExpect(element(by.id('scan-guide-overlay'))).toBeVisible();
 
       // Check that scan guide is appropriately sized for small screen
-      // @ts-ignore - Element for future scan guide testing
-      const scanGuide = element(by.id('scan-guide-overlay'));
+      // Future enhancement: verify scan guide sizing
+      // const scanGuide = element(by.id('scan-guide-overlay'));
 
       // Verify mode toggle is accessible (not hidden by safe area)
       await detoxExpect(element(by.id('mode-toggle'))).toBeVisible();
