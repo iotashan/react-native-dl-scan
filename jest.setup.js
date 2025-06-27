@@ -33,6 +33,9 @@ jest.mock('react-native/Libraries/TurboModule/TurboModuleRegistry', () => {
     }),
     startScanning: jest.fn().mockResolvedValue(undefined),
     stopScanning: jest.fn().mockResolvedValue(undefined),
+    // iOS-specific methods
+    configureVisionFramework: jest.fn().mockResolvedValue(undefined),
+    enableHapticFeedback: jest.fn().mockResolvedValue(undefined),
   };
 
   // Store globally for test access

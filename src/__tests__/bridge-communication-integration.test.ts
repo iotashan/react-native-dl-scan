@@ -23,8 +23,9 @@ describe('Bridge Communication Integration Tests', () => {
   let mockNativeModule: any;
 
   beforeEach(() => {
-    // Get the global mock instance
-    mockNativeModule = (global as any).__DL_SCAN_MOCK__;
+    // Get the mock from the TurboModuleRegistry
+    const TurboModuleRegistry = require('react-native/Libraries/TurboModule/TurboModuleRegistry');
+    mockNativeModule = TurboModuleRegistry.getEnforcing('DlScan');
 
     // Reset mock call counts but preserve implementation
     mockNativeModule.scanLicense.mockClear();
@@ -109,7 +110,10 @@ describe('Bridge Communication Integration Tests', () => {
     it('should handle promise rejection with proper error mapping', async () => {
       // Arrange
       const testError = TestFixtures.errors.barcode.invalidFormat;
-      mockNativeModule.scanLicense.mockRejectedValue(new ScanError(testError));
+      mockNativeModule.scanLicense.mockResolvedValue({
+        success: false,
+        error: testError,
+      });
 
       // Act & Assert
       await expect(
@@ -122,8 +126,15 @@ describe('Bridge Communication Integration Tests', () => {
       const timeoutError = TestFixtures.errors.barcode.timeout;
       mockNativeModule.scanLicense.mockImplementation(
         () =>
-          new Promise((_, reject) => {
-            setTimeout(() => reject(new ScanError(timeoutError)), 100);
+          new Promise((resolve) => {
+            setTimeout(
+              () =>
+                resolve({
+                  success: false,
+                  error: timeoutError,
+                }),
+              100
+            );
           })
       );
 
@@ -324,7 +335,10 @@ describe('Bridge Communication Integration Tests', () => {
 
       // First call fails, second succeeds
       mockNativeModule.scanLicense
-        .mockRejectedValueOnce(new ScanError(transientError))
+        .mockResolvedValueOnce({
+          success: false,
+          error: transientError,
+        })
         .mockResolvedValueOnce(
           TestFixtures.responses.successfulScan(successData)
         );
@@ -349,9 +363,10 @@ describe('Bridge Communication Integration Tests', () => {
     it('should handle system-level errors appropriately', async () => {
       // Arrange
       const systemError = TestFixtures.errors.system.unknownError;
-      mockNativeModule.scanLicense.mockRejectedValue(
-        new ScanError(systemError)
-      );
+      mockNativeModule.scanLicense.mockResolvedValue({
+        success: false,
+        error: systemError,
+      });
 
       // Act & Assert
       await expect(scanLicense('test-barcode')).rejects.toThrow(
@@ -362,9 +377,10 @@ describe('Bridge Communication Integration Tests', () => {
     it('should handle permission-related errors with proper guidance', async () => {
       // Arrange
       const permissionError = TestFixtures.errors.system.cameraPermission;
-      mockNativeModule.scanLicense.mockRejectedValue(
-        new ScanError(permissionError)
-      );
+      mockNativeModule.scanLicense.mockResolvedValue({
+        success: false,
+        error: permissionError,
+      });
 
       // Act & Assert
       try {

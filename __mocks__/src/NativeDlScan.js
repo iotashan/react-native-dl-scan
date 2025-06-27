@@ -1,5 +1,6 @@
 // Mock for src/NativeDlScan.ts
-const mockDlScan = {
+// Use the global mock if it exists, otherwise create a new one
+const mockDlScan = global.__DL_SCAN_MOCK__ || {
   scanLicense: jest.fn().mockResolvedValue({
     success: true,
     data: {
@@ -29,7 +30,7 @@ const mockDlScan = {
   stopScanning: jest.fn().mockResolvedValue(undefined),
 };
 
-// Export for global access
+// Store in global for test access
 global.__DL_SCAN_MOCK__ = mockDlScan;
 
 module.exports = mockDlScan;
