@@ -70,6 +70,11 @@ jest.mock('react-native', () => {
   const RN = jest.requireActual('react-native');
   return {
     ...RN,
+    Platform: {
+      ...RN.Platform,
+      OS: 'ios',
+      select: jest.fn((obj) => obj.ios || obj.default),
+    },
     AccessibilityInfo: {
       isScreenReaderEnabled: jest.fn(() => Promise.resolve(false)),
       announceForAccessibility: jest.fn(),
