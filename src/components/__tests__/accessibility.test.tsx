@@ -10,7 +10,11 @@ import {
 } from '../accessibility/AccessibleComponents';
 import VoiceGuidanceSystem from '../accessibility/VoiceGuidanceSystem';
 import { AccessibilityGestures } from '../accessibility/AccessibilityGestures';
-import { useVoiceOver, useHighContrast, useDynamicType } from '../../utils/accessibility';
+import {
+  useVoiceOver,
+  useHighContrast,
+  useDynamicType,
+} from '../../utils/accessibility';
 
 // Mock accessibility hooks
 jest.mock('../../utils/accessibility', () => ({
@@ -26,15 +30,17 @@ jest.mock('../../utils/accessibility', () => ({
     accessibilityRole: config.role,
     accessibilityState: config.state,
   })),
-  getHighContrastColors: jest.fn((isHighContrast) => 
-    isHighContrast ? {
-      primary: '#000000',
-      secondary: '#FFFFFF',
-      text: '#000000',
-      error: '#CC0000',
-      border: '#000000',
-      textSecondary: '#333333',
-    } : null
+  getHighContrastColors: jest.fn((isHighContrast) =>
+    isHighContrast
+      ? {
+          primary: '#000000',
+          secondary: '#FFFFFF',
+          text: '#000000',
+          error: '#CC0000',
+          border: '#000000',
+          textSecondary: '#333333',
+        }
+      : null
   ),
   AccessibilityConfig: {
     labels: {
@@ -100,7 +106,7 @@ describe('Accessibility Components', () => {
           onPress={() => {}}
         />
       );
-      
+
       const button = getByRole('button');
       expect(button).toBeTruthy();
       expect(button.props.accessibilityLabel).toBe('Test Button');
@@ -115,7 +121,7 @@ describe('Accessibility Components', () => {
           onPress={() => {}}
         />
       );
-      
+
       const button = getByRole('button');
       expect(button.props.accessibilityState).toMatchObject({
         disabled: true,
@@ -131,7 +137,7 @@ describe('Accessibility Components', () => {
           onPress={() => {}}
         />
       );
-      
+
       const button = getByRole('button');
       expect(button.props.accessibilityState).toMatchObject({
         disabled: true,
@@ -141,18 +147,15 @@ describe('Accessibility Components', () => {
 
     it('applies high contrast styles when enabled', () => {
       (useHighContrast as jest.Mock).mockReturnValue(true);
-      
+
       const { getByRole } = render(
-        <AccessibleButton
-          label="High Contrast Button"
-          onPress={() => {}}
-        />
+        <AccessibleButton label="High Contrast Button" onPress={() => {}} />
       );
-      
+
       const button = getByRole('button');
-      expect(button.props.style).toEqual(expect.arrayContaining([
-        expect.objectContaining({ borderWidth: 2 }),
-      ]));
+      expect(button.props.style).toEqual(
+        expect.arrayContaining([expect.objectContaining({ borderWidth: 2 })])
+      );
     });
   });
 
@@ -168,11 +171,13 @@ describe('Accessibility Components', () => {
           <></>
         </AccessibleCameraView>
       );
-      
+
       const cameraView = getByLabelText('Camera view for scanning');
       expect(cameraView.props.accessibilityLiveRegion).toBe('polite');
       expect(cameraView.props.accessibilityValue.text).toContain('Scanning');
-      expect(cameraView.props.accessibilityValue.text).toContain('License detected');
+      expect(cameraView.props.accessibilityValue.text).toContain(
+        'License detected'
+      );
     });
 
     it('updates status text based on props', () => {
@@ -186,11 +191,13 @@ describe('Accessibility Components', () => {
           <></>
         </AccessibleCameraView>
       );
-      
+
       const cameraView = getByLabelText('Camera view for scanning');
       expect(cameraView.props.accessibilityValue.text).toContain('Ready');
-      expect(cameraView.props.accessibilityValue.text).toContain('No license detected');
-      
+      expect(cameraView.props.accessibilityValue.text).toContain(
+        'No license detected'
+      );
+
       // Update props
       rerender(
         <AccessibleCameraView
@@ -202,9 +209,11 @@ describe('Accessibility Components', () => {
           <></>
         </AccessibleCameraView>
       );
-      
+
       expect(cameraView.props.accessibilityValue.text).toContain('Scanning');
-      expect(cameraView.props.accessibilityValue.text).toContain('License detected');
+      expect(cameraView.props.accessibilityValue.text).toContain(
+        'License detected'
+      );
     });
   });
 
@@ -217,7 +226,7 @@ describe('Accessibility Components', () => {
           onModeChange={() => {}}
         />
       );
-      
+
       expect(getByLabelText('Automatic scanning mode')).toBeTruthy();
       expect(getByLabelText('Barcode scanning mode')).toBeTruthy();
       expect(getByLabelText('OCR scanning mode')).toBeTruthy();
@@ -231,7 +240,7 @@ describe('Accessibility Components', () => {
           onModeChange={() => {}}
         />
       );
-      
+
       const barcodeButton = getByLabelText('Barcode scanning mode');
       expect(barcodeButton.props.accessibilityState.selected).toBe(true);
       expect(barcodeButton.props.accessibilityHint).toBe('Currently selected');
@@ -246,7 +255,7 @@ describe('Accessibility Components', () => {
           onModeChange={onModeChange}
         />
       );
-      
+
       fireEvent.press(getByLabelText('OCR scanning mode'));
       expect(onModeChange).toHaveBeenCalledWith('ocr');
     });
@@ -261,7 +270,7 @@ describe('Accessibility Components', () => {
           confidence={0.95}
         />
       );
-      
+
       const field = getByRole('text');
       expect(field.props.accessibilityLabel).toBe('Name: John Doe');
       expect(field.props.accessibilityValue.text).toContain('Value detected');
@@ -270,12 +279,9 @@ describe('Accessibility Components', () => {
 
     it('indicates loading state', () => {
       const { getByRole } = render(
-        <AccessibleResultField
-          label="License Number"
-          isLoading={true}
-        />
+        <AccessibleResultField label="License Number" isLoading={true} />
       );
-      
+
       const field = getByRole('text');
       expect(field.props.accessibilityState.busy).toBe(true);
       expect(field.props.accessibilityValue.text).toContain('Loading');
@@ -283,12 +289,9 @@ describe('Accessibility Components', () => {
 
     it('indicates error state', () => {
       const { getByRole } = render(
-        <AccessibleResultField
-          label="Expiry Date"
-          hasError={true}
-        />
+        <AccessibleResultField label="Expiry Date" hasError={true} />
       );
-      
+
       const field = getByRole('text');
       expect(field.props.accessibilityValue.text).toContain('Error detected');
     });
@@ -297,14 +300,13 @@ describe('Accessibility Components', () => {
   describe('AccessibleQualityIndicator', () => {
     it('provides quality information as progress bar', () => {
       const { getByRole } = render(
-        <AccessibleQualityIndicator
-          quality={0.75}
-          qualityLevel="good"
-        />
+        <AccessibleQualityIndicator quality={0.75} qualityLevel="good" />
       );
-      
+
       const indicator = getByRole('progressbar');
-      expect(indicator.props.accessibilityLabel).toBe('Image quality indicator');
+      expect(indicator.props.accessibilityLabel).toBe(
+        'Image quality indicator'
+      );
       expect(indicator.props.accessibilityValue).toMatchObject({
         min: 0,
         max: 100,
@@ -315,12 +317,9 @@ describe('Accessibility Components', () => {
 
     it('updates live region for quality changes', () => {
       const { getByRole } = render(
-        <AccessibleQualityIndicator
-          quality={0.3}
-          qualityLevel="poor"
-        />
+        <AccessibleQualityIndicator quality={0.3} qualityLevel="poor" />
       );
-      
+
       const indicator = getByRole('progressbar');
       expect(indicator.props.accessibilityLiveRegion).toBe('polite');
     });
@@ -342,31 +341,18 @@ describe('VoiceGuidanceSystem', () => {
   });
 
   it('announces scanning start', () => {
-    render(
-      <VoiceGuidanceSystem
-        isScanning={true}
-        currentMode="auto"
-      />
-    );
-    
+    render(<VoiceGuidanceSystem isScanning={true} currentMode="auto" />);
+
     expect(mockAnnounce).toHaveBeenCalledWith('Scanning started');
   });
 
   it('announces mode changes', () => {
     const { rerender } = render(
-      <VoiceGuidanceSystem
-        isScanning={false}
-        currentMode="auto"
-      />
+      <VoiceGuidanceSystem isScanning={false} currentMode="auto" />
     );
-    
-    rerender(
-      <VoiceGuidanceSystem
-        isScanning={false}
-        currentMode="barcode"
-      />
-    );
-    
+
+    rerender(<VoiceGuidanceSystem isScanning={false} currentMode="barcode" />);
+
     expect(mockAnnounceDelayed).toHaveBeenCalledWith(
       'Mode changed to barcode',
       300
@@ -381,7 +367,7 @@ describe('VoiceGuidanceSystem', () => {
         documentDetected={false}
       />
     );
-    
+
     rerender(
       <VoiceGuidanceSystem
         isScanning={true}
@@ -389,7 +375,7 @@ describe('VoiceGuidanceSystem', () => {
         documentDetected={true}
       />
     );
-    
+
     expect(mockAnnounce).toHaveBeenCalledWith('Document detected');
   });
 
@@ -413,7 +399,7 @@ describe('VoiceGuidanceSystem', () => {
         blurDetected: false,
       },
     };
-    
+
     render(
       <VoiceGuidanceSystem
         isScanning={true}
@@ -421,21 +407,23 @@ describe('VoiceGuidanceSystem', () => {
         qualityMetrics={qualityMetrics}
       />
     );
-    
+
     // Wait for guidance interval
-    await waitFor(() => {
-      expect(mockAnnounce).toHaveBeenCalledWith('Move device farther from license');
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        expect(mockAnnounce).toHaveBeenCalledWith(
+          'Move device farther from license'
+        );
+      },
+      { timeout: 3000 }
+    );
   });
 
   it('announces scan results', () => {
     const { rerender } = render(
-      <VoiceGuidanceSystem
-        isScanning={true}
-        currentMode="auto"
-      />
+      <VoiceGuidanceSystem isScanning={true} currentMode="auto" />
     );
-    
+
     rerender(
       <VoiceGuidanceSystem
         isScanning={false}
@@ -443,7 +431,7 @@ describe('VoiceGuidanceSystem', () => {
         scanResult="success"
       />
     );
-    
+
     expect(mockAnnounce).toHaveBeenCalledWith('Scan successful');
   });
 });
@@ -459,7 +447,7 @@ describe('AccessibilityGestures', () => {
         <></>
       </AccessibilityGestures>
     );
-    
+
     // Note: Gesture testing with react-native-gesture-handler requires
     // more sophisticated mocking. This is a simplified test.
     expect(onModeToggle).toBeDefined();
@@ -468,8 +456,10 @@ describe('AccessibilityGestures', () => {
 
 describe('Accessibility Integration', () => {
   it('provides complete accessibility coverage', async () => {
-    (AccessibilityInfo.isScreenReaderEnabled as jest.Mock).mockResolvedValue(true);
-    
+    (AccessibilityInfo.isScreenReaderEnabled as jest.Mock).mockResolvedValue(
+      true
+    );
+
     const { getByRole, getAllByRole } = render(
       <AccessibleModeSelector
         currentMode="auto"
@@ -477,11 +467,11 @@ describe('Accessibility Integration', () => {
         onModeChange={() => {}}
       />
     );
-    
+
     // Check all buttons have proper roles
     const buttons = getAllByRole('button');
     expect(buttons).toHaveLength(3);
-    
+
     // Check each button has label and hint
     buttons.forEach((button) => {
       expect(button.props.accessibilityLabel).toBeTruthy();

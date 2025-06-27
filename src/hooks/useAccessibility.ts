@@ -25,15 +25,15 @@ export const useAccessibilityFeatures = () => {
   return {
     // Voice Over features
     ...voiceOver,
-    
+
     // Focus management
     ...focusManagement,
-    
+
     // Visual adaptations
     isHighContrast: highContrast,
     dynamicType,
     isReducedMotion: reducedMotion,
-    
+
     // Voice guidance
     ...voiceGuidance,
   };
@@ -49,22 +49,24 @@ export const useScanningAccessibility = (config: {
   documentDetected?: boolean;
 }) => {
   const { announce, isVoiceOverEnabled } = useVoiceOver();
-  
+
   // Announce mode changes
   useEffect(() => {
     if (isVoiceOverEnabled) {
-      const message = AccessibilityConfig.announcements.modeChanged(config.currentMode);
+      const message = AccessibilityConfig.announcements.modeChanged(
+        config.currentMode
+      );
       announce(message);
     }
   }, [config.currentMode, isVoiceOverEnabled, announce]);
-  
+
   // Announce scanning state changes
   useEffect(() => {
     if (isVoiceOverEnabled && config.isScanning) {
       announce(AccessibilityConfig.announcements.scanningStarted);
     }
   }, [config.isScanning, isVoiceOverEnabled, announce]);
-  
+
   // Announce document detection
   useEffect(() => {
     if (isVoiceOverEnabled && config.documentDetected !== undefined) {
@@ -74,15 +76,20 @@ export const useScanningAccessibility = (config: {
       announce(message);
     }
   }, [config.documentDetected, isVoiceOverEnabled, announce]);
-  
+
   // Quality announcements
-  const announceQuality = useCallback((metrics: QualityMetrics) => {
-    if (isVoiceOverEnabled && metrics) {
-      const message = AccessibilityConfig.announcements.scanningProgress(metrics.overall);
-      announce(message);
-    }
-  }, [isVoiceOverEnabled, announce]);
-  
+  const announceQuality = useCallback(
+    (metrics: QualityMetrics) => {
+      if (isVoiceOverEnabled && metrics) {
+        const message = AccessibilityConfig.announcements.scanningProgress(
+          metrics.overall
+        );
+        announce(message);
+      }
+    },
+    [isVoiceOverEnabled, announce]
+  );
+
   return {
     announceQuality,
     isAccessibilityEnabled: isVoiceOverEnabled,
@@ -95,17 +102,25 @@ export const useScanningAccessibility = (config: {
 export const useResultAccessibility = () => {
   const { focusElement } = useFocusManagement();
   const { announce } = useVoiceOver();
-  
-  const announceResults = useCallback((fieldCount: number) => {
-    announce(`Scan complete. ${fieldCount} fields detected. Swipe to navigate through results.`);
-  }, [announce]);
-  
-  const focusFirstResult = useCallback((ref: React.RefObject<any>) => {
-    setTimeout(() => {
-      focusElement(ref);
-    }, 500);
-  }, [focusElement]);
-  
+
+  const announceResults = useCallback(
+    (fieldCount: number) => {
+      announce(
+        `Scan complete. ${fieldCount} fields detected. Swipe to navigate through results.`
+      );
+    },
+    [announce]
+  );
+
+  const focusFirstResult = useCallback(
+    (ref: React.RefObject<any>) => {
+      setTimeout(() => {
+        focusElement(ref);
+      }, 500);
+    },
+    [focusElement]
+  );
+
   return {
     announceResults,
     focusFirstResult,

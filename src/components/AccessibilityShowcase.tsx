@@ -30,7 +30,7 @@ const AccessibilityShowcase: React.FC = () => {
   const [showHelp, setShowHelp] = useState(false);
   const [testQuality, setTestQuality] = useState(0.5);
   const [highContrastOverride, setHighContrastOverride] = useState(false);
-  
+
   const {
     isVoiceOverEnabled,
     announce,
@@ -38,17 +38,17 @@ const AccessibilityShowcase: React.FC = () => {
     dynamicType,
     isReducedMotion,
   } = useAccessibilityFeatures();
-  
+
   const { announceQuality } = useScanningAccessibility({
     isScanning,
     currentMode,
     documentDetected: true,
   });
-  
+
   const handleTestAnnouncement = () => {
     announce('This is a test announcement for VoiceOver');
   };
-  
+
   const handleQualityTest = () => {
     const metrics = {
       overall: testQuality,
@@ -71,7 +71,7 @@ const AccessibilityShowcase: React.FC = () => {
     };
     announceQuality(metrics);
   };
-  
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -79,34 +79,36 @@ const AccessibilityShowcase: React.FC = () => {
           Accessibility Features Showcase
         </Text>
       </View>
-      
+
       {/* System Status */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { fontSize: dynamicType.fontSize(18) }]}>
+        <Text
+          style={[styles.sectionTitle, { fontSize: dynamicType.fontSize(18) }]}
+        >
           System Status
         </Text>
-        
+
         <View style={styles.statusRow}>
           <Text style={styles.statusLabel}>VoiceOver:</Text>
           <Text style={styles.statusValue}>
             {isVoiceOverEnabled ? 'Enabled' : 'Disabled'}
           </Text>
         </View>
-        
+
         <View style={styles.statusRow}>
           <Text style={styles.statusLabel}>High Contrast:</Text>
           <Text style={styles.statusValue}>
             {isHighContrast ? 'Enabled' : 'Disabled'}
           </Text>
         </View>
-        
+
         <View style={styles.statusRow}>
           <Text style={styles.statusLabel}>Reduced Motion:</Text>
           <Text style={styles.statusValue}>
             {isReducedMotion ? 'Enabled' : 'Disabled'}
           </Text>
         </View>
-        
+
         <View style={styles.statusRow}>
           <Text style={styles.statusLabel}>Font Scale:</Text>
           <Text style={styles.statusValue}>
@@ -114,31 +116,33 @@ const AccessibilityShowcase: React.FC = () => {
           </Text>
         </View>
       </View>
-      
+
       {/* Accessible Buttons */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { fontSize: dynamicType.fontSize(18) }]}>
+        <Text
+          style={[styles.sectionTitle, { fontSize: dynamicType.fontSize(18) }]}
+        >
           Accessible Buttons
         </Text>
-        
+
         <AccessibleButton
           label="Primary Button"
           hint="This is a primary action button"
           variant="primary"
           onPress={() => Alert.alert('Primary', 'Button pressed')}
         />
-        
+
         <View style={styles.spacer} />
-        
+
         <AccessibleButton
           label="Test Announcement"
           hint="Tap to test VoiceOver announcement"
           variant="secondary"
           onPress={handleTestAnnouncement}
         />
-        
+
         <View style={styles.spacer} />
-        
+
         <AccessibleButton
           label="Disabled Button"
           hint="This button is disabled"
@@ -147,34 +151,41 @@ const AccessibilityShowcase: React.FC = () => {
           onPress={() => {}}
         />
       </View>
-      
+
       {/* Mode Selector */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { fontSize: dynamicType.fontSize(18) }]}>
+        <Text
+          style={[styles.sectionTitle, { fontSize: dynamicType.fontSize(18) }]}
+        >
           Mode Selector
         </Text>
-        
+
         <AccessibleModeSelector
           currentMode={currentMode}
           availableModes={['auto', 'barcode', 'ocr']}
           onModeChange={setCurrentMode}
         />
       </View>
-      
+
       {/* Quality Indicator */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { fontSize: dynamicType.fontSize(18) }]}>
+        <Text
+          style={[styles.sectionTitle, { fontSize: dynamicType.fontSize(18) }]}
+        >
           Quality Indicator
         </Text>
-        
+
         <AccessibleQualityIndicator
           quality={testQuality}
           qualityLevel={
-            testQuality < 0.3 ? 'poor' : 
-            testQuality < 0.7 ? 'good' : 'excellent'
+            testQuality < 0.3
+              ? 'poor'
+              : testQuality < 0.7
+                ? 'good'
+                : 'excellent'
           }
         />
-        
+
         <View style={styles.qualityControls}>
           <AccessibleButton
             label="Poor Quality"
@@ -195,7 +206,7 @@ const AccessibilityShowcase: React.FC = () => {
             onPress={() => setTestQuality(0.9)}
           />
         </View>
-        
+
         <AccessibleButton
           label="Test Quality Announcement"
           hint="Announce current quality level"
@@ -203,60 +214,60 @@ const AccessibilityShowcase: React.FC = () => {
           onPress={handleQualityTest}
         />
       </View>
-      
+
       {/* Result Fields */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { fontSize: dynamicType.fontSize(18) }]}>
+        <Text
+          style={[styles.sectionTitle, { fontSize: dynamicType.fontSize(18) }]}
+        >
           Result Fields
         </Text>
-        
+
         <AccessibleResultField
           label="Name"
           value="John Doe"
           confidence={0.95}
         />
-        
+
         <AccessibleResultField
           label="License Number"
           value="D123456789"
           confidence={0.88}
         />
-        
-        <AccessibleResultField
-          label="Loading Field"
-          isLoading={true}
-        />
-        
-        <AccessibleResultField
-          label="Error Field"
-          hasError={true}
-        />
+
+        <AccessibleResultField label="Loading Field" isLoading={true} />
+
+        <AccessibleResultField label="Error Field" hasError={true} />
       </View>
-      
+
       {/* Gesture Help */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { fontSize: dynamicType.fontSize(18) }]}>
+        <Text
+          style={[styles.sectionTitle, { fontSize: dynamicType.fontSize(18) }]}
+        >
           Custom Gestures
         </Text>
-        
+
         <AccessibleButton
           label="Show Gesture Help"
           hint="Display available accessibility gestures"
           onPress={() => setShowHelp(true)}
         />
-        
+
         <AccessibilityGestureHelp
           visible={showHelp}
           onDismiss={() => setShowHelp(false)}
         />
       </View>
-      
+
       {/* Test Controls */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { fontSize: dynamicType.fontSize(18) }]}>
+        <Text
+          style={[styles.sectionTitle, { fontSize: dynamicType.fontSize(18) }]}
+        >
           Test Controls
         </Text>
-        
+
         <View style={styles.switchRow}>
           <Text style={styles.switchLabel}>Simulate Scanning:</Text>
           <Switch
@@ -266,7 +277,7 @@ const AccessibilityShowcase: React.FC = () => {
             accessibilityRole="switch"
           />
         </View>
-        
+
         <View style={styles.switchRow}>
           <Text style={styles.switchLabel}>High Contrast Override:</Text>
           <Switch
