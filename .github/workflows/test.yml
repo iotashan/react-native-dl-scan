@@ -1,0 +1,198 @@
+name: Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'yarn'
+    
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Run TypeScript check
+      run: yarn tsc --noEmit
+    
+    - name: Run linting
+      run: yarn lint
+    
+    - name: Run tests
+      run: yarn test --coverage --watchAll=false
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  test-example:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'yarn'
+    
+    - name: Install root dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Build library
+      run: yarn build
+    
+    - name: Install example dependencies
+      working-directory: ./example
+      run: yarn install --frozen-lockfile
+    
+    - name: Check example TypeScript
+      working-directory: ./example
+      run: yarn tsc --noEmit
+    
+    - name: Run example linting
+      working-directory: ./example
+      run: yarn lint || true  # Allow example linting to be less strict
+
+  build-ios:
+    runs-on: macos-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'yarn'
+    
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Build library
+      run: yarn build
+    
+    - name: Install example dependencies
+      working-directory: ./example
+      run: yarn install --frozen-lockfile
+    
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.0'
+        bundler-cache: true
+        working-directory: ./example/ios
+    
+    - name: Install CocoaPods
+      working-directory: ./example/ios
+      run: |
+        bundle install
+        bundle exec pod install
+    
+    - name: Build iOS
+      working-directory: ./example
+      run: |
+        yarn react-native bundle \
+          --platform ios \
+          --dev false \
+          --entry-file index.js \
+          --bundle-output ios/main.jsbundle \
+          --assets-dest ios/
+    
+    - name: Build iOS project
+      working-directory: ./example/ios
+      run: |
+        xcodebuild \
+          -workspace ReactNativeDlScanExample.xcworkspace \
+          -scheme ReactNativeDlScanExample \
+          -configuration Release \
+          -destination 'generic/platform=iOS Simulator' \
+          build
+
+  build-android:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'yarn'
+    
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+    
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+    
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Build library
+      run: yarn build
+    
+    - name: Install example dependencies
+      working-directory: ./example
+      run: yarn install --frozen-lockfile
+    
+    - name: Build Android bundle
+      working-directory: ./example
+      run: |
+        yarn react-native bundle \
+          --platform android \
+          --dev false \
+          --entry-file index.js \
+          --bundle-output android/app/src/main/assets/index.android.bundle \
+          --assets-dest android/app/src/main/res/
+    
+    - name: Build Android
+      working-directory: ./example/android
+      run: ./gradlew assembleRelease
+
+  security-audit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'yarn'
+    
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Run security audit
+      run: yarn audit --level moderate
+    
+    - name: Run dependency vulnerability check
+      run: |
+        npx audit-ci --moderate

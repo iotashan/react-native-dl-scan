@@ -1,0 +1,260 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'yarn'
+    
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Run ESLint
+      run: |
+        yarn lint --format=json --output-file=eslint-report.json || true
+        yarn lint
+    
+    - name: Run TypeScript check
+      run: yarn tsc --noEmit --skipLibCheck
+    
+    - name: Run Prettier check
+      run: yarn prettier --check "src/**/*.{ts,tsx,js,jsx}" "example/src/**/*.{ts,tsx,js,jsx}"
+    
+    - name: Upload ESLint results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: eslint-report
+        path: eslint-report.json
+        retention-days: 30
+
+  test-coverage:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'yarn'
+    
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Run tests with coverage
+      run: yarn test --coverage --watchAll=false --coverageReporters=text-lcov --coverageReporters=json-summary
+    
+    - name: Generate coverage report
+      run: |
+        if [ -f coverage/coverage-summary.json ]; then
+          echo "## Coverage Report 📊" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Extract coverage percentages
+          LINES=$(cat coverage/coverage-summary.json | jq -r '.total.lines.pct')
+          FUNCTIONS=$(cat coverage/coverage-summary.json | jq -r '.total.functions.pct')
+          BRANCHES=$(cat coverage/coverage-summary.json | jq -r '.total.branches.pct')
+          STATEMENTS=$(cat coverage/coverage-summary.json | jq -r '.total.statements.pct')
+          
+          echo "| Metric | Coverage |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Lines | ${LINES}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Functions | ${FUNCTIONS}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branches | ${BRANCHES}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Statements | ${STATEMENTS}% |" >> $GITHUB_STEP_SUMMARY
+          
+          # Check coverage thresholds
+          if [ $(echo "$LINES < 80" | bc -l) -eq 1 ]; then
+            echo "::warning::Line coverage below 80%: ${LINES}%"
+          fi
+        fi
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'yarn'
+    
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Audit dependencies
+      run: |
+        echo "## Security Audit Results 🔒" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Run yarn audit and capture output
+        if yarn audit --level moderate --json > audit-report.json 2>&1; then
+          echo "✅ No moderate or higher vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Security vulnerabilities detected" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Please review the audit report in the job logs." >> $GITHUB_STEP_SUMMARY
+        fi
+    
+    - name: Check for duplicate dependencies
+      run: |
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Duplicate Dependencies Check" >> $GITHUB_STEP_SUMMARY
+        
+        if yarn dedupe --check; then
+          echo "✅ No duplicate dependencies found" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Duplicate dependencies detected" >> $GITHUB_STEP_SUMMARY
+          echo "Run \`yarn dedupe\` to fix" >> $GITHUB_STEP_SUMMARY
+        fi
+
+  code-complexity:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'yarn'
+    
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Install complexity analysis tools
+      run: npm install -g typescript-analyzer plato jshint
+    
+    - name: Analyze code complexity
+      run: |
+        echo "## Code Complexity Analysis 🧮" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Count lines of code
+        if command -v cloc >/dev/null 2>&1; then
+          echo "### Lines of Code" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          cloc src --exclude-dir=__tests__ --quiet >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "CLOC analysis failed" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        else
+          # Fallback line counting
+          TOTAL_LINES=$(find src -name "*.ts" -o -name "*.tsx" | xargs wc -l | tail -1 | awk '{print $1}')
+          echo "### Lines of Code" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Total TypeScript lines: ${TOTAL_LINES}" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### File Count" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        TS_FILES=$(find src -name "*.ts" -o -name "*.tsx" | wc -l)
+        TEST_FILES=$(find src -name "*.test.ts" -o -name "*.test.tsx" | wc -l)
+        
+        echo "- TypeScript files: ${TS_FILES}" >> $GITHUB_STEP_SUMMARY
+        echo "- Test files: ${TEST_FILES}" >> $GITHUB_STEP_SUMMARY
+
+  documentation-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check documentation files
+      run: |
+        echo "## Documentation Check 📚" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| File | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+        
+        # Check for required documentation files
+        FILES_TO_CHECK=("README.md" "docs/API.md" "docs/INTEGRATION.md" "CHANGELOG.md")
+        
+        for file in "${FILES_TO_CHECK[@]}"; do
+          if [ -f "$file" ]; then
+            echo "| $file | ✅ |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| $file | ❌ |" >> $GITHUB_STEP_SUMMARY
+          fi
+        done
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Check README length
+        if [ -f README.md ]; then
+          README_LINES=$(wc -l < README.md)
+          echo "- README.md has ${README_LINES} lines" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$README_LINES" -lt 50 ]; then
+            echo "::warning::README.md seems short (${README_LINES} lines)"
+          fi
+        fi
+
+  quality-summary:
+    runs-on: ubuntu-latest
+    needs: [static-analysis, test-coverage, dependency-audit, code-complexity, documentation-check]
+    if: always()
+    
+    steps:
+    - name: Quality Gate Summary
+      run: |
+        echo "## Code Quality Summary 🎯" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Static Analysis | ${{ needs.static-analysis.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Test Coverage | ${{ needs.test-coverage.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Dependency Audit | ${{ needs.dependency-audit.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Code Complexity | ${{ needs.code-complexity.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Documentation | ${{ needs.documentation-check.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Calculate overall quality score
+        PASSED=0
+        TOTAL=5
+        
+        [ "${{ needs.static-analysis.result }}" = "success" ] && PASSED=$((PASSED + 1))
+        [ "${{ needs.test-coverage.result }}" = "success" ] && PASSED=$((PASSED + 1))
+        [ "${{ needs.dependency-audit.result }}" = "success" ] && PASSED=$((PASSED + 1))
+        [ "${{ needs.code-complexity.result }}" = "success" ] && PASSED=$((PASSED + 1))
+        [ "${{ needs.documentation-check.result }}" = "success" ] && PASSED=$((PASSED + 1))
+        
+        SCORE=$((PASSED * 100 / TOTAL))
+        echo "### Overall Quality Score: ${SCORE}%" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "$SCORE" -ge 80 ]; then
+          echo "🎉 Excellent code quality!" >> $GITHUB_STEP_SUMMARY
+        elif [ "$SCORE" -ge 60 ]; then
+          echo "👍 Good code quality with room for improvement" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Code quality needs attention" >> $GITHUB_STEP_SUMMARY
+        fi

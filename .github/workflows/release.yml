@@ -1,227 +1,173 @@
-name: Release & Deployment
+name: Release
 
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
-    inputs:
-      release_type:
-        description: 'Release type (patch, minor, major)'
-        required: true
-        default: 'patch'
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-      deploy_to_stores:
-        description: 'Deploy to app stores'
-        required: false
-        default: false
-        type: boolean
-
-env:
-  NODE_VERSION: '18'
-  JAVA_VERSION: '17'
-  XCODE_VERSION: '16.2'
 
 jobs:
-  version-bump:
+  test:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
-    outputs:
-      new_version: ${{ steps.version.outputs.new_version }}
-      new_tag: ${{ steps.version.outputs.new_tag }}
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'yarn'
+    
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Run tests
+      run: yarn test --coverage --watchAll=false
+    
+    - name: Run linting
+      run: yarn lint
+    
+    - name: Run TypeScript check
+      run: yarn tsc --noEmit
 
-      - name: Setup
-        uses: ./.github/actions/setup
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'yarn'
+        registry-url: 'https://registry.npmjs.org'
+    
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Build library
+      run: yarn build
+    
+    - name: Pack library
+      run: npm pack
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: npm-package
+        path: '*.tgz'
 
-      - name: Configure Git
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-
-      - name: Bump version
-        id: version
-        run: |
-          # Bump version based on input
-          NEW_VERSION=$(npm version ${{ github.event.inputs.release_type }} --no-git-tag-version)
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "new_tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
-          
-          # Update CHANGELOG
-          echo "## $NEW_VERSION ($(date +%Y-%m-%d))" > CHANGELOG.new.md
-          echo "" >> CHANGELOG.new.md
-          echo "### Changes" >> CHANGELOG.new.md
-          echo "- Automated release" >> CHANGELOG.new.md
-          echo "" >> CHANGELOG.new.md
-          
-          if [ -f CHANGELOG.md ]; then
-            cat CHANGELOG.md >> CHANGELOG.new.md
-            mv CHANGELOG.new.md CHANGELOG.md
-          else
-            mv CHANGELOG.new.md CHANGELOG.md
-          fi
-
-      - name: Commit and push
-        run: |
-          git add package.json CHANGELOG.md
-          git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}"
-          git tag ${{ steps.version.outputs.new_tag }}
-          git push origin main
-          git push origin ${{ steps.version.outputs.new_tag }}
+  publish-npm:
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'yarn'
+        registry-url: 'https://registry.npmjs.org'
+    
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Build library
+      run: yarn build
+    
+    - name: Publish to NPM
+      run: npm publish
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   create-release:
     runs-on: ubuntu-latest
-    needs: [version-bump]
-    if: always() && (github.event_name == 'push' || needs.version-bump.result == 'success')
+    needs: [test, build]
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: npm-package
+    
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Get the previous tag
+        PREVIOUS_TAG=$(git tag --sort=-version:refname | head -2 | tail -1)
+        CURRENT_TAG=${GITHUB_REF#refs/tags/}
+        
+        echo "## Changes since ${PREVIOUS_TAG}" > CHANGELOG.md
+        echo "" >> CHANGELOG.md
+        
+        # Get commits since previous tag
+        git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" >> CHANGELOG.md
+        
+        # Set output for use in release
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        cat CHANGELOG.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: ${{ steps.changelog.outputs.changelog }}
+        draft: false
+        prerelease: false
+    
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./*.tgz
+        asset_name: react-native-dl-scan-${{ github.ref_name }}.tgz
+        asset_content_type: application/gzip
 
-      - name: Setup
-        uses: ./.github/actions/setup
-
-      - name: Build package
-        run: yarn prepare
-
-      - name: Extract release notes
-        id: release_notes
-        run: |
-          if [ -f CHANGELOG.md ]; then
-            # Extract the latest version's notes
-            sed -n '/^## /,/^## /p' CHANGELOG.md | head -n -1 | tail -n +2 > release_notes.md
-          else
-            echo "Automated release" > release_notes.md
-          fi
-
-      - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          body_path: release_notes.md
-          draft: false
-          prerelease: false
-
-      - name: Upload package to npm (dry run)
-        run: |
-          # This would publish to npm in a real scenario
-          # npm publish --dry-run
-          echo "Package would be published to npm registry"
-          npm pack
-          ls -la *.tgz
-
-      - name: Upload package artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: npm-package
-          path: '*.tgz'
-          retention-days: 90
-
-  build-ios-release:
-    runs-on: macos-latest
-    needs: [create-release]
-    if: github.event.inputs.deploy_to_stores == 'true' || github.event_name == 'push'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup
-        uses: ./.github/actions/setup
-
-      - name: Use appropriate Xcode version
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: ${{ env.XCODE_VERSION }}
-
-      - name: Install CocoaPods
-        run: |
-          cd example
-          bundle install
-          bundle exec pod install --project-directory=ios
-
-      # Note: Actual iOS signing would require:
-      # - Certificates stored as secrets
-      # - Provisioning profiles
-      # - App Store Connect API key
-      - name: Build iOS Release (unsigned)
-        run: |
-          cd example
-          # This would build a signed release in a real scenario
-          npx react-native build-ios --mode=Release
-          echo "iOS release build completed (unsigned)"
-
-      - name: Upload iOS build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-release-build
-          path: |
-            example/ios/build/
-            example/ios/DerivedData/
-          retention-days: 30
-
-  build-android-release:
+  publish-docs:
     runs-on: ubuntu-latest
-    needs: [create-release]
-    if: github.event.inputs.deploy_to_stores == 'true' || github.event_name == 'push'
+    needs: [test, build]
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup
-        uses: ./.github/actions/setup
-
-      - name: Setup JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: ${{ env.JAVA_VERSION }}
-
-      # Note: Actual Android signing would require:
-      # - Keystore file stored as secret
-      # - Keystore passwords
-      # - Play Store service account key
-      - name: Build Android Release (unsigned)
-        run: |
-          cd example/android
-          # This would build a signed APK/AAB in a real scenario
-          ./gradlew assembleRelease
-          echo "Android release build completed (unsigned)"
-
-      - name: Upload Android build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-release-build
-          path: |
-            example/android/app/build/outputs/
-          retention-days: 30
-
-  deployment-summary:
-    runs-on: ubuntu-latest
-    needs: [create-release, build-ios-release, build-android-release]
-    if: always()
-    steps:
-      - name: Deployment Summary
-        run: |
-          echo "## Release & Deployment Summary 🚀" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| GitHub Release | ${{ needs.create-release.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| iOS Build | ${{ needs.build-ios-release.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Android Build | ${{ needs.build-android-release.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Notes" >> $GITHUB_STEP_SUMMARY
-          echo "- iOS and Android builds are unsigned (demo purposes)" >> $GITHUB_STEP_SUMMARY
-          echo "- Actual store deployment requires signing certificates" >> $GITHUB_STEP_SUMMARY
-          echo "- Package is prepared for npm publication" >> $GITHUB_STEP_SUMMARY
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'yarn'
+    
+    - name: Install dependencies
+      run: yarn install --frozen-lockfile
+    
+    - name: Build docs
+      run: |
+        mkdir -p ./docs-build
+        cp -r ./docs/* ./docs-build/
+        cp ./README.md ./docs-build/
+        
+        # Generate API docs if typedoc is available
+        if command -v typedoc &> /dev/null; then
+          npx typedoc --out ./docs-build/api src/index.ts
+        fi
+    
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs-build
+        publish_branch: gh-pages
+        enable_jekyll: false
