@@ -7,6 +7,12 @@ import Foundation
     private static let ocrFieldParser = OCRFieldParser()
     @objc static func parse(_ barcodeData: String, error: NSErrorPointer) -> [String: Any]? {
         do {
+            // First, try AAMVA-compliant parsing for comprehensive state support
+            if AAMVAParser.isAAMVACompliant(barcodeData) {
+                return try AAMVAParser.parse(barcodeData)
+            }
+            
+            // Fallback to DLParser for non-AAMVA formats
             let licenseData = try DLParser.parse(barcodeData)
             return formatForReactNative(licenseData)
         } catch let swiftError {
