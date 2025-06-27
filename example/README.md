@@ -1,97 +1,134 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# React Native DL Scan Example App
 
-# Getting Started
+A comprehensive example application demonstrating all features of the react-native-dl-scan library.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Features Demonstrated
 
-## Step 1: Start Metro
+1. **Basic Scanning** - Simple barcode scanning with automatic mode selection
+2. **Intelligent Mode** - Automatic switching between PDF417 and OCR modes
+3. **Manual Mode Selection** - Choose between barcode and OCR scanning modes
+4. **Quality Indicators** - Real-time feedback on scan quality
+5. **Accessibility Features** - Voice guidance and haptic feedback
+6. **Error Handling** - Test various error scenarios
+7. **Performance Test** - Measure scanning performance
+8. **History & Storage** - View scan history and storage examples
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Getting Started
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+### Prerequisites
 
-```sh
-# Using npm
-npm start
+Make sure you have completed the [React Native - Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
 
-# OR using Yarn
-yarn start
+### Installation
+
+1. Install dependencies:
+```bash
+cd example
+yarn install
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
-```
-
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
+2. Install iOS pods (iOS only):
+```bash
+cd ios
+bundle install  # First time only
 bundle exec pod install
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+### Running the App
 
-```sh
-# Using npm
-npm run ios
+Start Metro bundler:
+```bash
+yarn start
+```
 
-# OR using Yarn
+Run on iOS:
+```bash
 yarn ios
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+Run on Android:
+```bash
+yarn android
+```
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+## Navigation Structure
 
-## Step 3: Modify your app
+The app uses React Navigation with a stack navigator. All screens are accessible from the home screen:
 
-Now that you have successfully run the app, let's make changes!
+```
+Home Screen
+├── Basic Scanning
+├── Intelligent Mode
+├── Manual Mode Selection
+├── Quality Indicators
+├── Accessibility Features
+├── Error Handling
+├── Performance Test
+└── History & Storage
+```
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+## Feature Details
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+### Basic Scanning
+Shows the simplest integration with minimal configuration. Automatically detects and uses the best scanning mode.
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+### Intelligent Mode
+Demonstrates automatic switching between PDF417 barcode and OCR modes with visual feedback showing mode changes.
 
-## Congratulations! :tada:
+### Manual Mode Selection
+Allows users to explicitly choose between barcode and OCR scanning modes, useful when you know which format to expect.
 
-You've successfully run and modified your React Native App. :partying_face:
+### Quality Indicators
+Real-time feedback on scan quality including:
+- Document detection confidence
+- Lighting conditions
+- Focus clarity
+- Positioning coverage
 
-### Now what?
+### Accessibility Features
+- Voice guidance during scanning
+- Haptic feedback for scan events
+- High contrast mode
+- Screen reader optimizations
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+### Error Handling
+Simulates various error scenarios:
+- Permission denied
+- Invalid license format
+- Scan timeout
+- Camera not available
+- Processing errors
+- Unsupported license types
 
-# Troubleshooting
+### Performance Test
+Measures and displays:
+- Scan duration for each mode
+- Success rates
+- Average processing times
+- Performance comparison between modes
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+### History & Storage
+Demonstrates:
+- Storing scan results locally
+- Retrieving historical data
+- Export functionality
+- Data management
 
-# Learn More
+## Dependencies
 
-To learn more about React Native, take a look at the following resources:
+- `@react-navigation/native` - Navigation framework
+- `@react-navigation/native-stack` - Stack navigator
+- `react-native-screens` - Native navigation primitives
+- `react-native-safe-area-context` - Safe area handling
+- `react-native-reanimated` - Animation library
+- `react-native-vision-camera` - Camera functionality
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+## Troubleshooting
+
+If you're having issues, see the [React Native Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+
+## Learn More
+
+- [React Native DL Scan Documentation](../README.md)
+- [React Native Documentation](https://reactnative.dev)
+- [React Navigation Documentation](https://reactnavigation.org)
