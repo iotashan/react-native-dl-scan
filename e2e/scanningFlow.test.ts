@@ -5,6 +5,7 @@
 
 import { device, expect as detoxExpect, element, by, waitFor } from 'detox';
 const { expect } = require('@jest/globals');
+import './setup';
 
 describe('Driver License Scanning Flow E2E', () => {
   beforeAll(async () => {

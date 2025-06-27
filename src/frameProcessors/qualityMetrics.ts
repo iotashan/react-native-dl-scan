@@ -143,7 +143,7 @@ export function convertLegacyMetrics(legacy: {
       status:
         legacy.positioning > 0.7
           ? 'good'
-          : legacy.positioning > 0.4
+          : legacy.positioning >= 0.3
             ? 'warning'
             : 'poor',
     },

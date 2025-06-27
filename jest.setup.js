@@ -242,58 +242,77 @@ jest.mock(
 );
 
 // Mock react-native-reanimated more comprehensively
-jest.mock('react-native-reanimated', () => ({
-  default: {
+jest.mock('react-native-reanimated', () => {
+  const View = require('react-native').View;
+  const Text = require('react-native').Text;
+  const Image = require('react-native').Image;
+  const ScrollView = require('react-native').ScrollView;
+  const FlatList = require('react-native').FlatList;
+
+  return {
+    default: {
+      createAnimatedComponent: (component) => component,
+      Value: jest.fn(),
+      event: jest.fn(),
+      add: jest.fn(),
+      eq: jest.fn(),
+      set: jest.fn(),
+      cond: jest.fn(),
+      interpolate: jest.fn(),
+      View,
+      Text,
+      Image,
+      ScrollView,
+      FlatList,
+    },
+    Easing: {
+      linear: jest.fn(),
+      ease: jest.fn(),
+      quad: jest.fn(),
+      cubic: jest.fn(),
+      poly: jest.fn(),
+      sin: jest.fn(),
+      circle: jest.fn(),
+      exp: jest.fn(),
+      elastic: jest.fn(),
+      back: jest.fn(),
+      bounce: jest.fn(),
+      bezier: jest.fn(),
+      in: jest.fn(),
+      out: jest.fn(),
+      inOut: jest.fn(),
+    },
+    Extrapolate: {
+      EXTEND: 'extend',
+      CLAMP: 'clamp',
+      IDENTITY: 'identity',
+    },
+    runOnJS: (fn) => fn,
+    runOnUI: (fn) => fn,
     createAnimatedComponent: (component) => component,
-    Value: jest.fn(),
-    event: jest.fn(),
-    add: jest.fn(),
-    eq: jest.fn(),
-    set: jest.fn(),
-    cond: jest.fn(),
-    interpolate: jest.fn(),
-    View: 'Animated.View',
-    Text: 'Animated.Text',
-    Image: 'Animated.Image',
-    ScrollView: 'Animated.ScrollView',
-    FlatList: 'Animated.FlatList',
-  },
-  Easing: {
-    linear: jest.fn(),
-    ease: jest.fn(),
-    quad: jest.fn(),
-    cubic: jest.fn(),
-    poly: jest.fn(),
-    sin: jest.fn(),
-    circle: jest.fn(),
-    exp: jest.fn(),
-    elastic: jest.fn(),
-    back: jest.fn(),
-    bounce: jest.fn(),
-    bezier: jest.fn(),
-    in: jest.fn(),
-    out: jest.fn(),
-    inOut: jest.fn(),
-  },
-  Extrapolate: {
-    EXTEND: 'extend',
-    CLAMP: 'clamp',
-    IDENTITY: 'identity',
-  },
-  runOnJS: (fn) => fn,
-  runOnUI: (fn) => fn,
-  createAnimatedComponent: (component) => component,
-  useSharedValue: (initial) => ({ value: initial }),
-  useAnimatedStyle: (fn) => fn(),
-  withTiming: (value) => value,
-  withSpring: (value) => value,
-  withDelay: (delay, animation) => animation,
-  withRepeat: (animation) => animation,
-  withSequence: (...animations) => animations[0],
-  cancelAnimation: jest.fn(),
-  useAnimatedGestureHandler: () => ({}),
-  useAnimatedScrollHandler: () => ({}),
-}));
+    useSharedValue: (initial) => ({ value: initial }),
+    useAnimatedStyle: (fn) => fn(),
+    withTiming: (value) => value,
+    withSpring: (value) => value,
+    withDelay: (delay, animation) => animation,
+    withRepeat: (animation) => animation,
+    withSequence: (...animations) => animations[0],
+    cancelAnimation: jest.fn(),
+    useAnimatedGestureHandler: () => ({}),
+    useAnimatedScrollHandler: () => ({}),
+    interpolateColor: (value, inputRange, outputRange) => outputRange[0],
+    FadeIn: { duration: () => ({ delay: () => ({}) }) },
+    FadeOut: { duration: () => ({ delay: () => ({}) }) },
+    // Add Animated namespace
+    Animated: {
+      View,
+      Text,
+      Image,
+      ScrollView,
+      FlatList,
+    },
+  };
+});
 
 // Auto-mock these modules - Jest will use __mocks__ directory
 jest.mock('react-native-svg');
@@ -328,26 +347,28 @@ jest.mock('react-native', () => {
   });
 
   // Mock Platform if needed
-  Object.defineProperty(RN, 'Platform', {
-    value: {
-      OS: 'ios',
-      select: jest.fn((obj) => obj.ios || obj.default),
-      Version: '14.0',
-      constants: {
-        isTesting: true,
-        osVersion: '14.0',
-        reactNativeVersion: {
-          major: 0,
-          minor: 79,
-          patch: 0,
+  if (!RN.Platform || typeof RN.Platform.select !== 'function') {
+    Object.defineProperty(RN, 'Platform', {
+      value: {
+        OS: 'ios',
+        select: jest.fn((obj) => obj.ios || obj.default),
+        Version: '14.0',
+        constants: {
+          isTesting: true,
+          osVersion: '14.0',
+          reactNativeVersion: {
+            major: 0,
+            minor: 79,
+            patch: 0,
+          },
+          systemName: 'iOS',
         },
-        systemName: 'iOS',
+        isDisableAnimations: false,
       },
-      isDisableAnimations: false,
-    },
-    writable: true,
-    configurable: true,
-  });
+      writable: true,
+      configurable: true,
+    });
+  }
 
   // Mock Animated
   const mockValue = jest.fn(() => ({

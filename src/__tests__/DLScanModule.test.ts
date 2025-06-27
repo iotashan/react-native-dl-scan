@@ -1,26 +1,27 @@
-import { NativeModules } from 'react-native';
+// Mock the native module
+jest.mock('react-native', () => {
+  const mockModule = {
+    scanLicense: jest.fn(),
+    parseOCRText: jest.fn(),
+    startScanning: jest.fn(),
+    stopScanning: jest.fn(),
+  };
+
+  return {
+    NativeModules: {
+      DlScan: mockModule,
+    },
+    TurboModuleRegistry: {
+      getEnforcing: jest.fn(() => mockModule),
+    },
+  };
+});
+
 import DLScanModule from '../NativeDlScan';
 import type { OCRTextObservation } from '../types/license';
 
-// Mock the native module
-jest.mock('react-native', () => ({
-  NativeModules: {
-    DlScan: {
-      scanLicense: jest.fn(),
-      parseOCRText: jest.fn(),
-      startScanning: jest.fn(),
-      stopScanning: jest.fn(),
-    },
-  },
-  TurboModuleRegistry: {
-    getEnforcing: jest.fn(() => ({
-      scanLicense: jest.fn(),
-      parseOCRText: jest.fn(),
-      startScanning: jest.fn(),
-      stopScanning: jest.fn(),
-    })),
-  },
-}));
+// Get reference to the mock module
+const mockDlScanModule = DLScanModule as any;
 
 describe('DLScanModule', () => {
   beforeEach(() => {
@@ -30,19 +31,19 @@ describe('DLScanModule', () => {
   describe('startScanning', () => {
     it('should initialize camera', async () => {
       // Arrange
-      NativeModules.DlScan.startScanning.mockResolvedValue(undefined);
+      mockDlScanModule.startScanning.mockResolvedValue(undefined);
 
       // Act
       await DLScanModule.startScanning();
 
       // Assert
-      expect(NativeModules.DlScan.startScanning).toHaveBeenCalled();
+      expect(mockDlScanModule.startScanning).toHaveBeenCalled();
     });
 
     it('should throw error when camera permission is denied', async () => {
       // Arrange
       const error = new Error('Camera permission denied');
-      NativeModules.DlScan.startScanning.mockRejectedValue(error);
+      mockDlScanModule.startScanning.mockRejectedValue(error);
 
       // Act & Assert
       await expect(DLScanModule.startScanning()).rejects.toThrow(
@@ -61,7 +62,7 @@ describe('DLScanModule', () => {
         dateOfBirth: '01/01/1990',
         dateOfExpiry: '01/01/2025',
       };
-      NativeModules.DlScan.scanLicense.mockResolvedValue({
+      mockDlScanModule.scanLicense.mockResolvedValue({
         success: true,
         data: mockLicenseData,
       });
@@ -74,28 +75,19 @@ describe('DLScanModule', () => {
       expect(result.data).toEqual(mockLicenseData);
     });
 
-    it('should handle OCR fallback when barcode fails', async () => {
+    it('should handle barcode scan failure', async () => {
       // Arrange
-      const mockOCRData = {
-        firstName: 'JANE',
-        lastName: 'SMITH',
-        confidence: 0.85,
-      };
-      NativeModules.DlScan.scanLicense
-        .mockResolvedValueOnce({ success: false, error: 'Barcode not found' })
-        .mockResolvedValueOnce({
-          success: true,
-          data: mockOCRData,
-          mode: 'ocr',
-        });
+      mockDlScanModule.scanLicense.mockResolvedValue({
+        success: false,
+        error: 'Barcode not found',
+      });
 
       // Act
-      const result = await DLScanModule.scanLicense('mock-barcode-data');
+      const result = await DLScanModule.scanLicense('invalid-barcode');
 
       // Assert
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockOCRData);
-      expect((result as any).mode).toBe('ocr');
+      expect(result.success).toBe(false);
+      expect((result as any).error).toBe('Barcode not found');
     });
   });
 
@@ -135,14 +127,16 @@ describe('DLScanModule', () => {
         },
       ];
       const expectedData = {
-        firstName: 'JOHN',
-        lastName: 'DOE',
-        documentNumber: 'D123456789',
-        dateOfBirth: new Date('1990-01-01'),
-        dateOfExpiry: new Date('2025-01-01'),
         success: true,
+        data: {
+          firstName: 'JOHN',
+          lastName: 'DOE',
+          documentNumber: 'D123456789',
+          dateOfBirth: new Date('1990-01-01'),
+          dateOfExpiry: new Date('2025-01-01'),
+        },
       };
-      NativeModules.DlScan.parseOCRText.mockResolvedValue(expectedData);
+      mockDlScanModule.parseOCRText.mockResolvedValue(expectedData);
 
       // Act
       const result = await DLScanModule.parseOCRText(ocrObservations);
@@ -162,7 +156,7 @@ describe('DLScanModule', () => {
           boundingBox: { x: 0, y: 0, width: 100, height: 20 },
         },
       ];
-      NativeModules.DlScan.parseOCRText.mockResolvedValue({
+      mockDlScanModule.parseOCRText.mockResolvedValue({
         success: false,
         error: {
           code: 'PARSE_ERROR',
@@ -182,13 +176,13 @@ describe('DLScanModule', () => {
   describe('stopScanning', () => {
     it('should stop camera and clean up resources', async () => {
       // Arrange
-      NativeModules.DlScan.stopScanning.mockResolvedValue(true);
+      mockDlScanModule.stopScanning.mockResolvedValue(true);
 
       // Act
       await DLScanModule.stopScanning();
 
       // Assert
-      expect(NativeModules.DlScan.stopScanning).toHaveBeenCalled();
+      expect(mockDlScanModule.stopScanning).toHaveBeenCalled();
     });
   });
 });

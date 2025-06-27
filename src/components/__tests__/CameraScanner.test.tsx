@@ -19,7 +19,7 @@ const mockUseCameraDevice = jest.fn(() => ({
 }));
 const mockUseCameraPermission = jest.fn(() => ({
   hasPermission: true,
-  requestPermission: jest.fn(),
+  requestPermission: jest.fn().mockResolvedValue(true),
 }));
 
 jest.mock('react-native-vision-camera', () => ({
@@ -160,7 +160,7 @@ describe('CameraScanner', () => {
     it('should show permission denied UI when camera permission is denied', () => {
       mockUseCameraPermission.mockReturnValue({
         hasPermission: false,
-        requestPermission: jest.fn(),
+        requestPermission: jest.fn().mockResolvedValue(true),
       });
 
       const { getByText } = render(<CameraScanner />);
@@ -171,7 +171,7 @@ describe('CameraScanner', () => {
     it('should show loading state while checking permissions', () => {
       mockUseCameraPermission.mockReturnValue({
         hasPermission: null as any,
-        requestPermission: jest.fn(),
+        requestPermission: jest.fn().mockResolvedValue(true),
       });
 
       const { getByText } = render(<CameraScanner />);

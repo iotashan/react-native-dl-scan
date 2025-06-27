@@ -2,20 +2,6 @@ import { render, act } from '@testing-library/react-native';
 import { QualityIndicator } from '../QualityIndicator';
 import type { RealTimeQualityMetrics } from '../../types/license';
 
-// Mock React Native APIs
-jest.mock('react-native', () => {
-  const RN = jest.requireActual('react-native');
-  return {
-    ...RN,
-    AccessibilityInfo: {
-      announceForAccessibility: jest.fn(),
-    },
-    Vibration: {
-      vibrate: jest.fn(),
-    },
-  };
-});
-
 describe('QualityIndicator Enhanced Features', () => {
   const mockRealTimeMetrics: RealTimeQualityMetrics = {
     blur: {
@@ -154,8 +140,8 @@ describe('QualityIndicator Enhanced Features', () => {
         );
       });
 
-      const Haptics = require('expo-haptics');
-      expect(Haptics.notificationAsync).toHaveBeenCalled();
+      const RN = require('react-native');
+      expect(RN.Vibration.vibrate).toHaveBeenCalled();
     });
 
     it('should not trigger haptic feedback when disabled', async () => {
@@ -187,8 +173,8 @@ describe('QualityIndicator Enhanced Features', () => {
         );
       });
 
-      const Haptics = require('expo-haptics');
-      expect(Haptics.notificationAsync).not.toHaveBeenCalled();
+      const RN = require('react-native');
+      expect(RN.Vibration.vibrate).not.toHaveBeenCalled();
     });
   });
 
@@ -222,8 +208,8 @@ describe('QualityIndicator Enhanced Features', () => {
         );
       });
 
-      const { AccessibilityInfo } = require('react-native');
-      expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalled();
+      const RN = require('react-native');
+      expect(RN.AccessibilityInfo.announceForAccessibility).toHaveBeenCalled();
     });
   });
 

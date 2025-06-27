@@ -4,6 +4,7 @@
  */
 
 import { device, expect, element, by, waitFor } from 'detox';
+import './setup';
 
 describe('Error Handling Scenarios E2E', () => {
   beforeAll(async () => {
