@@ -303,7 +303,7 @@ export class ScanController {
   destroy(): void {
     this.timeoutManager.destroy();
     this.qualityProcessor.reset();
-    this.stateManager.reset();
+    this.stateManager.destroy();
     this.abortController?.abort();
     this.abortController = undefined;
   }

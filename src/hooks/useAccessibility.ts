@@ -81,9 +81,15 @@ export const useScanningAccessibility = (config: {
   const announceQuality = useCallback(
     (metrics: QualityMetrics) => {
       if (isVoiceOverEnabled && metrics) {
-        const message = AccessibilityConfig.announcements.scanningProgress(
-          metrics.overall
-        );
+        // Calculate overall score from QualityMetrics
+        const overallScore =
+          (metrics.brightness +
+            (1 - metrics.blur) +
+            (1 - metrics.glare) +
+            metrics.documentAlignment) /
+          4;
+        const message =
+          AccessibilityConfig.announcements.scanningProgress(overallScore);
         announce(message);
       }
     },

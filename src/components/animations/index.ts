@@ -13,7 +13,10 @@ export { default as ScanningOverlayAnimations } from './ScanningOverlayAnimation
 export type { ScanningOverlayAnimationsRef } from './ScanningOverlayAnimations';
 
 export { GestureAnimations } from './GestureAnimationsWrapper';
-export type { GestureAnimationsRef, GestureAnimationsProps } from './GestureAnimationsWrapper';
+export type {
+  GestureAnimationsRef,
+  GestureAnimationsProps,
+} from './GestureAnimationsWrapper';
 
 export { default as AnimationShowcase } from './AnimationShowcase';
 

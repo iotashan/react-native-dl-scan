@@ -1,5 +1,25 @@
 /* eslint-env jest */
 
+// Mock NativePlatformConstantsIOS before anything else
+jest.mock('react-native/Libraries/Utilities/NativePlatformConstantsIOS', () => {
+  return {
+    default: {
+      getConstants: () => ({
+        isTesting: true,
+        osVersion: '14.0',
+        reactNativeVersion: {
+          major: 0,
+          minor: 79,
+          patch: 0,
+        },
+        systemName: 'iOS',
+        interfaceIdiom: 'phone',
+        forceTouchAvailable: false,
+      }),
+    },
+  };
+});
+
 // Setup for React Native Testing Library
 // NativeDlScan mock will be handled by __mocks__/src/NativeDlScan.js
 
@@ -324,6 +344,78 @@ jest.mock('react-native', () => {
         systemName: 'iOS',
       },
       isDisableAnimations: false,
+    },
+    writable: true,
+    configurable: true,
+  });
+
+  // Mock Animated
+  const mockValue = jest.fn(() => ({
+    setValue: jest.fn(),
+    setOffset: jest.fn(),
+    flattenOffset: jest.fn(),
+    extractOffset: jest.fn(),
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    removeAllListeners: jest.fn(),
+    stopAnimation: jest.fn(),
+    resetAnimation: jest.fn(),
+    interpolate: jest.fn(),
+    animate: jest.fn(),
+    _startListeningToNativeValueUpdates: jest.fn(),
+    _stopListeningForNativeValueUpdates: jest.fn(),
+  }));
+
+  Object.defineProperty(RN, 'Animated', {
+    value: {
+      Value: mockValue,
+      View: 'Animated.View',
+      Text: 'Animated.Text',
+      Image: 'Animated.Image',
+      ScrollView: 'Animated.ScrollView',
+      createAnimatedComponent: jest.fn((component) => component),
+      timing: jest.fn((value, config) => ({
+        start: jest.fn((callback) => callback && callback({ finished: true })),
+        stop: jest.fn(),
+        reset: jest.fn(),
+      })),
+      spring: jest.fn((value, config) => ({
+        start: jest.fn((callback) => callback && callback({ finished: true })),
+        stop: jest.fn(),
+        reset: jest.fn(),
+      })),
+      sequence: jest.fn((animations) => ({
+        start: jest.fn((callback) => callback && callback({ finished: true })),
+        stop: jest.fn(),
+        reset: jest.fn(),
+      })),
+      parallel: jest.fn((animations) => ({
+        start: jest.fn((callback) => callback && callback({ finished: true })),
+        stop: jest.fn(),
+        reset: jest.fn(),
+      })),
+      decay: jest.fn(() => ({
+        start: jest.fn((callback) => callback && callback({ finished: true })),
+        stop: jest.fn(),
+        reset: jest.fn(),
+      })),
+      delay: jest.fn(() => ({
+        start: jest.fn((callback) => callback && callback({ finished: true })),
+        stop: jest.fn(),
+        reset: jest.fn(),
+      })),
+      loop: jest.fn(() => ({
+        start: jest.fn((callback) => callback && callback({ finished: true })),
+        stop: jest.fn(),
+        reset: jest.fn(),
+      })),
+      event: jest.fn(),
+      add: jest.fn(),
+      subtract: jest.fn(),
+      divide: jest.fn(),
+      multiply: jest.fn(),
+      modulo: jest.fn(),
+      diffClamp: jest.fn(),
     },
     writable: true,
     configurable: true,

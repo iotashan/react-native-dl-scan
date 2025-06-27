@@ -1,5 +1,8 @@
 import React from 'react';
-import type { GestureAnimationsProps, GestureAnimationsRef } from './GestureAnimations';
+import type {
+  GestureAnimationsProps,
+  GestureAnimationsRef,
+} from './GestureAnimations';
 
 // Try to import the actual implementation
 let GestureAnimationsImpl: React.ForwardRefExoticComponent<
@@ -34,5 +37,6 @@ const GestureAnimationsFallback = React.forwardRef<
 GestureAnimationsFallback.displayName = 'GestureAnimationsFallback';
 
 // Export the wrapper that conditionally uses the real implementation
-export const GestureAnimations = GestureAnimationsImpl || GestureAnimationsFallback;
+export const GestureAnimations =
+  GestureAnimationsImpl || GestureAnimationsFallback;
 export type { GestureAnimationsProps, GestureAnimationsRef };

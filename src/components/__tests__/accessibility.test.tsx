@@ -1,3 +1,4 @@
+// @ts-ignore - React is used in JSX
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
@@ -439,7 +440,7 @@ describe('VoiceGuidanceSystem', () => {
 describe('AccessibilityGestures', () => {
   it('triggers mode toggle on two-finger double tap', () => {
     const onModeToggle = jest.fn();
-    const { getByTestId } = render(
+    render(
       <AccessibilityGestures
         onModeToggle={onModeToggle}
         isVoiceOverEnabled={true}
@@ -460,7 +461,7 @@ describe('Accessibility Integration', () => {
       true
     );
 
-    const { getByRole, getAllByRole } = render(
+    const { getAllByRole } = render(
       <AccessibleModeSelector
         currentMode="auto"
         availableModes={['auto', 'barcode', 'ocr']}

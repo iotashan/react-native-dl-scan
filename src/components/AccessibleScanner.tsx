@@ -1,21 +1,66 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import CameraScanner from './CameraScanner';
+import { View, StyleSheet, Alert } from 'react-native';
+import { CameraScanner } from './CameraScanner';
 import { AccessibleModeSelector } from './accessibility/AccessibleComponents';
 import VoiceGuidanceSystem from './accessibility/VoiceGuidanceSystem';
-import { AccessibilityGestures } from './accessibility/AccessibilityGestures';
-import { AccessibilityGesturesWrapper } from './accessibility/AccessibilityGesturesWrapper';
+import { AccessibilityGestures as AccessibilityGesturesWrapper } from './accessibility/AccessibilityGesturesWrapper';
 import {
   useScanningAccessibility,
   useAccessibilityFeatures,
 } from '../hooks/useAccessibility';
 import { useFocusTrap } from '../utils/accessibility';
-import type { LicenseData, ScanMode, QualityMetrics } from '../types/license';
+import type {
+  LicenseData,
+  ScanMode,
+  RealTimeQualityMetrics,
+  QualityMetrics,
+} from '../types/license';
 
 interface AccessibleScannerProps {
   onLicenseScanned?: (data: LicenseData) => void;
   onError?: (error: Error) => void;
 }
+
+/**
+ * Convert RealTimeQualityMetrics to QualityMetrics for compatibility
+ */
+const convertToQualityMetrics = (
+  rtMetrics: RealTimeQualityMetrics
+): QualityMetrics => {
+  return {
+    brightness: rtMetrics.lighting.brightness,
+    blur: rtMetrics.blur.value,
+    glare: 1 - rtMetrics.lighting.uniformity, // Approximate glare from uniformity
+    documentAlignment: rtMetrics.positioning.alignment,
+  };
+};
+
+/**
+ * Convert RealTimeQualityMetrics to VoiceGuidanceSystem QualityMetrics
+ */
+const convertToVoiceGuidanceMetrics = (
+  rtMetrics: RealTimeQualityMetrics
+): any => {
+  return {
+    overall: rtMetrics.overall.score,
+    positioning: {
+      distance: rtMetrics.positioning.distance,
+      angle: 'straight' as const,
+      documentDetected: rtMetrics.positioning.documentDetected,
+      inFrame: rtMetrics.positioning.documentDetected,
+    },
+    lighting: {
+      overall: rtMetrics.lighting.brightness,
+      uniformity: rtMetrics.lighting.uniformity,
+      shadows: false,
+      glare: rtMetrics.lighting.uniformity < 0.7,
+    },
+    focus: {
+      sharpness: 1 - rtMetrics.blur.value,
+      blurDetected: rtMetrics.blur.value > 0.5,
+    },
+  };
+};
 
 /**
  * Fully accessible scanner component that integrates all accessibility features
@@ -32,15 +77,19 @@ const AccessibleScanner: React.FC<AccessibleScannerProps> = ({
 }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [currentMode, setCurrentMode] = useState<ScanMode>('auto');
+  const [_realTimeMetrics, setRealTimeMetrics] = useState<
+    RealTimeQualityMetrics | undefined
+  >();
   const [qualityMetrics, setQualityMetrics] = useState<
     QualityMetrics | undefined
   >();
+  const [voiceGuidanceMetrics, setVoiceGuidanceMetrics] = useState<any>();
   const [documentDetected, setDocumentDetected] = useState(false);
   const [scanResult, setScanResult] = useState<'success' | 'error' | null>(
     null
   );
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
-  const [showHelp, setShowHelp] = useState(false);
+  const [_showHelp, setShowHelp] = useState(false);
 
   const containerRef = useRef<View>(null);
 
@@ -67,7 +116,7 @@ const AccessibleScanner: React.FC<AccessibleScannerProps> = ({
     const modes: ScanMode[] = ['auto', 'barcode', 'ocr'];
     const currentIndex = modes.indexOf(currentMode);
     const nextIndex = (currentIndex + 1) % modes.length;
-    handleModeChange(modes[nextIndex]);
+    handleModeChange(modes[nextIndex]!);
   }, [currentMode, handleModeChange]);
 
   // Scan handlers
@@ -101,12 +150,20 @@ const AccessibleScanner: React.FC<AccessibleScannerProps> = ({
   );
 
   const handleQualityMetrics = useCallback(
-    (metrics: QualityMetrics) => {
-      setQualityMetrics(metrics);
+    (metrics: RealTimeQualityMetrics) => {
+      setRealTimeMetrics(metrics);
       setDocumentDetected(metrics.positioning.documentDetected);
 
+      // Convert to QualityMetrics for compatibility
+      const convertedMetrics = convertToQualityMetrics(metrics);
+      setQualityMetrics(convertedMetrics);
+
+      // Convert to voice guidance metrics
+      const voiceMetrics = convertToVoiceGuidanceMetrics(metrics);
+      setVoiceGuidanceMetrics(voiceMetrics);
+
       // Announce quality changes for accessibility
-      announceQuality(metrics);
+      announceQuality(convertedMetrics);
     },
     [announceQuality]
   );
@@ -151,7 +208,7 @@ VoiceOver: ${isVoiceOverEnabled ? 'Enabled' : 'Disabled'}`,
         <VoiceGuidanceSystem
           isScanning={isScanning}
           currentMode={currentMode}
-          qualityMetrics={qualityMetrics}
+          qualityMetrics={voiceGuidanceMetrics}
           documentDetected={documentDetected}
           scanResult={scanResult}
           errorMessage={errorMessage}
@@ -174,7 +231,52 @@ VoiceOver: ${isVoiceOverEnabled ? 'Enabled' : 'Disabled'}`,
             mode={currentMode}
             onLicenseScanned={handleScanSuccess}
             onError={handleScanError}
-            onQualityMetrics={handleQualityMetrics}
+            onQualityMetrics={(metrics: QualityMetrics) => {
+              // Convert from QualityMetrics to RealTimeQualityMetrics
+              const rtMetrics: RealTimeQualityMetrics = {
+                blur: {
+                  value: metrics.blur,
+                  status:
+                    metrics.blur < 0.3
+                      ? 'good'
+                      : metrics.blur < 0.6
+                        ? 'warning'
+                        : 'poor',
+                },
+                lighting: {
+                  brightness: metrics.brightness,
+                  uniformity: 1 - metrics.glare, // Convert glare back to uniformity
+                  status:
+                    metrics.brightness > 0.7
+                      ? 'good'
+                      : metrics.brightness > 0.4
+                        ? 'warning'
+                        : 'poor',
+                },
+                positioning: {
+                  documentDetected: metrics.documentAlignment > 0.5,
+                  alignment: metrics.documentAlignment,
+                  distance: 'optimal',
+                  status:
+                    metrics.documentAlignment > 0.7
+                      ? 'good'
+                      : metrics.documentAlignment > 0.4
+                        ? 'warning'
+                        : 'poor',
+                },
+                overall: {
+                  score:
+                    (metrics.brightness +
+                      (1 - metrics.blur) +
+                      (1 - metrics.glare) +
+                      metrics.documentAlignment) /
+                    4,
+                  readyToScan:
+                    metrics.documentAlignment > 0.5 && metrics.blur < 0.5,
+                },
+              };
+              handleQualityMetrics(rtMetrics);
+            }}
             onCancel={stopScanning}
           />
         </View>

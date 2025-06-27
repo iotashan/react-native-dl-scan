@@ -59,19 +59,37 @@ describe('useThrottledQualityMetrics', () => {
 
     const { result } = renderHook(() => useThrottledQualityMetrics());
 
+    // First update goes through immediately
     act(() => {
       result.current.updateMetrics(mockMetrics);
     });
 
-    // Metrics should not be immediately updated due to throttling
-    expect(result.current.metrics).toBeUndefined();
+    expect(result.current.metrics).toEqual(mockMetrics);
+
+    // Second update should be throttled
+    const updatedMetrics = {
+      ...mockMetrics,
+      overall: { ...mockMetrics.overall, score: 0.95 },
+    };
+
+    act(() => {
+      result.current.updateMetrics(updatedMetrics);
+    });
+
+    // Should still have original metrics due to throttling
+    expect(result.current.metrics).toEqual(mockMetrics);
 
     // Fast forward time to trigger throttled update
     act(() => {
       jest.advanceTimersByTime(100);
     });
 
-    expect(result.current.metrics).toEqual(mockMetrics);
+    // Now update should go through
+    act(() => {
+      result.current.updateMetrics(updatedMetrics);
+    });
+
+    expect(result.current.metrics).toEqual(updatedMetrics);
 
     jest.useRealTimers();
   });
@@ -94,22 +112,33 @@ describe('useThrottledQualityMetrics', () => {
       overall: { score: 0.9, readyToScan: true },
     };
 
-    // Send multiple updates rapidly
+    // Send first update - should go through immediately
     act(() => {
       result.current.updateMetrics(metrics1);
+    });
+
+    expect(result.current.metrics).toEqual(metrics1);
+
+    // Send multiple updates rapidly - these should be throttled
+    act(() => {
       result.current.updateMetrics(metrics2);
       result.current.updateMetrics(metrics3);
     });
 
-    // Should still be undefined due to throttling
-    expect(result.current.metrics).toBeUndefined();
+    // Should still have first metrics due to throttling
+    expect(result.current.metrics).toEqual(metrics1);
 
     // Advance time to process throttled update
     act(() => {
       jest.advanceTimersByTime(100);
     });
 
-    // Should have the last metrics update
+    // Send another update after throttle period
+    act(() => {
+      result.current.updateMetrics(metrics3);
+    });
+
+    // Should now have the latest metrics
     expect(result.current.metrics).toEqual(metrics3);
 
     jest.useRealTimers();

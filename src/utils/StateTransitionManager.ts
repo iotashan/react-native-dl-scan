@@ -37,6 +37,7 @@ export class StateTransitionManager {
   private currentMode: ScanMode = 'auto';
   private scanStartTime: number = 0;
   private barcodeAttempts: number = 0;
+  private transitionTimer?: NodeJS.Timeout;
 
   constructor(
     private config: StateConfig,
@@ -71,11 +72,20 @@ export class StateTransitionManager {
     const fromMode = this.currentMode;
     this.currentMode = toMode;
 
+    // Clear any existing transition timer
+    if (this.transitionTimer) {
+      clearTimeout(this.transitionTimer);
+      this.transitionTimer = undefined;
+    }
+
     // Update state based on new mode
     if (toMode === 'ocr') {
       this.updateState('fallback_transition');
       // Transition to OCR state after a brief delay for UI feedback
-      setTimeout(() => this.updateState('ocr'), 100);
+      this.transitionTimer = setTimeout(() => {
+        this.updateState('ocr');
+        this.transitionTimer = undefined;
+      }, 100);
     } else if (toMode === 'barcode') {
       this.updateState('barcode');
     }
@@ -266,6 +276,12 @@ export class StateTransitionManager {
    * Reset state for new scan session
    */
   reset(): void {
+    // Clear any pending timer
+    if (this.transitionTimer) {
+      clearTimeout(this.transitionTimer);
+      this.transitionTimer = undefined;
+    }
+
     this.currentState = 'idle';
     this.currentMode = 'auto';
     this.scanStartTime = 0;
@@ -367,5 +383,19 @@ export class StateTransitionManager {
    */
   forceFail(): void {
     this.updateState('failed');
+  }
+
+  /**
+   * Cleanup resources
+   */
+  destroy(): void {
+    // Clear any pending timer
+    if (this.transitionTimer) {
+      clearTimeout(this.transitionTimer);
+      this.transitionTimer = undefined;
+    }
+
+    // Reset state
+    this.reset();
   }
 }

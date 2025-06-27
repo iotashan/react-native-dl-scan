@@ -18,7 +18,7 @@ import {
   useAccessibilityFeatures,
   useScanningAccessibility,
 } from '../hooks/useAccessibility';
-import type { ScanMode } from '../types/license';
+import type { ScanMode, QualityMetrics } from '../types/license';
 
 /**
  * Showcase component demonstrating all accessibility features
@@ -50,24 +50,11 @@ const AccessibilityShowcase: React.FC = () => {
   };
 
   const handleQualityTest = () => {
-    const metrics = {
-      overall: testQuality,
-      positioning: {
-        distance: 'optimal' as const,
-        angle: 'straight' as const,
-        documentDetected: true,
-        inFrame: true,
-      },
-      lighting: {
-        overall: 0.8,
-        uniformity: 0.9,
-        shadows: false,
-        glare: false,
-      },
-      focus: {
-        sharpness: 0.9,
-        blurDetected: false,
-      },
+    const metrics: QualityMetrics = {
+      brightness: testQuality * 0.8,
+      blur: 1 - testQuality,
+      glare: 1 - testQuality * 0.9,
+      documentAlignment: testQuality,
     };
     announceQuality(metrics);
   };
