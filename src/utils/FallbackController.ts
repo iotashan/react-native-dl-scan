@@ -1105,7 +1105,7 @@ export class FallbackController {
         this.qualityProcessor = undefined;
       }
       if (this.stateManager) {
-        this.stateManager.reset();
+        this.stateManager.destroy();
         this.stateManager = undefined;
       }
 

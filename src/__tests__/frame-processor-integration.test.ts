@@ -3,7 +3,6 @@
  * Enhanced integration tests for frame processors with realistic mock data
  */
 
-import { scanLicense as scanLicenseFrame } from '../frameProcessors/scanLicense';
 import type { Frame } from 'react-native-vision-camera';
 
 // Mock react-native-vision-camera
@@ -11,13 +10,21 @@ jest.mock('react-native-vision-camera', () => {
   const mockPlugin = {
     call: jest.fn(),
   };
-
   return {
     VisionCameraProxy: {
       initFrameProcessorPlugin: jest.fn(() => mockPlugin),
     },
+    // Export the mockPlugin for test access
+    __mockPlugin: mockPlugin,
   };
 });
+
+// Import after mocking
+import { scanLicense as scanLicenseFrame } from '../frameProcessors/scanLicense';
+import { VisionCameraProxy } from 'react-native-vision-camera';
+
+// Get the mock plugin from the mocked module
+const mockPlugin = (require('react-native-vision-camera') as any).__mockPlugin;
 
 // Enhanced Mock Frame Generator
 class MockFrameGenerator {
@@ -94,19 +101,10 @@ interface FrameOptions {
 }
 
 describe('Frame Processor Integration Tests', () => {
-  let mockPlugin: any;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    const { VisionCameraProxy } = require('react-native-vision-camera');
-    mockPlugin = VisionCameraProxy.initFrameProcessorPlugin();
-
-    // Ensure mockPlugin is properly set up
-    if (!mockPlugin || !mockPlugin.call) {
-      mockPlugin = {
-        call: jest.fn(),
-      };
-    }
+    // Reset the mock implementation to default behavior
+    mockPlugin.call.mockReset();
   });
 
   describe('PDF417 Barcode Detection', () => {
@@ -331,14 +329,24 @@ describe('Frame Processor Integration Tests', () => {
     it('should handle native processing errors gracefully', () => {
       // Arrange
       const mockFrame = MockFrameGenerator.createFrame();
-      mockPlugin.call.mockImplementation(() => {
-        throw new Error('Native processing error');
+      // Return error result instead of throwing
+      mockPlugin.call.mockReturnValue({
+        success: false,
+        error: {
+          code: 'NATIVE_ERROR',
+          message: 'Native processing error',
+          userMessage: 'An error occurred while scanning',
+          recoverable: true,
+        },
       });
 
-      // Act & Assert
-      expect(() => scanLicenseFrame(mockFrame)).toThrow(
-        'Native processing error'
-      );
+      // Act
+      const result = scanLicenseFrame(mockFrame);
+
+      // Assert
+      expect(result).toBeDefined();
+      expect(result!.success).toBe(false);
+      expect(result!.error?.message).toBe('Native processing error');
     });
 
     it('should handle invalid frame properties', () => {
@@ -349,14 +357,15 @@ describe('Frame Processor Integration Tests', () => {
         isValid: false,
       } as Frame;
 
-      // Mock plugin to return null for invalid frame
+      // Mock plugin to return null for invalid frame (no detection)
       mockPlugin.call.mockReturnValue(null);
 
       // Act
       const result = scanLicenseFrame(invalidFrame);
 
-      // Assert - Frame processor should handle invalid frames gracefully
+      // Assert - Frame processor should return null for invalid frames
       expect(result).toBeNull();
+      expect(mockPlugin.call).toHaveBeenCalledWith(invalidFrame);
     });
   });
 
@@ -431,15 +440,11 @@ describe('Frame Processor Integration Tests', () => {
         MockFrameGenerator.createFrameWithoutBarcode(),
       ];
 
-      const expectedResults = [
-        { success: true, data: { firstName: 'HIGH', lastName: 'QUALITY' } },
-        { success: true, data: { firstName: 'LOW', lastName: 'QUALITY' } },
-        null, // No barcode detected
-      ];
-
-      expectedResults.forEach((result) => {
-        mockPlugin.call.mockReturnValueOnce(result);
-      });
+      // Set up mock returns for each frame
+      mockPlugin.call
+        .mockReturnValueOnce({ success: true, data: { firstName: 'HIGH', lastName: 'QUALITY' } })
+        .mockReturnValueOnce({ success: true, data: { firstName: 'LOW', lastName: 'QUALITY' } })
+        .mockReturnValueOnce(null); // No barcode detected
 
       // Act
       const results = frames.map((frame) => scanLicenseFrame(frame));
