@@ -10,26 +10,14 @@ Pod::Spec.new do |s|
   s.license      = package["license"]
   s.authors      = package["author"]
 
-  s.platforms    = { :ios => min_ios_version_supported }
+  s.platforms    = { :ios => "15.0" }
   s.source       = { :git => "https://github.com/iotashan/react-native-dl-scan.git", :tag => "#{s.version}" }
 
-  # Only include production Swift files
-  s.source_files = [
-    "ios/**/*.{h,m,mm,cpp}",
-    "ios/DocumentDetector.swift",
-    "ios/LicenseParser.swift", 
-    "ios/OCRFieldParser.swift",
-    "ios/OCRQualityAssessment.swift",
-    "ios/PDF417Detector.swift",
-    "ios/StateRuleEngine.swift"
-  ]
+  s.source_files = "ios/**/*.{h,m,mm,swift}"
   s.private_header_files = "ios/**/*.h"
-  
-  # Add DLParser dependency for AAMVA parsing
-  s.dependency 'DLParser'
-  
-  # Enable Swift support
-  s.swift_version = '5.0'
 
- install_modules_dependencies(s)
+  s.frameworks   = ["Vision", "CoreVideo"]
+  s.swift_version = "5.0"
+
+  install_modules_dependencies(s)
 end
