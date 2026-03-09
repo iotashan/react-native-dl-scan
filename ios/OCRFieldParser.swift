@@ -152,7 +152,7 @@ import Foundation
         let cityStateZip = "([A-Za-z\\s]+)[,\\s]+([A-Z]{2})\\s+(\\d{5}(?:-\\d{4})?)"
 
         for (i, line) in lines.enumerated() {
-            if let match = line.range(of: cityStateZip, options: .regularExpression) {
+            if line.range(of: cityStateZip, options: .regularExpression) != nil {
                 let regex = try? NSRegularExpression(pattern: cityStateZip)
                 let nsRange = NSRange(line.startIndex..<line.endIndex, in: line)
                 if let m = regex?.firstMatch(in: line, range: nsRange) {

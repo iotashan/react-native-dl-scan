@@ -22,6 +22,21 @@
     return self;
 }
 
+/// Map UIImageOrientation to CGImagePropertyOrientation for Vision framework
+static CGImagePropertyOrientation CGImagePropertyOrientationFromUIImageOrientation(UIImageOrientation uiOrientation) {
+    switch (uiOrientation) {
+        case UIImageOrientationUp:            return kCGImagePropertyOrientationUp;
+        case UIImageOrientationDown:          return kCGImagePropertyOrientationDown;
+        case UIImageOrientationLeft:          return kCGImagePropertyOrientationLeft;
+        case UIImageOrientationRight:         return kCGImagePropertyOrientationRight;
+        case UIImageOrientationUpMirrored:    return kCGImagePropertyOrientationUpMirrored;
+        case UIImageOrientationDownMirrored:  return kCGImagePropertyOrientationDownMirrored;
+        case UIImageOrientationLeftMirrored:  return kCGImagePropertyOrientationLeftMirrored;
+        case UIImageOrientationRightMirrored: return kCGImagePropertyOrientationRightMirrored;
+        default:                              return kCGImagePropertyOrientationUp;
+    }
+}
+
 - (id)callback:(Frame*)frame withArguments:(NSDictionary*)arguments {
     NSDate *now = [NSDate date];
     NSString *mode = arguments[@"mode"] ?: @"barcode";
@@ -31,6 +46,8 @@
         return nil;
     }
 
+    CGImagePropertyOrientation orientation = CGImagePropertyOrientationFromUIImageOrientation([frame orientation]);
+
     if ([mode isEqualToString:@"ocr"]) {
         // Rate limit OCR to 2 fps
         if (_lastOCRTime && [now timeIntervalSinceDate:_lastOCRTime] < 0.5) {
@@ -38,7 +55,7 @@
         }
         _lastOCRTime = now;
 
-        NSArray<NSString *> *lines = [_ocrScanner recognizeIn:pixelBuffer];
+        NSArray<NSString *> *lines = [_ocrScanner recognizeIn:pixelBuffer orientation:orientation];
         if (!lines) {
             return nil;
         }
@@ -51,7 +68,8 @@
         return @{
             @"success": @YES,
             @"mode": @"ocr",
-            @"data": data
+            @"data": data,
+            @"error": [NSNull null]
         };
     } else {
         // Rate limit barcode to 10 fps
@@ -60,7 +78,7 @@
         }
         _lastBarcodeTime = now;
 
-        NSString *barcodePayload = [_barcodeScanner detectIn:pixelBuffer];
+        NSString *barcodePayload = [_barcodeScanner detectIn:pixelBuffer orientation:orientation];
         if (!barcodePayload) {
             return nil;
         }
@@ -70,6 +88,7 @@
             return @{
                 @"success": @NO,
                 @"mode": @"barcode",
+                @"data": [NSNull null],
                 @"error": @"Failed to parse AAMVA data from barcode"
             };
         }
@@ -77,7 +96,8 @@
         return @{
             @"success": @YES,
             @"mode": @"barcode",
-            @"data": data
+            @"data": data,
+            @"error": [NSNull null]
         };
     }
 }

@@ -17,6 +17,7 @@ export interface LicenseData {
   vehicleClass: string | null;
   restrictions: string | null;
   endorsements: string | null;
+  aamvaVersion: number | null;
 }
 
 export type ScanMode = 'barcode' | 'ocr';

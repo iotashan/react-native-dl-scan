@@ -6,7 +6,7 @@ import CoreVideo
 
     /// Detect a PDF417 barcode in the given pixel buffer.
     /// Returns the barcode payload string, or nil if no barcode found.
-    @objc public func detect(in pixelBuffer: CVPixelBuffer) -> String? {
+    @objc public func detect(in pixelBuffer: CVPixelBuffer, orientation: CGImagePropertyOrientation = .up) -> String? {
         var result: String?
 
         let request = VNDetectBarcodesRequest { request, error in
@@ -26,14 +26,11 @@ import CoreVideo
             }
         }
 
-        if #available(iOS 17.0, *) {
-            request.symbologies = [.pdf417]
-        } else {
-            request.symbologies = [.pdf417]
-        }
+        request.symbologies = [.pdf417]
 
         let handler = VNImageRequestHandler(
             cvPixelBuffer: pixelBuffer,
+            orientation: orientation,
             options: [:]
         )
 

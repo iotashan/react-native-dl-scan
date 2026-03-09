@@ -1,6 +1,6 @@
 # react-native-dl-scan
 
-React Native Turbo Module for scanning US driver's licenses. Detects PDF417 barcodes (back of license) and falls back to OCR text recognition (front of license) using Apple's Vision framework. Integrates with [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) as a frame processor plugin.
+React Native Turbo Module for scanning US driver's licenses. Supports PDF417 barcode scanning (back of license) and OCR text recognition (front of license) using Apple's Vision framework. Integrates with [react-native-vision-camera](https://github.com/mrousavy/react-native-vision-camera) as a frame processor plugin.
 
 **iOS only.** Requires iOS 15.0+.
 
@@ -62,7 +62,7 @@ function ScanScreen() {
 If you already have a raw AAMVA barcode string, you can parse it directly:
 
 ```ts
-import NativeDlScan from 'react-native-dl-scan/src/NativeDlScan';
+import { NativeDlScan } from 'react-native-dl-scan';
 
 const data = await NativeDlScan.parseBarcodeData(rawBarcodeString);
 ```

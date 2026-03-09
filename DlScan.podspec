@@ -19,5 +19,11 @@ Pod::Spec.new do |s|
   s.frameworks   = ["Vision", "CoreVideo"]
   s.swift_version = "5.0"
 
-  install_modules_dependencies(s)
+  s.dependency "VisionCamera"
+
+  if defined?(install_modules_dependencies)
+    install_modules_dependencies(s)
+  else
+    s.dependency "React-Core"
+  end
 end

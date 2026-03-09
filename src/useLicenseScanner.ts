@@ -1,6 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
-import { runOnJS } from 'react-native-worklets-core';
-import type { Frame } from 'react-native-vision-camera';
+import { useCallback, useState } from 'react';
+import { useRunOnJS, useSharedValue } from 'react-native-worklets-core';
+import { useFrameProcessor } from 'react-native-vision-camera';
 import { scanFrame } from './scanFrame';
 import type { LicenseData, ScanMode } from './types';
 
@@ -8,41 +8,47 @@ export function useLicenseScanner(mode: ScanMode = 'barcode') {
   const [licenseData, setLicenseData] = useState<LicenseData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(true);
-  const hasResult = useRef(false);
+  const hasResult = useSharedValue(false);
 
-  const onResult = useCallback((data: LicenseData) => {
-    setLicenseData(data);
-    setIsScanning(false);
-  }, []);
+  const onResult = useRunOnJS(
+    (data: LicenseData) => {
+      setLicenseData(data);
+      setIsScanning(false);
+    },
+    [setLicenseData, setIsScanning]
+  );
 
-  const onError = useCallback((message: string) => {
-    setError(message);
-  }, []);
+  const onError = useRunOnJS(
+    (message: string) => {
+      setError(message);
+    },
+    [setError]
+  );
 
-  const frameProcessor = useCallback(
-    (frame: Frame) => {
+  const frameProcessor = useFrameProcessor(
+    (frame) => {
       'worklet';
-      if (hasResult.current) return;
+      if (hasResult.value) return;
 
       const result = scanFrame(frame, mode);
       if (!result) return;
 
       if (result.success && result.data) {
-        hasResult.current = true;
-        runOnJS(onResult)(result.data);
+        hasResult.value = true;
+        onResult(result.data);
       } else if (result.error) {
-        runOnJS(onError)(result.error);
+        onError(result.error);
       }
     },
-    [mode, onResult, onError]
+    [mode, hasResult, onResult, onError]
   );
 
   const reset = useCallback(() => {
-    hasResult.current = false;
+    hasResult.value = false;
     setLicenseData(null);
     setError(null);
     setIsScanning(true);
-  }, []);
+  }, [hasResult]);
 
   return { licenseData, error, isScanning, frameProcessor, reset };
 }

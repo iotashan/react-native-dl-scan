@@ -6,7 +6,7 @@ import CoreVideo
 
     /// Recognize text in the given pixel buffer.
     /// Returns an array of recognized text strings, or nil on failure.
-    @objc public func recognize(in pixelBuffer: CVPixelBuffer) -> [String]? {
+    @objc public func recognize(in pixelBuffer: CVPixelBuffer, orientation: CGImagePropertyOrientation = .up) -> [String]? {
         var lines: [String] = []
 
         let request = VNRecognizeTextRequest { request, error in
@@ -28,6 +28,7 @@ import CoreVideo
 
         let handler = VNImageRequestHandler(
             cvPixelBuffer: pixelBuffer,
+            orientation: orientation,
             options: [:]
         )
 
