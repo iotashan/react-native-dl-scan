@@ -5,11 +5,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-# Add the shared C++ parsing core sources.
+# Add the shared C++ parsing core sources plus the JNI bridge.
 add_library(DlScan SHARED
   ../cpp/aamva/aamva_parser.cpp
   ../cpp/ocr/ocr_field_extractor.cpp
   ../cpp/errors/error_codes.cpp
+  src/main/cpp/dlscan_jni_bridge.cpp
 )
 
 target_include_directories(DlScan PUBLIC
