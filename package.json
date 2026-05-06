@@ -69,15 +69,23 @@
     "react": "19.0.0",
     "react-native": "0.79.2",
     "react-native-builder-bob": "^0.40.12",
-    "react-native-vision-camera": "^4.0.0",
-    "react-native-worklets-core": "^1.0.0",
+    "react-native-nitro-image": "^0.14.0",
+    "react-native-nitro-modules": "^0.35.0",
+    "react-native-vision-camera": "^5.0.0",
+    "react-native-vision-camera-barcode-scanner": "^5.0.0",
+    "react-native-vision-camera-worklets": "^5.0.0",
+    "react-native-worklets": "^0.8.0",
     "typescript": "^5.8.3"
   },
   "peerDependencies": {
     "react": "*",
     "react-native": "*",
-    "react-native-vision-camera": ">=4.0.0",
-    "react-native-worklets-core": ">=1.0.0"
+    "react-native-nitro-image": "^0.14.0",
+    "react-native-nitro-modules": "^0.35.0",
+    "react-native-vision-camera": "^5.0.0",
+    "react-native-vision-camera-barcode-scanner": "^5.0.0",
+    "react-native-vision-camera-worklets": "^5.0.0",
+    "react-native-worklets": "^0.8.0"
   },
   "packageManager": "yarn@3.6.1",
   "prettier": {
