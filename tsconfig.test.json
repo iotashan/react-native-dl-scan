@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // ts-jest runs tests in CommonJS mode; disable verbatimModuleSyntax
+    // which requires ESM-only imports/exports.
+    "verbatimModuleSyntax": false,
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    // Relax strictness for test/mock files — unused type params in mocks are fine.
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["__tests__/**/*", "src/**/*"]
+}

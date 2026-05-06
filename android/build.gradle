@@ -96,6 +96,10 @@ repositories {
 dependencies {
   //noinspection GradleDynamicVersion
   implementation "com.facebook.react:react-native:+"
+  // Project-path dependency: only resolves inside a consumer app's multi-project
+  // gradle build (where react-native-nitro-modules is autolinked as a sibling
+  // module under node_modules). Standalone library builds require an example/
+  // app or a consumer integration test — deferred follow-up.
   implementation project(":react-native-nitro-modules")
   implementation "com.google.mlkit:text-recognition:16.0.1"
 

@@ -33,6 +33,8 @@
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "clean": "del-cli lib",
     "prepare": "bob build",
+    "test": "jest",
+    "test:ci": "jest --ci --coverage",
     "test:cpp": "cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug && cmake --build cpp/build && ctest --test-dir cpp/build --output-on-failure",
     "nitrogen": "nitrogen"
   },
@@ -67,11 +69,13 @@
     "@evilmartians/lefthook": "^1.5.0",
     "@react-native/babel-preset": "0.79.2",
     "@react-native/eslint-config": "^0.78.0",
+    "@types/jest": "^29.5.14",
     "@types/react": "^19.0.0",
     "del-cli": "^5.1.0",
     "eslint": "^9.22.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.3",
+    "jest": "^29.7.0",
     "nitrogen": "^0.35.6",
     "prettier": "^3.0.3",
     "react": "19.0.0",
@@ -83,6 +87,7 @@
     "react-native-vision-camera-barcode-scanner": "^5.0.0",
     "react-native-vision-camera-worklets": "^5.0.0",
     "react-native-worklets": "^0.8.0",
+    "ts-jest": "^29.3.2",
     "typescript": "^5.8.3"
   },
   "peerDependencies": {
