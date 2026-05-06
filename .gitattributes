@@ -1,3 +1,14 @@
 *.pbxproj -text
 # specific for windows script files
 *.bat text eol=crlf
+
+# Nitrogen-generated files — committed for CocoaPods/SPM consumers,
+# but excluded from GitHub language stats and diffs.
+nitrogen/generated/**/*.swift linguist-generated=true
+nitrogen/generated/**/*.hpp linguist-generated=true
+nitrogen/generated/**/*.h linguist-generated=true
+nitrogen/generated/**/*.cpp linguist-generated=true
+nitrogen/generated/**/*.kt linguist-generated=true
+nitrogen/generated/**/*.java linguist-generated=true
+nitrogen/generated/**/*.rb linguist-generated=true
+nitrogen/generated/**/*.mm linguist-generated=true

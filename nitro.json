@@ -1,0 +1,24 @@
+{
+  "$schema": "https://nitro.margelo.com/nitro.schema.json",
+  "cxxNamespace": ["dlscan"],
+  "ios": {
+    "iosModuleName": "DlScan"
+  },
+  "android": {
+    "androidNamespace": ["dlscan"],
+    "androidCxxLibName": "DlScan"
+  },
+  "autolinking": {
+    "DlScan": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridDlScanIOS"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridDlScanAndroid"
+      }
+    }
+  },
+  "ignorePaths": ["**/node_modules"]
+}

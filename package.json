@@ -28,7 +28,8 @@
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "clean": "del-cli lib",
     "prepare": "bob build",
-    "test:cpp": "cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug && cmake --build cpp/build && ctest --test-dir cpp/build --output-on-failure"
+    "test:cpp": "cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug && cmake --build cpp/build && ctest --test-dir cpp/build --output-on-failure",
+    "nitrogen": "nitrogen"
   },
   "keywords": [
     "react-native",
@@ -66,6 +67,7 @@
     "eslint": "^9.22.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.3",
+    "nitrogen": "^0.35.6",
     "prettier": "^3.0.3",
     "react": "19.0.0",
     "react-native": "0.79.2",
@@ -113,11 +115,6 @@
         }
       ]
     ]
-  },
-  "codegenConfig": {
-    "name": "DlScanSpec",
-    "type": "modules",
-    "jsSrcsDir": "src"
   },
   "create-react-native-library": {
     "languages": "swift",

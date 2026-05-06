@@ -25,7 +25,11 @@ Pod::Spec.new do |s|
                    'cpp/*.hpp',
                    'cpp/aamva/*.{cpp,hpp}',
                    'cpp/ocr/*.{cpp,hpp}',
-                   'cpp/errors/*.{cpp,hpp}'
+                   'cpp/errors/*.{cpp,hpp}',
+                   # Nitro-generated glue files (Obj-C++ registration + C++ Swift bridge)
+                   'nitrogen/generated/ios/**/*.{h,hpp,c,cpp,mm}',
+                   'nitrogen/generated/ios/swift/*.swift',
+                   'nitrogen/generated/shared/**/*.{h,hpp,c,cpp}'
   s.private_header_files = "ios/**/*.h"
 
   s.frameworks   = ["Vision", "CoreVideo"]
@@ -33,8 +37,19 @@ Pod::Spec.new do |s|
 
   s.pod_target_xcconfig = {
     'CLANG_CXX_LANGUAGE_STANDARD' => 'c++17',
-    'CLANG_CXX_LIBRARY' => 'libc++'
+    'CLANG_CXX_LIBRARY' => 'libc++',
+    # Enable bidirectional Swift <-> C++ interop (Swift 5.9 / Xcode 16+)
+    'OTHER_SWIFT_FLAGS' => '-cxx-interoperability-mode=default',
+    # Enables modular headers (required by NitroModules codegen)
+    'DEFINES_MODULE' => 'YES',
+    # Disable auto-generated ObjC header for Swift (static linkage on Xcode 16+ breaks here)
+    'SWIFT_INSTALL_OBJC_HEADER' => 'NO',
+    # Swift <-> ObjC++ interop mode (required to call generated Obj-C++ from Swift)
+    'SWIFT_OBJC_INTEROP_MODE' => 'objcxx'
   }
+
+  # Nitro Modules — required by HybridDlScanIOS.swift and the generated bridge files
+  s.dependency "NitroModules"
 
   # VisionCamera — Pod-path consumers; SPM consumers resolve VC via their host package manifest
   s.dependency "VisionCamera"

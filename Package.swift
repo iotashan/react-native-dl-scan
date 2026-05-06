@@ -1,13 +1,17 @@
 // swift-tools-version:5.9
-// NOTE: SPM distribution is incomplete during the in-flight migration.
-// The DlScan target contains only Swift utility types (parser, scanner) today —
-// the React Native bridge layer (DlScan.h, DlScan.mm, DlScanFrameProcessor.m)
-// is omitted because SwiftPM does not support mixed-language targets.
-// Step 3 of the migration replaces the bridge with Nitro Modules; at that
-// point the SPM product becomes consumer-ready.
-// Do NOT add this package as a dependency until Step 3 is merged.
-// DlScanCxx contains the C++17 shared parsing core (AAMVA + OCR).
-// Swift C++ interop (interoperabilityMode(.Cxx)) will be added in Step 3.
+// DlScanCxx — C++17 shared parsing core (AAMVA + OCR field extraction).
+// DlScan    — Swift bridge layer; implements the Nitro HybridDlScanIOS class.
+//
+// SPM consumers:
+//   The DlScan target now includes HybridDlScanIOS (the Nitro HybridObject),
+//   but NitroModules is not published as a Swift Package — it ships as a
+//   CocoaPods pod only.  If you are consuming this library via SPM directly
+//   (i.e., without CocoaPods), you must add NitroModules to your host project's
+//   package manifest separately and ensure it is visible to the DlScan target.
+//
+//   For CocoaPods consumers the `DlScan.podspec` handles everything, including
+//   the `NitroModules` dependency and autolinking registration via the generated
+//   `DlScanAutolinking.mm`.
 import PackageDescription
 
 let package = Package(
@@ -36,8 +40,14 @@ let package = Package(
       sources: [
         "AAMVAParser.swift",
         "BarcodeScanner.swift",
+        "HybridDlScanIOS.swift",
         "OCRFieldParser.swift",
         "OCRScanner.swift",
+      ],
+      swiftSettings: [
+        // Enable bidirectional Swift <-> C++ interoperability so that
+        // HybridDlScanIOS can import and call DlScanCxx (parse_aamva, etc.).
+        .interoperabilityMode(.Cxx),
       ]
     ),
     .testTarget(
