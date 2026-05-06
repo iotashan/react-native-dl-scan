@@ -100,3 +100,6 @@ test-output.log
 
 # C++ build artifacts
 cpp/build/
+
+# ML training runs (model-training/.gitignore covers model-training/runs/)
+runs/

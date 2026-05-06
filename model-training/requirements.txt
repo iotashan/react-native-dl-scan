@@ -1,0 +1,70 @@
+# react-native-dl-scan — model training dependencies
+#
+# Install:
+#   pip install -r requirements.txt
+#
+# IMPORTANT: tensorflow-macos requires Python 3.11 or 3.12.
+# The current Homebrew default may be Python 3.14, which is NOT compatible.
+# Use pyenv to install and activate 3.11 or 3.12 first:
+#
+#   pyenv install 3.12.9
+#   pyenv local 3.12.9
+#   python -m venv .venv && source .venv/bin/activate
+#   pip install -r requirements.txt
+#
+# All versions are pinned to known-good arm64/M3 Ultra combinations.
+
+# ---------------------------------------------------------------------------
+# Core ML training
+# ---------------------------------------------------------------------------
+# PyTorch 2.6+ has substantially improved MPS coverage for OBB operations.
+torch>=2.6.0
+torchvision>=0.21.0
+
+# YOLOv8 + OBB support (requires ultralytics>=8.3.0 for OBB training API).
+ultralytics>=8.3.0
+
+# TensorFlow for Apple Silicon (metal plugin included in macos wheel).
+tensorflow-macos>=2.16.0
+
+# Keras 3 for the disambig per-char classification model.
+keras>=3.5.0
+
+# ---------------------------------------------------------------------------
+# Apple ML toolchains
+# ---------------------------------------------------------------------------
+# Core ML conversion + linear_quantize_weights (weight-only int8, no calibration).
+coremltools>=8.0
+
+# VisionKit OCR via PyObjC — note: install the umbrella pyobjc package which
+# pulls in pyobjc-framework-Vision, pyobjc-core, pyobjc-framework-Cocoa, etc.
+# The individual sub-package names on PyPI are:
+#   pyobjc-core, pyobjc-framework-Cocoa, pyobjc-framework-Vision
+# The umbrella installs all of them; pin by core version.
+pyobjc>=10.0
+
+# ---------------------------------------------------------------------------
+# Data + utility
+# ---------------------------------------------------------------------------
+# numpy<2.0 required for tensorflow-macos 2.16 compatibility.
+numpy>=1.26.0,<2.0
+
+pillow>=10.0.0
+opencv-python-headless>=4.10.0
+tqdm>=4.66.0
+# PyYAML is used directly in multiple scripts (prepare_yolo_obb.py,
+# prepare_yolo_fields.py, smoke_test_obb.py) but only arrives transitively via
+# Ultralytics without an explicit pin.  Pin it here so the dependency is
+# visible and to prevent silent version drift.
+PyYAML>=6.0.0
+
+# Used to pull any supplementary IDNet metadata from Zenodo/HuggingFace if
+# the local manifest is incomplete.
+huggingface-hub>=0.25.0
+
+# ---------------------------------------------------------------------------
+# Evaluation + visualization
+# ---------------------------------------------------------------------------
+seaborn>=0.13.0
+matplotlib>=3.8.0
+scikit-learn>=1.4.0
