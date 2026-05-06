@@ -95,3 +95,6 @@ test-output.log
 
 # Git worktrees
 .worktrees/
+
+# C++ build artifacts
+cpp/build/

@@ -21,7 +21,11 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => "15.0" }
   s.source       = { :git => "https://github.com/iotashan/react-native-dl-scan.git", :tag => "#{s.version}" }
 
-  s.source_files = 'ios/**/*.{h,m,mm,swift}', 'cpp/**/*.{cpp,hpp,h}'
+  s.source_files = 'ios/**/*.{h,m,mm,swift}',
+                   'cpp/*.hpp',
+                   'cpp/aamva/*.{cpp,hpp}',
+                   'cpp/ocr/*.{cpp,hpp}',
+                   'cpp/errors/*.{cpp,hpp}'
   s.private_header_files = "ios/**/*.h"
 
   s.frameworks   = ["Vision", "CoreVideo"]
