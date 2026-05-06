@@ -92,3 +92,6 @@ coverage/
 
 # Test artifacts
 test-output.log
+
+# Git worktrees
+.worktrees/
