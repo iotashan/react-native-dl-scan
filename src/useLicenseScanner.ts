@@ -2,9 +2,10 @@ import { useCallback, useMemo, useState } from 'react';
 import { runOnJS, createSynchronizable } from 'react-native-worklets';
 import { useFrameOutput } from 'react-native-vision-camera';
 import { useBarcodeScanner } from 'react-native-vision-camera-barcode-scanner';
-import { NativeDlScan } from './index';
+import { NativeDlScan, normalizeLicenseData } from './index';
 import { scanFrameBarcode, scanFrameOcr } from './scanFrame';
 import type { LicenseData, ScanMode } from './types';
+import type { LicenseDataSpec } from './specs/DlScan.nitro';
 
 export function useLicenseScanner(mode: ScanMode = 'barcode') {
   const [licenseData, setLicenseData] = useState<LicenseData | null>(null);
@@ -44,6 +45,18 @@ export function useLicenseScanner(mode: ScanMode = 'barcode') {
     [] // NativeDlScan is module-level; state setters are stable
   );
 
+  // JS-thread handler: normalize the raw Nitro LicenseDataSpec coming from the
+  // OCR path and update state. Called via runOnJS so normalizeLicenseData
+  // (which uses undefinedToNull) runs on the JS thread, not the worklet thread.
+  const handleOcrResult = useCallback(
+    (spec: LicenseDataSpec) => {
+      const data = normalizeLicenseData(spec);
+      setLicenseData(data);
+      setIsScanning(false);
+    },
+    [] // normalizeLicenseData is module-level; state setters are stable
+  );
+
   const handleError = useCallback((message: string) => {
     setError(message);
   }, []);
@@ -54,6 +67,10 @@ export function useLicenseScanner(mode: ScanMode = 'barcode') {
   const scheduleHandleBarcode = useMemo(
     () => runOnJS(handleBarcodeString),
     [handleBarcodeString]
+  );
+  const scheduleHandleOcr = useMemo(
+    () => runOnJS(handleOcrResult),
+    [handleOcrResult]
   );
   const scheduleHandleError = useMemo(
     () => runOnJS(handleError),
@@ -88,13 +105,19 @@ export function useLicenseScanner(mode: ScanMode = 'barcode') {
           scheduleHandleError(msg);
         }
       } else {
-        const result = scanFrameOcr(frame);
-        if (result != null) {
-          if (result.success && result.data != null) {
-            // OCR result would be dispatched here once Task 6 lands.
-          } else if (result.error != null) {
-            scheduleHandleError(result.error);
+        // OCR mode: recognizeLicenseFields runs synchronously and returns the
+        // latest cached result (may be null for the first few frames while
+        // the background VisionKit job is running). When a non-null result
+        // arrives, flip the guard and dispatch to the JS thread for normalization.
+        try {
+          const spec = scanFrameOcr(frame);
+          if (spec != null) {
+            hasResult.setBlocking(true);
+            scheduleHandleOcr(spec);
           }
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : 'OCR scan error';
+          scheduleHandleError(msg);
         }
       }
       frame.dispose();

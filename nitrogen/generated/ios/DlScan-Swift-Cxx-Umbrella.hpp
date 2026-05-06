@@ -10,6 +10,8 @@
 // Forward declarations of C++ defined types
 // Forward declaration of `HybridDlScanSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { class HybridDlScanSpec; }
+// Forward declaration of `HybridFrameSpec` to properly resolve imports.
+namespace margelo::nitro::camera { class HybridFrameSpec; }
 // Forward declaration of `LicenseDataSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { struct LicenseDataSpec; }
 // Forward declaration of `Sex` to properly resolve imports.
@@ -22,6 +24,7 @@ namespace margelo::nitro::dlscan { enum class Sex; }
 #include <NitroModules/Null.hpp>
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/Result.hpp>
+#include <VisionCamera/HybridFrameSpec.hpp>
 #include <exception>
 #include <memory>
 #include <optional>
@@ -40,6 +43,8 @@ namespace margelo::nitro::dlscan { enum class Sex; }
 // Forward declarations of Swift defined types
 // Forward declaration of `HybridDlScanSpec_cxx` to properly resolve imports.
 namespace DlScan { class HybridDlScanSpec_cxx; }
+// Forward declaration of `HybridFrameSpec_cxx` to properly resolve imports.
+namespace VisionCamera { class HybridFrameSpec_cxx; }
 
 // Include Swift defined types
 #if __has_include("DlScan-Swift.h")

@@ -15,6 +15,7 @@ namespace margelo::nitro::dlscan {
     // load custom methods/properties
     registerHybrids(this, [](Prototype& prototype) {
       prototype.registerHybridMethod("parseBarcodeData", &HybridDlScanSpec::parseBarcodeData);
+      prototype.registerHybridMethod("recognizeLicenseFields", &HybridDlScanSpec::recognizeLicenseFields);
     });
   }
 

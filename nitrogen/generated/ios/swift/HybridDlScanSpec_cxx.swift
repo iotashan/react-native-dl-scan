@@ -6,6 +6,7 @@
 ///
 
 import NitroModules
+import VisionCamera
 
 /**
  * A class implementation that bridges HybridDlScanSpec over to C++.
@@ -147,6 +148,29 @@ open class HybridDlScanSpec_cxx {
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
       return bridge.create_Result_std__shared_ptr_Promise_std__variant_nitro__NullType__LicenseDataSpec____(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func recognizeLicenseFields(frame: bridge.std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_) -> bridge.Result_std__variant_nitro__NullType__LicenseDataSpec__ {
+    do {
+      let __result = try self.__implementation.recognizeLicenseFields(frame: { () -> any HybridFrameSpec in
+        let __unsafePointer = bridge.get_std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_(frame)
+        let __instance = HybridFrameSpec_cxx.fromUnsafe(__unsafePointer)
+        return __instance.getHybridFrameSpec()
+      }())
+      let __resultCpp = { () -> bridge.std__variant_nitro__NullType__LicenseDataSpec_ in
+        switch __result {
+          case .first(let __value):
+            return bridge.create_std__variant_nitro__NullType__LicenseDataSpec_(margelo.nitro.NullType.null)
+          case .second(let __value):
+            return bridge.create_std__variant_nitro__NullType__LicenseDataSpec_(__value)
+        }
+      }().variant
+      return bridge.create_Result_std__variant_nitro__NullType__LicenseDataSpec__(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__variant_nitro__NullType__LicenseDataSpec__(__exceptionPtr)
     }
   }
 }

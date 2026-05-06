@@ -10,6 +10,8 @@
 // Forward declarations of C++ defined types
 // Forward declaration of `HybridDlScanSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { class HybridDlScanSpec; }
+// Forward declaration of `HybridFrameSpec` to properly resolve imports.
+namespace margelo::nitro::camera { class HybridFrameSpec; }
 // Forward declaration of `LicenseDataSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { struct LicenseDataSpec; }
 // Forward declaration of `Sex` to properly resolve imports.
@@ -18,6 +20,8 @@ namespace margelo::nitro::dlscan { enum class Sex; }
 // Forward declarations of Swift defined types
 // Forward declaration of `HybridDlScanSpec_cxx` to properly resolve imports.
 namespace DlScan { class HybridDlScanSpec_cxx; }
+// Forward declaration of `HybridFrameSpec_cxx` to properly resolve imports.
+namespace VisionCamera { class HybridFrameSpec_cxx; }
 
 // Include C++ defined types
 #include "HybridDlScanSpec.hpp"
@@ -27,6 +31,7 @@ namespace DlScan { class HybridDlScanSpec_cxx; }
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/PromiseHolder.hpp>
 #include <NitroModules/Result.hpp>
+#include <VisionCamera/HybridFrameSpec.hpp>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -170,6 +175,18 @@ namespace margelo::nitro::dlscan::bridge::swift {
     return Func_void_std__exception_ptr_Wrapper(std::move(value));
   }
   
+  // pragma MARK: std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>
+  /**
+   * Specialized version of `std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>`.
+   */
+  using std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_ = std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>;
+  std::shared_ptr<margelo::nitro::camera::HybridFrameSpec> create_std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_(void* NON_NULL swiftUnsafePointer) noexcept;
+  void* NON_NULL get_std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_(std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_ cppType);
+  
+  // pragma MARK: std::weak_ptr<margelo::nitro::camera::HybridFrameSpec>
+  using std__weak_ptr_margelo__nitro__camera__HybridFrameSpec_ = std::weak_ptr<margelo::nitro::camera::HybridFrameSpec>;
+  inline std__weak_ptr_margelo__nitro__camera__HybridFrameSpec_ weakify_std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_(const std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>& strong) noexcept { return strong; }
+  
   // pragma MARK: std::shared_ptr<HybridDlScanSpec>
   /**
    * Specialized version of `std::shared_ptr<HybridDlScanSpec>`.
@@ -189,6 +206,15 @@ namespace margelo::nitro::dlscan::bridge::swift {
   }
   inline Result_std__shared_ptr_Promise_std__variant_nitro__NullType__LicenseDataSpec____ create_Result_std__shared_ptr_Promise_std__variant_nitro__NullType__LicenseDataSpec____(const std::exception_ptr& error) noexcept {
     return Result<std::shared_ptr<Promise<std::variant<nitro::NullType, LicenseDataSpec>>>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::variant<nitro::NullType, LicenseDataSpec>>
+  using Result_std__variant_nitro__NullType__LicenseDataSpec__ = Result<std::variant<nitro::NullType, LicenseDataSpec>>;
+  inline Result_std__variant_nitro__NullType__LicenseDataSpec__ create_Result_std__variant_nitro__NullType__LicenseDataSpec__(const std::variant<nitro::NullType, LicenseDataSpec>& value) noexcept {
+    return Result<std::variant<nitro::NullType, LicenseDataSpec>>::withValue(value);
+  }
+  inline Result_std__variant_nitro__NullType__LicenseDataSpec__ create_Result_std__variant_nitro__NullType__LicenseDataSpec__(const std::exception_ptr& error) noexcept {
+    return Result<std::variant<nitro::NullType, LicenseDataSpec>>::withError(error);
   }
 
 } // namespace margelo::nitro::dlscan::bridge::swift

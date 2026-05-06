@@ -2,6 +2,8 @@ import Foundation
 import NitroModules
 import DlScanCxx
 import CxxStdlib
+import Vision
+import VisionCamera
 
 /// Swift implementation of the DlScan Nitro HybridObject.
 ///
@@ -9,11 +11,23 @@ import CxxStdlib
 /// C++ core (dlscan::parse_aamva) so the same logic executes on the iOS
 /// production path. The 66 GoogleTest cases cover this same C++ code.
 ///
+/// OCR recognition is handled via VisionKit on a serial background queue.
+/// The result is cached and returned synchronously from recognizeLicenseFields,
+/// which is safe to call from a frame-processor worklet at 30 fps.
+///
 /// Registration is handled automatically by the auto-generated
 /// DlScanAutolinking.mm (loaded via +load on first class access).
 /// Host apps do NOT need to call any registration function manually —
 /// CocoaPods autolinking handles it through pod_target_xcconfig.
 class HybridDlScanIOS: HybridDlScanSpec {
+
+  // MARK: - OCR state (guarded by ocrLock)
+
+  private let ocrLock = NSLock()
+  private var cachedOcrResult: LicenseDataSpec? = nil
+  private var ocrInFlight = false
+  private var lastOcrTime: CFAbsoluteTime = 0
+  private let ocrQueue = DispatchQueue(label: "com.dlscan.ocr", qos: .userInitiated)
 
   // MARK: - HybridDlScanSpec
 
@@ -32,7 +46,147 @@ class HybridDlScanIOS: HybridDlScanSpec {
     }
   }
 
+  /// Synchronously called from a frame-processor worklet. Returns the latest
+  /// cached OCR result, or null if no result is available yet.
+  ///
+  /// Each call checks whether a new VisionKit job should be submitted
+  /// (rate-limited to ~2 fps internally via a 0.5s cooldown). The first
+  /// non-null result becomes available a few frames after the first call.
+  /// The cache is NOT auto-cleared — the caller is responsible for stopping
+  /// calls once a non-null result is consumed (e.g., via a Synchronizable guard).
+  ///
+  /// Frame pixel buffer access happens synchronously within this method;
+  /// the VisionKit request runs asynchronously on ocrQueue but holds a
+  /// CVPixelBuffer reference acquired here. CMSampleBuffer validity is checked
+  /// before any work begins.
+  func recognizeLicenseFields(frame: any HybridFrameSpec) throws -> Variant_NullType_LicenseDataSpec {
+    let now = CFAbsoluteTimeGetCurrent()
+
+    // Snapshot OCR state under lock — do NOT set ocrInFlight yet.
+    // Keep the lock window minimal — no allocations inside.
+    ocrLock.lock()
+    let cached = cachedOcrResult
+    let inFlight = ocrInFlight
+    let elapsed = now - lastOcrTime
+    let shouldStartNewJob = !inFlight && elapsed >= 0.5  // 2 fps rate limit
+    ocrLock.unlock()
+
+    // Return cached result immediately if no new job should be started.
+    guard shouldStartNewJob else {
+      if let result = cached {
+        return Variant_NullType_LicenseDataSpec.second(result)
+      }
+      return Variant_NullType_LicenseDataSpec.first(.null)
+    }
+
+    // Extract the pixel buffer now, on the worklet thread, while the Frame is
+    // still valid. Cast to the public NativeFrame protocol (not the internal
+    // HybridFrame class) to access the sampleBuffer. If the cast fails or the
+    // buffer is unavailable, skip the job without updating lastOcrTime.
+    guard let nativeFrame = frame as? any NativeFrame,
+          let sampleBuffer = nativeFrame.sampleBuffer,
+          let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+      // Cast/extraction failed — do NOT update lastOcrTime or set ocrInFlight.
+      if let result = cached {
+        return Variant_NullType_LicenseDataSpec.second(result)
+      }
+      return Variant_NullType_LicenseDataSpec.first(.null)
+    }
+
+    // Map the VC v5 CameraOrientation + isMirrored to CGImagePropertyOrientation
+    // for VNImageRequestHandler. VNImageRequestHandler has no separate mirroring
+    // parameter — mirroring must be encoded into the orientation enum.
+    // orientation and isMirrored are directly on the HybridFrameSpec protocol.
+    let frameOrientation: CGImagePropertyOrientation
+    switch (frame.orientation, frame.isMirrored) {
+    case (.up,    false): frameOrientation = .up
+    case (.up,    true):  frameOrientation = .upMirrored
+    case (.right, false): frameOrientation = .right
+    case (.right, true):  frameOrientation = .rightMirrored
+    case (.down,  false): frameOrientation = .down
+    case (.down,  true):  frameOrientation = .downMirrored
+    case (.left,  false): frameOrientation = .left
+    case (.left,  true):  frameOrientation = .leftMirrored
+    default:              frameOrientation = .up
+    }
+
+    // Commit to a new job: set ocrInFlight + lastOcrTime atomically.
+    ocrLock.lock()
+    ocrInFlight = true
+    lastOcrTime = now
+    ocrLock.unlock()
+
+    // Retain the pixel buffer so it survives past this method call.
+    // Swift's CVPixelBuffer bridging handles CF retention automatically.
+    let retainedBuffer = pixelBuffer
+
+    ocrQueue.async { [weak self] in
+      guard let self else { return }
+      defer {
+        self.ocrLock.lock()
+        self.ocrInFlight = false
+        self.ocrLock.unlock()
+      }
+
+      let lines = self.runVisionKit(on: retainedBuffer, orientation: frameOrientation)
+
+      // Convert [String] → std::vector<std::string> for the C++ OCR extractor.
+      var cppLines = std.vector<std.string>()
+      for s in lines {
+        cppLines.push_back(std.string(s))
+      }
+
+      let cppResult = dlscan.extract_ocr_fields(cppLines)
+      let nitroResult: LicenseDataSpec? = Optional(fromCxx: cppResult).map {
+        HybridDlScanIOS.toLicenseDataSpec($0)
+      }
+
+      self.ocrLock.lock()
+      self.cachedOcrResult = nitroResult
+      self.ocrLock.unlock()
+      // Note: ocrInFlight = false is in the defer block above, so it runs
+      // even if the C++ extractor or Vision callback throws/traps.
+    }
+
+    // Return the existing cached result (may be nil on the first few frames).
+    if let result = cached {
+      return Variant_NullType_LicenseDataSpec.second(result)
+    }
+    return Variant_NullType_LicenseDataSpec.first(.null)
+  }
+
   // MARK: - Private helpers
+
+  /// Run VisionKit text recognition on a pixel buffer.
+  /// Synchronous; blocks the calling thread until the request completes.
+  private func runVisionKit(
+    on buffer: CVPixelBuffer,
+    orientation: CGImagePropertyOrientation = .up
+  ) -> [String] {
+    var lines: [String] = []
+    let request = VNRecognizeTextRequest { request, error in
+      guard error == nil,
+            let observations = request.results as? [VNRecognizedTextObservation] else {
+        return
+      }
+      for observation in observations {
+        if let candidate = observation.topCandidates(1).first,
+           candidate.confidence >= 0.3 {
+          lines.append(candidate.string)
+        }
+      }
+    }
+    request.recognitionLevel = .accurate
+    request.usesLanguageCorrection = true
+
+    let handler = VNImageRequestHandler(
+      cvPixelBuffer: buffer,
+      orientation: orientation,
+      options: [:]
+    )
+    try? handler.perform([request])
+    return lines
+  }
 
   /// Bridge a C++ std::optional<std::string> to Swift String?.
   /// Uses the Nitro bridge helpers from DlScan-Swift-Cxx-Bridge.hpp for
@@ -56,7 +210,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
   ///   - String fields → String? (via bridge helpers)
   ///   - `sex` → Sex? (Nitro-generated enum; Sex(fromString:) does the conversion)
   ///   - `aamvaVersion` → Double? (TS number maps to C++ double in Nitro)
-  private static func toLicenseDataSpec(_ ld: dlscan.LicenseData) -> LicenseDataSpec {
+  static func toLicenseDataSpec(_ ld: dlscan.LicenseData) -> LicenseDataSpec {
     // sex: std::optional<std::string> ("M"/"F"/"X") → Sex?
     let sexStr: String? = optStr(ld.sex)
     let sexValue: Sex? = sexStr.flatMap { Sex(fromString: $0) }

@@ -37,23 +37,13 @@ let package = Package(
       name: "DlScan",
       dependencies: ["DlScanCxx"],
       path: "ios",
-      sources: [
-        "AAMVAParser.swift",
-        "BarcodeScanner.swift",
-        "HybridDlScanIOS.swift",
-        "OCRFieldParser.swift",
-        "OCRScanner.swift",
-      ],
+      sources: ["HybridDlScanIOS.swift"],
       swiftSettings: [
         // Enable bidirectional Swift <-> C++ interoperability so that
-        // HybridDlScanIOS can import and call DlScanCxx (parse_aamva, etc.).
+        // HybridDlScanIOS can import and call DlScanCxx (parse_aamva,
+        // extract_ocr_fields, etc.).
         .interoperabilityMode(.Cxx),
       ]
-    ),
-    .testTarget(
-      name: "DlScanTests",
-      dependencies: ["DlScan"],
-      path: "ios/Tests"
     ),
   ],
   cxxLanguageStandard: .cxx17

@@ -6,6 +6,7 @@
 ///
 
 import NitroModules
+import VisionCamera
 
 /// See ``HybridDlScanSpec``
 public protocol HybridDlScanSpec_protocol: HybridObject {
@@ -14,6 +15,7 @@ public protocol HybridDlScanSpec_protocol: HybridObject {
 
   // Methods
   func parseBarcodeData(barcodeData: String) throws -> Promise<Variant_NullType_LicenseDataSpec>
+  func recognizeLicenseFields(frame: (any HybridFrameSpec)) throws -> Variant_NullType_LicenseDataSpec
 }
 
 public extension HybridDlScanSpec_protocol {

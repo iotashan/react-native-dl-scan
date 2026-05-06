@@ -11,6 +11,7 @@
 #include "DlScan-Swift-Cxx-Umbrella.hpp"
 #include "HybridDlScanSpecSwift.hpp"
 #include <NitroModules/NitroDefines.hpp>
+#include <VisionCamera/VisionCamera-Swift-Cxx-Bridge.hpp>
 
 namespace margelo::nitro::dlscan::bridge::swift {
 
@@ -28,6 +29,16 @@ namespace margelo::nitro::dlscan::bridge::swift {
     return [swiftClosure = std::move(swiftClosure)](const std::exception_ptr& error) mutable -> void {
       swiftClosure.call(error);
     };
+  }
+  
+  // pragma MARK: std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>
+  std::shared_ptr<margelo::nitro::camera::HybridFrameSpec> create_std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_(void* NON_NULL swiftUnsafePointer) noexcept {
+    // Implemented in VisionCamera
+    return margelo::nitro::camera::bridge::swift::create_std__shared_ptr_HybridFrameSpec_(swiftUnsafePointer);
+  }
+  void* NON_NULL get_std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_(std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_ cppType) {
+    // Implemented in VisionCamera
+    return margelo::nitro::camera::bridge::swift::get_std__shared_ptr_HybridFrameSpec_(cppType);
   }
   
   // pragma MARK: std::shared_ptr<HybridDlScanSpec>

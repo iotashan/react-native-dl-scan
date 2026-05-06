@@ -1,6 +1,8 @@
 import type { Frame } from 'react-native-vision-camera';
 import type { BarcodeScanner } from 'react-native-vision-camera-barcode-scanner';
-import type { ScanResult, ScanMode } from './types';
+import type { LicenseDataSpec } from './specs/DlScan.nitro';
+import { _hybrid } from './index';
+import type { ScanMode } from './types';
 
 /**
  * Scan a single frame for a driver's license barcode (PDF417).
@@ -39,14 +41,22 @@ export function scanFrameBarcode(
 }
 
 /**
- * OCR mode stub — returns null until Task 6 rewrites the iOS frame processor
- * in Swift using the VC v5 Nitro API.
+ * OCR mode worklet. Calls the Nitro hybrid's recognizeLicenseFields
+ * synchronously on the camera thread and returns the latest cached OCR
+ * result, or null if no result is available yet (pixel buffer was just
+ * queued; the actual VisionKit recognition runs asynchronously on the
+ * native side and the result will be available a few frames later).
+ *
+ * Returns the raw LicenseDataSpec (Nitro shape with optional fields).
+ * The caller (useLicenseScanner) is responsible for normalizing
+ * undefined → null when it crosses the worklet → JS boundary.
  *
  * @worklet
  */
-export function scanFrameOcr(_frame: Frame): ScanResult | null {
+export function scanFrameOcr(frame: Frame): LicenseDataSpec | null {
   'worklet';
-  return null;
+  const result = _hybrid.recognizeLicenseFields(frame);
+  return result ?? null;
 }
 
 /**
@@ -60,7 +70,7 @@ export function scanFrameOcr(_frame: Frame): ScanResult | null {
 export function scanFrame(
   frame: Frame,
   mode: ScanMode = 'barcode'
-): ScanResult | null {
+): LicenseDataSpec | null {
   'worklet';
   if (mode === 'ocr') {
     return scanFrameOcr(frame);

@@ -12,6 +12,7 @@ import com.facebook.jni.HybridData
 import com.facebook.proguard.annotations.DoNotStrip
 import com.margelo.nitro.core.NullType
 import com.margelo.nitro.core.Promise
+import com.margelo.nitro.camera.HybridFrameSpec
 import com.margelo.nitro.core.HybridObject
 
 /**
@@ -33,6 +34,10 @@ abstract class HybridDlScanSpec: HybridObject() {
   @DoNotStrip
   @Keep
   abstract fun parseBarcodeData(barcodeData: String): Promise<Variant_NullType_LicenseDataSpec>
+  
+  @DoNotStrip
+  @Keep
+  abstract fun recognizeLicenseFields(frame: com.margelo.nitro.camera.HybridFrameSpec): Variant_NullType_LicenseDataSpec
 
   // Default implementation of `HybridObject.toString()`
   override fun toString(): String {

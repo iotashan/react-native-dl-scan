@@ -11,6 +11,8 @@
 namespace margelo::nitro::dlscan { struct LicenseDataSpec; }
 // Forward declaration of `Sex` to properly resolve imports.
 namespace margelo::nitro::dlscan { enum class Sex; }
+// Forward declaration of `HybridFrameSpec` to properly resolve imports.
+namespace margelo::nitro::camera { class HybridFrameSpec; }
 
 #include <NitroModules/Null.hpp>
 #include "LicenseDataSpec.hpp"
@@ -24,6 +26,9 @@ namespace margelo::nitro::dlscan { enum class Sex; }
 #include <optional>
 #include "Sex.hpp"
 #include "JSex.hpp"
+#include <memory>
+#include <VisionCamera/HybridFrameSpec.hpp>
+#include <VisionCamera/JHybridFrameSpec.hpp>
 
 namespace margelo::nitro::dlscan {
 
@@ -73,6 +78,11 @@ namespace margelo::nitro::dlscan {
       });
       return __promise;
     }();
+  }
+  std::variant<nitro::NullType, LicenseDataSpec> JHybridDlScanSpec::recognizeLicenseFields(const std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>& frame) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JVariant_NullType_LicenseDataSpec>(jni::alias_ref<margelo::nitro::camera::JHybridFrameSpec::JavaPart> /* frame */)>("recognizeLicenseFields");
+    auto __result = method(_javaPart, std::dynamic_pointer_cast<margelo::nitro::camera::JHybridFrameSpec>(frame)->getJavaPart());
+    return __result->toCpp();
   }
 
 } // namespace margelo::nitro::dlscan

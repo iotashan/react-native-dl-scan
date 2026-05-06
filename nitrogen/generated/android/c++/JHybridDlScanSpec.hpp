@@ -55,6 +55,7 @@ namespace margelo::nitro::dlscan {
   public:
     // Methods
     std::shared_ptr<Promise<std::variant<nitro::NullType, LicenseDataSpec>>> parseBarcodeData(const std::string& barcodeData) override;
+    std::variant<nitro::NullType, LicenseDataSpec> recognizeLicenseFields(const std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>& frame) override;
 
   private:
     jni::global_ref<JHybridDlScanSpec::JavaPart> _javaPart;

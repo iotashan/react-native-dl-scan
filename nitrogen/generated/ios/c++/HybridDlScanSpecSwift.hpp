@@ -16,6 +16,8 @@ namespace DlScan { class HybridDlScanSpec_cxx; }
 namespace margelo::nitro::dlscan { struct LicenseDataSpec; }
 // Forward declaration of `Sex` to properly resolve imports.
 namespace margelo::nitro::dlscan { enum class Sex; }
+// Forward declaration of `HybridFrameSpec` to properly resolve imports.
+namespace margelo::nitro::camera { class HybridFrameSpec; }
 
 #include <NitroModules/Null.hpp>
 #include "LicenseDataSpec.hpp"
@@ -24,6 +26,8 @@ namespace margelo::nitro::dlscan { enum class Sex; }
 #include <string>
 #include <optional>
 #include "Sex.hpp"
+#include <memory>
+#include <VisionCamera/HybridFrameSpec.hpp>
 
 #include "DlScan-Swift-Cxx-Umbrella.hpp"
 
@@ -77,6 +81,14 @@ namespace margelo::nitro::dlscan {
     // Methods
     inline std::shared_ptr<Promise<std::variant<nitro::NullType, LicenseDataSpec>>> parseBarcodeData(const std::string& barcodeData) override {
       auto __result = _swiftPart.parseBarcodeData(barcodeData);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::variant<nitro::NullType, LicenseDataSpec> recognizeLicenseFields(const std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>& frame) override {
+      auto __result = _swiftPart.recognizeLicenseFields(frame);
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
