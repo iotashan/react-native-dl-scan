@@ -1,3 +1,25 @@
+export type DocumentType =
+  | 'driver_license'
+  | 'passport'
+  | 'national_id'
+  | 'residence_permit'
+  | 'unknown';
+
+export interface MRZData {
+  mrzType: 'TD1' | 'TD2' | 'TD3';
+  documentCode: string;
+  issuingState: string;
+  documentNumber: string;
+  primaryIdentifier: string;
+  secondaryIdentifier: string;
+  nationality: string;
+  dateOfBirth: string;
+  sex: 'M' | 'F' | 'X';
+  dateOfExpiry: string;
+  optionalData: string;
+  checkDigitsValid: boolean;
+}
+
 export interface LicenseData {
   firstName: string | null;
   lastName: string | null;
@@ -18,6 +40,8 @@ export interface LicenseData {
   restrictions: string | null;
   endorsements: string | null;
   aamvaVersion: number | null;
+  documentType?: DocumentType | null;
+  mrz?: MRZData | null;
 }
 
 export type ScanMode = 'barcode' | 'ocr';

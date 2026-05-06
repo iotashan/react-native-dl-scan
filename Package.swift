@@ -31,6 +31,7 @@ let package = Package(
         .headerSearchPath("aamva"),
         .headerSearchPath("ocr"),
         .headerSearchPath("errors"),
+        .headerSearchPath("mrz"),
       ]
     ),
     .target(

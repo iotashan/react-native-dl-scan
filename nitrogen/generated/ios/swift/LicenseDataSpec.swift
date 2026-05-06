@@ -18,7 +18,7 @@ public extension LicenseDataSpec {
   /**
    * Create a new instance of `LicenseDataSpec`.
    */
-  init(firstName: String?, lastName: String?, middleName: String?, dateOfBirth: String?, expirationDate: String?, issueDate: String?, licenseNumber: String?, street: String?, city: String?, state: String?, postalCode: String?, country: String?, sex: Sex?, eyeColor: String?, height: String?, vehicleClass: String?, restrictions: String?, endorsements: String?, aamvaVersion: Double?) {
+  init(firstName: String?, lastName: String?, middleName: String?, dateOfBirth: String?, expirationDate: String?, issueDate: String?, licenseNumber: String?, street: String?, city: String?, state: String?, postalCode: String?, country: String?, sex: Sex?, eyeColor: String?, height: String?, vehicleClass: String?, restrictions: String?, endorsements: String?, aamvaVersion: Double?, documentType: DocumentType?, mrz: MRZDataSpec?) {
     self.init({ () -> bridge.std__optional_std__string_ in
       if let __unwrappedValue = firstName {
         return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
@@ -130,6 +130,18 @@ public extension LicenseDataSpec {
     }(), { () -> bridge.std__optional_double_ in
       if let __unwrappedValue = aamvaVersion {
         return bridge.create_std__optional_double_(__unwrappedValue)
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_DocumentType_ in
+      if let __unwrappedValue = documentType {
+        return bridge.create_std__optional_DocumentType_(__unwrappedValue)
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_MRZDataSpec_ in
+      if let __unwrappedValue = mrz {
+        return bridge.create_std__optional_MRZDataSpec_(__unwrappedValue)
       } else {
         return .init()
       }
@@ -355,5 +367,15 @@ public extension LicenseDataSpec {
         return nil
       }
     }()
+  }
+  
+  @inline(__always)
+  var documentType: DocumentType? {
+    return self.__documentType.value
+  }
+  
+  @inline(__always)
+  var mrz: MRZDataSpec? {
+    return self.__mrz.value
   }
 }

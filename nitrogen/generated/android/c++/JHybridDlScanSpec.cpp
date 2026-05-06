@@ -11,6 +11,12 @@
 namespace margelo::nitro::dlscan { struct LicenseDataSpec; }
 // Forward declaration of `Sex` to properly resolve imports.
 namespace margelo::nitro::dlscan { enum class Sex; }
+// Forward declaration of `DocumentType` to properly resolve imports.
+namespace margelo::nitro::dlscan { enum class DocumentType; }
+// Forward declaration of `MRZDataSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct MRZDataSpec; }
+// Forward declaration of `MRZTypeSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { enum class MRZTypeSpec; }
 // Forward declaration of `HybridFrameSpec` to properly resolve imports.
 namespace margelo::nitro::camera { class HybridFrameSpec; }
 
@@ -26,6 +32,12 @@ namespace margelo::nitro::camera { class HybridFrameSpec; }
 #include <optional>
 #include "Sex.hpp"
 #include "JSex.hpp"
+#include "DocumentType.hpp"
+#include "JDocumentType.hpp"
+#include "MRZDataSpec.hpp"
+#include "JMRZDataSpec.hpp"
+#include "MRZTypeSpec.hpp"
+#include "JMRZTypeSpec.hpp"
 #include <memory>
 #include <VisionCamera/HybridFrameSpec.hpp>
 #include <VisionCamera/JHybridFrameSpec.hpp>

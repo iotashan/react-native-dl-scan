@@ -25,12 +25,18 @@
 #include "LicenseDataSpec.hpp"
 #include "JLicenseDataSpec.hpp"
 #include "Sex.hpp"
+#include "DocumentType.hpp"
+#include "MRZDataSpec.hpp"
+#include "MRZTypeSpec.hpp"
 
 namespace dlscan_jni {
 
 using namespace facebook;
-using NitroSpec = margelo::nitro::dlscan::LicenseDataSpec;
-using NitroSex  = margelo::nitro::dlscan::Sex;
+using NitroSpec         = margelo::nitro::dlscan::LicenseDataSpec;
+using NitroSex          = margelo::nitro::dlscan::Sex;
+using NitroDocType      = margelo::nitro::dlscan::DocumentType;
+using NitroMRZDataSpec  = margelo::nitro::dlscan::MRZDataSpec;
+using NitroMRZType      = margelo::nitro::dlscan::MRZTypeSpec;
 
 /**
  * Convert dlscan::LicenseData (C++ core POD) → margelo::nitro::dlscan::LicenseDataSpec
@@ -72,6 +78,53 @@ static NitroSpec toNitroSpec(const dlscan::LicenseData& ld) {
     // aamvaVersion: dlscan int → Nitro double
     if (ld.aamvaVersion.has_value()) {
         s.aamvaVersion = static_cast<double>(*ld.aamvaVersion);
+    }
+
+    // documentType: dlscan::DocumentType → margelo::nitro::dlscan::DocumentType
+    if (ld.documentType.has_value()) {
+        switch (*ld.documentType) {
+            case dlscan::DocumentType::Passport:
+                s.documentType = NitroDocType::PASSPORT; break;
+            case dlscan::DocumentType::NationalId:
+                s.documentType = NitroDocType::NATIONAL_ID; break;
+            case dlscan::DocumentType::ResidencePermit:
+                s.documentType = NitroDocType::RESIDENCE_PERMIT; break;
+            case dlscan::DocumentType::DriverLicense:
+                s.documentType = NitroDocType::DRIVER_LICENSE; break;
+            default:
+                s.documentType = NitroDocType::UNKNOWN; break;
+        }
+    }
+
+    // mrz: dlscan::MRZData → margelo::nitro::dlscan::MRZDataSpec
+    if (ld.mrz.has_value()) {
+        const auto& m = *ld.mrz;
+        NitroMRZDataSpec mrzSpec;
+
+        // MRZType
+        switch (m.mrzType) {
+            case dlscan::MRZType::TD1: mrzSpec.mrzType = NitroMRZType::TD1; break;
+            case dlscan::MRZType::TD2: mrzSpec.mrzType = NitroMRZType::TD2; break;
+            default:                  mrzSpec.mrzType = NitroMRZType::TD3; break;
+        }
+
+        mrzSpec.documentCode        = m.documentCode;
+        mrzSpec.issuingState        = m.issuingState;
+        mrzSpec.documentNumber      = m.documentNumber;
+        mrzSpec.primaryIdentifier   = m.primaryIdentifier;
+        mrzSpec.secondaryIdentifier = m.secondaryIdentifier;
+        mrzSpec.nationality         = m.nationality;
+        mrzSpec.dateOfBirth         = m.dateOfBirth;
+        mrzSpec.dateOfExpiry        = m.dateOfExpiry;
+        mrzSpec.optionalData        = m.optionalData;
+        mrzSpec.checkDigitsValid    = m.checkDigitsValid;
+
+        // sex: std::string ("M"/"F"/"X") → NitroSex
+        if      (m.sex == "M") mrzSpec.sex = NitroSex::M;
+        else if (m.sex == "F") mrzSpec.sex = NitroSex::F;
+        else                   mrzSpec.sex = NitroSex::X;
+
+        s.mrz = mrzSpec;
     }
 
     return s;

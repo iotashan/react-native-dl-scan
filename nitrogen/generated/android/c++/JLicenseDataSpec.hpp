@@ -10,7 +10,13 @@
 #include <fbjni/fbjni.h>
 #include "LicenseDataSpec.hpp"
 
+#include "DocumentType.hpp"
+#include "JDocumentType.hpp"
+#include "JMRZDataSpec.hpp"
+#include "JMRZTypeSpec.hpp"
 #include "JSex.hpp"
+#include "MRZDataSpec.hpp"
+#include "MRZTypeSpec.hpp"
 #include "Sex.hpp"
 #include <optional>
 #include <string>
@@ -72,6 +78,10 @@ namespace margelo::nitro::dlscan {
       jni::local_ref<jni::JString> endorsements = this->getFieldValue(fieldEndorsements);
       static const auto fieldAamvaVersion = clazz->getField<jni::JDouble>("aamvaVersion");
       jni::local_ref<jni::JDouble> aamvaVersion = this->getFieldValue(fieldAamvaVersion);
+      static const auto fieldDocumentType = clazz->getField<JDocumentType>("documentType");
+      jni::local_ref<JDocumentType> documentType = this->getFieldValue(fieldDocumentType);
+      static const auto fieldMrz = clazz->getField<JMRZDataSpec>("mrz");
+      jni::local_ref<JMRZDataSpec> mrz = this->getFieldValue(fieldMrz);
       return LicenseDataSpec(
         firstName != nullptr ? std::make_optional(firstName->toStdString()) : std::nullopt,
         lastName != nullptr ? std::make_optional(lastName->toStdString()) : std::nullopt,
@@ -91,7 +101,9 @@ namespace margelo::nitro::dlscan {
         vehicleClass != nullptr ? std::make_optional(vehicleClass->toStdString()) : std::nullopt,
         restrictions != nullptr ? std::make_optional(restrictions->toStdString()) : std::nullopt,
         endorsements != nullptr ? std::make_optional(endorsements->toStdString()) : std::nullopt,
-        aamvaVersion != nullptr ? std::make_optional(aamvaVersion->value()) : std::nullopt
+        aamvaVersion != nullptr ? std::make_optional(aamvaVersion->value()) : std::nullopt,
+        documentType != nullptr ? std::make_optional(documentType->toCpp()) : std::nullopt,
+        mrz != nullptr ? std::make_optional(mrz->toCpp()) : std::nullopt
       );
     }
 
@@ -101,7 +113,7 @@ namespace margelo::nitro::dlscan {
      */
     [[maybe_unused]]
     static jni::local_ref<JLicenseDataSpec::javaobject> fromCpp(const LicenseDataSpec& value) {
-      using JSignature = JLicenseDataSpec(jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<JSex>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JDouble>);
+      using JSignature = JLicenseDataSpec(jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<JSex>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JDouble>, jni::alias_ref<JDocumentType>, jni::alias_ref<JMRZDataSpec>);
       static const auto clazz = javaClassStatic();
       static const auto create = clazz->getStaticMethod<JSignature>("fromCpp");
       return create(
@@ -124,7 +136,9 @@ namespace margelo::nitro::dlscan {
         value.vehicleClass.has_value() ? jni::make_jstring(value.vehicleClass.value()) : nullptr,
         value.restrictions.has_value() ? jni::make_jstring(value.restrictions.value()) : nullptr,
         value.endorsements.has_value() ? jni::make_jstring(value.endorsements.value()) : nullptr,
-        value.aamvaVersion.has_value() ? jni::JDouble::valueOf(value.aamvaVersion.value()) : nullptr
+        value.aamvaVersion.has_value() ? jni::JDouble::valueOf(value.aamvaVersion.value()) : nullptr,
+        value.documentType.has_value() ? JDocumentType::fromCpp(value.documentType.value()) : nullptr,
+        value.mrz.has_value() ? JMRZDataSpec::fromCpp(value.mrz.value()) : nullptr
       );
     }
   };

@@ -8,12 +8,18 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `DocumentType` to properly resolve imports.
+namespace margelo::nitro::dlscan { enum class DocumentType; }
 // Forward declaration of `HybridDlScanSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { class HybridDlScanSpec; }
 // Forward declaration of `HybridFrameSpec` to properly resolve imports.
 namespace margelo::nitro::camera { class HybridFrameSpec; }
 // Forward declaration of `LicenseDataSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { struct LicenseDataSpec; }
+// Forward declaration of `MRZDataSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct MRZDataSpec; }
+// Forward declaration of `MRZTypeSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { enum class MRZTypeSpec; }
 // Forward declaration of `Sex` to properly resolve imports.
 namespace margelo::nitro::dlscan { enum class Sex; }
 
@@ -24,8 +30,11 @@ namespace DlScan { class HybridDlScanSpec_cxx; }
 namespace VisionCamera { class HybridFrameSpec_cxx; }
 
 // Include C++ defined types
+#include "DocumentType.hpp"
 #include "HybridDlScanSpec.hpp"
 #include "LicenseDataSpec.hpp"
+#include "MRZDataSpec.hpp"
+#include "MRZTypeSpec.hpp"
 #include "Sex.hpp"
 #include <NitroModules/Null.hpp>
 #include <NitroModules/Promise.hpp>
@@ -87,6 +96,36 @@ namespace margelo::nitro::dlscan::bridge::swift {
     return optional.has_value();
   }
   inline double get_std__optional_double_(const std::optional<double>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<DocumentType>
+  /**
+   * Specialized version of `std::optional<DocumentType>`.
+   */
+  using std__optional_DocumentType_ = std::optional<DocumentType>;
+  inline std::optional<DocumentType> create_std__optional_DocumentType_(const DocumentType& value) noexcept {
+    return std::optional<DocumentType>(value);
+  }
+  inline bool has_value_std__optional_DocumentType_(const std::optional<DocumentType>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline DocumentType get_std__optional_DocumentType_(const std::optional<DocumentType>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::optional<MRZDataSpec>
+  /**
+   * Specialized version of `std::optional<MRZDataSpec>`.
+   */
+  using std__optional_MRZDataSpec_ = std::optional<MRZDataSpec>;
+  inline std::optional<MRZDataSpec> create_std__optional_MRZDataSpec_(const MRZDataSpec& value) noexcept {
+    return std::optional<MRZDataSpec>(value);
+  }
+  inline bool has_value_std__optional_MRZDataSpec_(const std::optional<MRZDataSpec>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline MRZDataSpec get_std__optional_MRZDataSpec_(const std::optional<MRZDataSpec>& optional) noexcept {
     return optional.value();
   }
   

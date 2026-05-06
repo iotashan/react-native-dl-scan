@@ -19,6 +19,12 @@
 #include <optional>
 #include "Sex.hpp"
 #include "JSex.hpp"
+#include "DocumentType.hpp"
+#include "JDocumentType.hpp"
+#include "MRZDataSpec.hpp"
+#include "JMRZDataSpec.hpp"
+#include "MRZTypeSpec.hpp"
+#include "JMRZTypeSpec.hpp"
 
 namespace margelo::nitro::dlscan {
 

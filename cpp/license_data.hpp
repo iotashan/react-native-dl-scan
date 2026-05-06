@@ -1,8 +1,21 @@
 #pragma once
 #include <optional>
 #include <string>
+#include "mrz/mrz_data.hpp"
 
 namespace dlscan {
+
+/// Document type — determined at parse time.
+/// DriverLicense: AAMVA barcode or OCR without MRZ.
+/// Passport / NationalId / ResidencePermit: populated from MRZ parse.
+/// Unknown: default when type cannot be determined.
+enum class DocumentType {
+    DriverLicense,
+    Passport,
+    NationalId,
+    ResidencePermit,
+    Unknown
+};
 
 /// POD struct representing a parsed driver's license.
 /// All fields are optional; present only when successfully parsed.
@@ -27,6 +40,10 @@ struct LicenseData {
     std::optional<std::string> restrictions;
     std::optional<std::string> endorsements;
     std::optional<int> aamvaVersion;
+
+    // MRZ / travel document extension (additive; null for driver licenses).
+    std::optional<DocumentType> documentType;
+    std::optional<MRZData> mrz;
 };
 
 } // namespace dlscan

@@ -220,6 +220,48 @@ class HybridDlScanIOS: HybridDlScanSpec {
     // convert to Double (Nitro maps TS `number` to C++ double).
     let versionValue: Double? = Optional(fromCxx: ld.aamvaVersion).map { Double($0) }
 
+    // documentType: optional dlscan::DocumentType enum → Nitro DocumentType?
+    let docTypeValue: DocumentType?
+    if let cppDocType = Optional(fromCxx: ld.documentType) {
+      switch cppDocType {
+      case dlscan.DocumentType.Passport:         docTypeValue = .passport
+      case dlscan.DocumentType.NationalId:       docTypeValue = .nationalId
+      case dlscan.DocumentType.ResidencePermit:  docTypeValue = .residencePermit
+      case dlscan.DocumentType.DriverLicense:    docTypeValue = .driverLicense
+      default:                                   docTypeValue = .unknown
+      }
+    } else {
+      docTypeValue = nil
+    }
+
+    // mrz: optional dlscan::MRZData → MRZDataSpec?
+    let mrzValue: MRZDataSpec?
+    if let cppMrz = Optional(fromCxx: ld.mrz) {
+      let mrzTypeVal: MRZTypeSpec
+      switch cppMrz.mrzType {
+      case dlscan.MRZType.TD1: mrzTypeVal = .td1
+      case dlscan.MRZType.TD2: mrzTypeVal = .td2
+      default:                 mrzTypeVal = .td3
+      }
+      let mrzSexVal: Sex = Sex(fromString: String(std.string(cppMrz.sex))) ?? .x
+      mrzValue = MRZDataSpec(
+        mrzType:             mrzTypeVal,
+        documentCode:        String(std.string(cppMrz.documentCode)),
+        issuingState:        String(std.string(cppMrz.issuingState)),
+        documentNumber:      String(std.string(cppMrz.documentNumber)),
+        primaryIdentifier:   String(std.string(cppMrz.primaryIdentifier)),
+        secondaryIdentifier: String(std.string(cppMrz.secondaryIdentifier)),
+        nationality:         String(std.string(cppMrz.nationality)),
+        dateOfBirth:         String(std.string(cppMrz.dateOfBirth)),
+        sex:                 mrzSexVal,
+        dateOfExpiry:        String(std.string(cppMrz.dateOfExpiry)),
+        optionalData:        String(std.string(cppMrz.optionalData)),
+        checkDigitsValid:    cppMrz.checkDigitsValid
+      )
+    } else {
+      mrzValue = nil
+    }
+
     return LicenseDataSpec(
       firstName:      optStr(ld.firstName),
       lastName:       optStr(ld.lastName),
@@ -239,7 +281,9 @@ class HybridDlScanIOS: HybridDlScanSpec {
       vehicleClass:   optStr(ld.vehicleClass),
       restrictions:   optStr(ld.restrictions),
       endorsements:   optStr(ld.endorsements),
-      aamvaVersion:   versionValue
+      aamvaVersion:   versionValue,
+      documentType:   docTypeValue,
+      mrz:            mrzValue
     )
   }
 }

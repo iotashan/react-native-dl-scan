@@ -22,3 +22,13 @@ target_link_libraries(ocr_field_test
     PRIVATE GTest::gtest_main
 )
 gtest_discover_tests(ocr_field_test)
+
+# MRZ (ICAO 9303) parser tests
+add_executable(mrz_test
+    mrz_test.cpp
+)
+target_link_libraries(mrz_test
+    PRIVATE dlscan_core
+    PRIVATE GTest::gtest_main
+)
+gtest_discover_tests(mrz_test)

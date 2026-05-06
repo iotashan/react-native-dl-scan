@@ -8,18 +8,27 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `DocumentType` to properly resolve imports.
+namespace margelo::nitro::dlscan { enum class DocumentType; }
 // Forward declaration of `HybridDlScanSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { class HybridDlScanSpec; }
 // Forward declaration of `HybridFrameSpec` to properly resolve imports.
 namespace margelo::nitro::camera { class HybridFrameSpec; }
 // Forward declaration of `LicenseDataSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { struct LicenseDataSpec; }
+// Forward declaration of `MRZDataSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct MRZDataSpec; }
+// Forward declaration of `MRZTypeSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { enum class MRZTypeSpec; }
 // Forward declaration of `Sex` to properly resolve imports.
 namespace margelo::nitro::dlscan { enum class Sex; }
 
 // Include C++ defined types
+#include "DocumentType.hpp"
 #include "HybridDlScanSpec.hpp"
 #include "LicenseDataSpec.hpp"
+#include "MRZDataSpec.hpp"
+#include "MRZTypeSpec.hpp"
 #include "Sex.hpp"
 #include <NitroModules/Null.hpp>
 #include <NitroModules/Promise.hpp>

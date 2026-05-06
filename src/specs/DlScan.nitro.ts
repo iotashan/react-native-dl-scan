@@ -1,6 +1,33 @@
 import type { HybridObject } from 'react-native-nitro-modules';
 import type { Frame } from 'react-native-vision-camera';
 
+// Document type enum — nitrogen serializes string unions as strings.
+export type DocumentType =
+  | 'driver_license'
+  | 'passport'
+  | 'national_id'
+  | 'residence_permit'
+  | 'unknown';
+
+// MRZ type discriminator
+export type MRZTypeSpec = 'TD1' | 'TD2' | 'TD3';
+
+// MRZ data struct — optional on LicenseDataSpec; present only for travel docs.
+export interface MRZDataSpec {
+  mrzType: MRZTypeSpec;
+  documentCode: string;
+  issuingState: string;
+  documentNumber: string;
+  primaryIdentifier: string;
+  secondaryIdentifier: string;
+  nationality: string;
+  dateOfBirth: string;
+  sex: Sex;
+  dateOfExpiry: string;
+  optionalData: string;
+  checkDigitsValid: boolean;
+}
+
 // Sex must be a named type (nitrogen cannot handle inline string-literal unions).
 export type Sex = 'M' | 'F' | 'X';
 
@@ -27,6 +54,8 @@ export interface LicenseDataSpec {
   restrictions?: string;
   endorsements?: string;
   aamvaVersion?: number;
+  documentType?: DocumentType;
+  mrz?: MRZDataSpec;
 }
 
 export interface DlScan extends HybridObject<{

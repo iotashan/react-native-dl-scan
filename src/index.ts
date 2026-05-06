@@ -1,6 +1,6 @@
 import { NitroModules } from 'react-native-nitro-modules';
 import type { DlScan as DlScanSpec } from './specs/DlScan.nitro';
-import type { LicenseData } from './types';
+import type { LicenseData, MRZData, DocumentType } from './types';
 import type { LicenseDataSpec } from './specs/DlScan.nitro';
 
 // Re-export so useLicenseScanner and scanFrame can use without a circular import.
@@ -41,6 +41,25 @@ export function normalizeLicenseData(result: LicenseDataSpec): LicenseData {
     restrictions: undefinedToNull(result.restrictions),
     endorsements: undefinedToNull(result.endorsements),
     aamvaVersion: undefinedToNull(result.aamvaVersion),
+    documentType: undefinedToNull(result.documentType) as DocumentType | null,
+    mrz: undefinedToNull(
+      result.mrz != null
+        ? ({
+            mrzType: result.mrz.mrzType as MRZData['mrzType'],
+            documentCode: result.mrz.documentCode,
+            issuingState: result.mrz.issuingState,
+            documentNumber: result.mrz.documentNumber,
+            primaryIdentifier: result.mrz.primaryIdentifier,
+            secondaryIdentifier: result.mrz.secondaryIdentifier,
+            nationality: result.mrz.nationality,
+            dateOfBirth: result.mrz.dateOfBirth,
+            sex: result.mrz.sex as MRZData['sex'],
+            dateOfExpiry: result.mrz.dateOfExpiry,
+            optionalData: result.mrz.optionalData,
+            checkDigitsValid: result.mrz.checkDigitsValid,
+          } satisfies MRZData)
+        : undefined
+    ),
   };
 }
 
@@ -56,4 +75,10 @@ export const NativeDlScan = {
 
 export { scanFrame } from './scanFrame';
 export { useLicenseScanner } from './useLicenseScanner';
-export type { LicenseData, ScanResult, ScanMode } from './types';
+export type {
+  LicenseData,
+  ScanResult,
+  ScanMode,
+  DocumentType,
+  MRZData,
+} from './types';

@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include "../mrz/mrz_parser.hpp"
+
 namespace dlscan {
 namespace {
 
@@ -311,6 +313,40 @@ static void assign_dates(const std::vector<ParsedDate>& dates, LicenseData& resu
 // ---------------------------------------------------------------------------
 
 std::optional<LicenseData> extract_ocr_fields(const std::vector<std::string>& lines) {
+    // --- MRZ detection: try before AAMVA-OCR heuristics ---
+    {
+        auto mrz = parse_mrz(lines);
+        if (mrz.has_value()) {
+            LicenseData out;
+            if (mrz->mrzType == MRZType::TD3) {
+                out.documentType = DocumentType::Passport;
+            } else if (mrz->documentCode.size() >= 2 &&
+                       mrz->documentCode[0] == 'A' && mrz->documentCode[1] == 'C') {
+                out.documentType = DocumentType::ResidencePermit;
+            } else {
+                out.documentType = DocumentType::NationalId;
+            }
+            out.mrz = mrz;
+            // Populate driver-license-equivalent fields where they overlap
+            if (!mrz->primaryIdentifier.empty())
+                out.lastName = mrz->primaryIdentifier;
+            if (!mrz->secondaryIdentifier.empty())
+                out.firstName = mrz->secondaryIdentifier;
+            if (!mrz->dateOfBirth.empty())
+                out.dateOfBirth = mrz->dateOfBirth;
+            if (!mrz->dateOfExpiry.empty())
+                out.expirationDate = mrz->dateOfExpiry;
+            if (!mrz->documentNumber.empty())
+                out.licenseNumber = mrz->documentNumber;
+            if (!mrz->issuingState.empty())
+                out.country = mrz->issuingState;
+            if (!mrz->sex.empty())
+                out.sex = mrz->sex;
+            return out;
+        }
+    }
+    // Fall through to AAMVA-OCR field heuristic (existing logic below)
+
     LicenseData result;
 
     std::string joined = join_lines(lines);

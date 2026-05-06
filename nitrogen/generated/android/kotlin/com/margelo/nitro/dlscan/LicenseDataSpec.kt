@@ -74,7 +74,13 @@ data class LicenseDataSpec(
   val endorsements: String?,
   @DoNotStrip
   @Keep
-  val aamvaVersion: Double?
+  val aamvaVersion: Double?,
+  @DoNotStrip
+  @Keep
+  val documentType: DocumentType?,
+  @DoNotStrip
+  @Keep
+  val mrz: MRZDataSpec?
 ) {
   /* primary constructor */
 
@@ -100,6 +106,8 @@ data class LicenseDataSpec(
       && Objects.deepEquals(this.restrictions, other.restrictions)
       && Objects.deepEquals(this.endorsements, other.endorsements)
       && Objects.deepEquals(this.aamvaVersion, other.aamvaVersion)
+      && Objects.deepEquals(this.documentType, other.documentType)
+      && Objects.deepEquals(this.mrz, other.mrz)
   }
 
   override fun hashCode(): Int {
@@ -122,7 +130,9 @@ data class LicenseDataSpec(
       vehicleClass,
       restrictions,
       endorsements,
-      aamvaVersion
+      aamvaVersion,
+      documentType,
+      mrz
     ).contentDeepHashCode()
   }
 
@@ -134,8 +144,8 @@ data class LicenseDataSpec(
     @Keep
     @Suppress("unused")
     @JvmStatic
-    private fun fromCpp(firstName: String?, lastName: String?, middleName: String?, dateOfBirth: String?, expirationDate: String?, issueDate: String?, licenseNumber: String?, street: String?, city: String?, state: String?, postalCode: String?, country: String?, sex: Sex?, eyeColor: String?, height: String?, vehicleClass: String?, restrictions: String?, endorsements: String?, aamvaVersion: Double?): LicenseDataSpec {
-      return LicenseDataSpec(firstName, lastName, middleName, dateOfBirth, expirationDate, issueDate, licenseNumber, street, city, state, postalCode, country, sex, eyeColor, height, vehicleClass, restrictions, endorsements, aamvaVersion)
+    private fun fromCpp(firstName: String?, lastName: String?, middleName: String?, dateOfBirth: String?, expirationDate: String?, issueDate: String?, licenseNumber: String?, street: String?, city: String?, state: String?, postalCode: String?, country: String?, sex: Sex?, eyeColor: String?, height: String?, vehicleClass: String?, restrictions: String?, endorsements: String?, aamvaVersion: Double?, documentType: DocumentType?, mrz: MRZDataSpec?): LicenseDataSpec {
+      return LicenseDataSpec(firstName, lastName, middleName, dateOfBirth, expirationDate, issueDate, licenseNumber, street, city, state, postalCode, country, sex, eyeColor, height, vehicleClass, restrictions, endorsements, aamvaVersion, documentType, mrz)
     }
   }
 }

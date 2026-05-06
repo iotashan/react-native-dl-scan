@@ -30,10 +30,16 @@
 
 // Forward declaration of `Sex` to properly resolve imports.
 namespace margelo::nitro::dlscan { enum class Sex; }
+// Forward declaration of `DocumentType` to properly resolve imports.
+namespace margelo::nitro::dlscan { enum class DocumentType; }
+// Forward declaration of `MRZDataSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct MRZDataSpec; }
 
 #include <string>
 #include <optional>
 #include "Sex.hpp"
+#include "DocumentType.hpp"
+#include "MRZDataSpec.hpp"
 
 namespace margelo::nitro::dlscan {
 
@@ -61,10 +67,12 @@ namespace margelo::nitro::dlscan {
     std::optional<std::string> restrictions     SWIFT_PRIVATE;
     std::optional<std::string> endorsements     SWIFT_PRIVATE;
     std::optional<double> aamvaVersion     SWIFT_PRIVATE;
+    std::optional<DocumentType> documentType     SWIFT_PRIVATE;
+    std::optional<MRZDataSpec> mrz     SWIFT_PRIVATE;
 
   public:
     LicenseDataSpec() = default;
-    explicit LicenseDataSpec(std::optional<std::string> firstName, std::optional<std::string> lastName, std::optional<std::string> middleName, std::optional<std::string> dateOfBirth, std::optional<std::string> expirationDate, std::optional<std::string> issueDate, std::optional<std::string> licenseNumber, std::optional<std::string> street, std::optional<std::string> city, std::optional<std::string> state, std::optional<std::string> postalCode, std::optional<std::string> country, std::optional<Sex> sex, std::optional<std::string> eyeColor, std::optional<std::string> height, std::optional<std::string> vehicleClass, std::optional<std::string> restrictions, std::optional<std::string> endorsements, std::optional<double> aamvaVersion): firstName(firstName), lastName(lastName), middleName(middleName), dateOfBirth(dateOfBirth), expirationDate(expirationDate), issueDate(issueDate), licenseNumber(licenseNumber), street(street), city(city), state(state), postalCode(postalCode), country(country), sex(sex), eyeColor(eyeColor), height(height), vehicleClass(vehicleClass), restrictions(restrictions), endorsements(endorsements), aamvaVersion(aamvaVersion) {}
+    explicit LicenseDataSpec(std::optional<std::string> firstName, std::optional<std::string> lastName, std::optional<std::string> middleName, std::optional<std::string> dateOfBirth, std::optional<std::string> expirationDate, std::optional<std::string> issueDate, std::optional<std::string> licenseNumber, std::optional<std::string> street, std::optional<std::string> city, std::optional<std::string> state, std::optional<std::string> postalCode, std::optional<std::string> country, std::optional<Sex> sex, std::optional<std::string> eyeColor, std::optional<std::string> height, std::optional<std::string> vehicleClass, std::optional<std::string> restrictions, std::optional<std::string> endorsements, std::optional<double> aamvaVersion, std::optional<DocumentType> documentType, std::optional<MRZDataSpec> mrz): firstName(firstName), lastName(lastName), middleName(middleName), dateOfBirth(dateOfBirth), expirationDate(expirationDate), issueDate(issueDate), licenseNumber(licenseNumber), street(street), city(city), state(state), postalCode(postalCode), country(country), sex(sex), eyeColor(eyeColor), height(height), vehicleClass(vehicleClass), restrictions(restrictions), endorsements(endorsements), aamvaVersion(aamvaVersion), documentType(documentType), mrz(mrz) {}
 
   public:
     friend bool operator==(const LicenseDataSpec& lhs, const LicenseDataSpec& rhs) = default;
@@ -98,7 +106,9 @@ namespace margelo::nitro {
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "vehicleClass"))),
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "restrictions"))),
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "endorsements"))),
-        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "aamvaVersion")))
+        JSIConverter<std::optional<double>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "aamvaVersion"))),
+        JSIConverter<std::optional<margelo::nitro::dlscan::DocumentType>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "documentType"))),
+        JSIConverter<std::optional<margelo::nitro::dlscan::MRZDataSpec>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "mrz")))
       );
     }
     static inline jsi::Value toJSI(jsi::Runtime& runtime, const margelo::nitro::dlscan::LicenseDataSpec& arg) {
@@ -122,6 +132,8 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "restrictions"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.restrictions));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "endorsements"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.endorsements));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "aamvaVersion"), JSIConverter<std::optional<double>>::toJSI(runtime, arg.aamvaVersion));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "documentType"), JSIConverter<std::optional<margelo::nitro::dlscan::DocumentType>>::toJSI(runtime, arg.documentType));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "mrz"), JSIConverter<std::optional<margelo::nitro::dlscan::MRZDataSpec>>::toJSI(runtime, arg.mrz));
       return obj;
     }
     static inline bool canConvert(jsi::Runtime& runtime, const jsi::Value& value) {
@@ -151,6 +163,8 @@ namespace margelo::nitro {
       if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "restrictions")))) return false;
       if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "endorsements")))) return false;
       if (!JSIConverter<std::optional<double>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "aamvaVersion")))) return false;
+      if (!JSIConverter<std::optional<margelo::nitro::dlscan::DocumentType>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "documentType")))) return false;
+      if (!JSIConverter<std::optional<margelo::nitro::dlscan::MRZDataSpec>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "mrz")))) return false;
       return true;
     }
   };

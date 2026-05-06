@@ -18,10 +18,11 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# Core static library: AAMVA parser + OCR extractor + error codes
+# Core static library: AAMVA parser + OCR extractor + MRZ parser + error codes
 add_library(dlscan_core STATIC
     aamva/aamva_parser.cpp
     ocr/ocr_field_extractor.cpp
+    mrz/mrz_parser.cpp
     errors/error_codes.cpp
 )
 
