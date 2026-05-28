@@ -1,134 +1,110 @@
-# React Native DL Scan Example App
+# `react-native-dl-scan` example app
 
-A comprehensive example application demonstrating all features of the react-native-dl-scan library.
+This is the official sample for **react-native-dl-scan**. It is intentionally small (one app, one screen, no router, no Redux) but exercises every meaningful surface of the library and several patterns that aren't obvious from the library's API alone. If you're integrating the library into your own product, the patterns here are tested and load-bearing.
 
-## Features Demonstrated
+The app runs on iOS (physical device or Simulator with [SimCam](https://simcam.swmansion.com)) and Android (physical device — Pixel 6 and newer recommended).
 
-1. **Basic Scanning** - Simple barcode scanning with automatic mode selection
-2. **Intelligent Mode** - Automatic switching between PDF417 and OCR modes
-3. **Manual Mode Selection** - Choose between barcode and OCR scanning modes
-4. **Quality Indicators** - Real-time feedback on scan quality
-5. **Accessibility Features** - Voice guidance and haptic feedback
-6. **Error Handling** - Test various error scenarios
-7. **Performance Test** - Measure scanning performance
-8. **History & Storage** - View scan history and storage examples
+## Running it
 
-## Getting Started
-
-### Prerequisites
-
-Make sure you have completed the [React Native - Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
-
-### Installation
-
-1. Install dependencies:
-```bash
+```sh
+# from the repo root
+yarn                              # install workspace deps
 cd example
-yarn install
+yarn ios                          # builds + installs to a booted iOS device/simulator
+# or
+yarn android                      # builds + installs to a connected Android device
 ```
 
-2. Install iOS pods (iOS only):
-```bash
-cd ios
-bundle install  # First time only
-bundle exec pod install
+For physical iOS the project is signed with team `3VPB4NZTQS` by default — change `example/ios/DlScanExample.xcodeproj/project.pbxproj` `DEVELOPMENT_TEAM` if you're a different developer. For Android no signing config is needed for `assembleDebug`.
+
+## What it demonstrates
+
+### Multi-camera virtual device with auto-macro switching (iOS)
+
+`components/ScannerScreen.tsx` requests `useCameraDevice('back', { physicalDevices: ['ultra-wide-angle', 'wide-angle'] })`. On supported iPhones this returns a "virtual" device whose `switchFactors` array tells Vision Camera at which zoom factor the OS should switch from wide → ultra-wide. The screen pins `zoom={0.97 × switchFactor}` so the camera stays on the wide lens at ~6" distance but flips to ultra-wide auto-macro when you move closer. Android uses the neutral `zoom={Math.max(1, minZoom)}` path because Pixel cameras don't expose the same multi-device topology.
+
+This is the cleanest answer to the "close hold blurs at 4 inches" problem without writing a custom camera UI.
+
+### Multi-frame voter (library-side, surfaced in UI)
+
+The library accumulates `FieldCandidate` records into a per-instance C++ `FieldVoter` and emits the cross-frame consensus to JS only after every successful frame. The example reads `licenseData.dataConfidence` per frame and the result view groups fields by tier (`cross_validated` / `all_gates_passed` / `shape_matched` / `extracted_raw`) on the **ConfidenceRail** above the field grid.
+
+### Confidence rail + tier-aware field chips
+
+`ResultView.tsx` renders every field via `<FieldChip>` (defined at the bottom of the same file). Each chip:
+- Looks up `dataConfidence[field]` and colors a halo line at the top edge by tier.
+- Suppresses the confidence chip + dropped-styling when the value itself is missing (no more "95% Not detected" contradictions).
+- Renders "Not detected" italic placeholder for required fields that didn't populate.
+
+The minimum-tier slider in **DebugDrawer.tsx** (`tweaks.minTier`) drops any field whose tier is below the threshold. Set it to `Verified only` to see only `cross_validated` fields — that's the strictest read.
+
+### Scan-again session-epoch remount
+
+The "Scan next license" button in `ActionBar.tsx` increments a `scanSessionId` integer in `App.tsx` and passes it as `key={scanSessionId}` on `<ScannerScreen>`. React unmounts the whole subtree and mounts a fresh one, which means the `useLicenseScanner` hook gets a fresh C++ voter (no carry-over votes from the prior license), and no stale-closure passive effect from the previous render can re-emit the prior license's data.
+
+This is the fix for the "scan-again instantly re-emits prior result" bug (#79). The prior `useLayoutEffect` + `useRef` guard approach was unsound because passive effects can close over pre-reset state.
+
+### Mode flip + auto-fallback timer
+
+`ModeFlip.tsx` toggles between barcode (back of DL, PDF417) and OCR (front of DL, text). When the user is in barcode mode and OCR auto-fallback is enabled in tweaks, an interval in `App.tsx` counts down `fallbackSec` seconds and flips to OCR if no barcode is detected. The countdown ring is rendered by `viewfinder/FallbackCountdown.tsx`.
+
+### Viewfinder geometry (95% portrait fill)
+
+`viewfinder/geometry.ts` exports a pure `computeViewfinderGeometry(containerW, containerH, fillPct)` that respects the **ID-1 (CR80) aspect ratio** of a real driver's license card. The screen passes `fillPct={0.95}` for phone portrait — the cutout card is sized to 95% of viewport width with `cardH = cardW / 1.585`. The shadow/border, reticle, and pipeline overlay all derive their geometry from the same function so they stay aligned without re-deriving.
+
+### Stop-scanning toggle
+
+The primary action button in `ActionBar.tsx` is `"Start scan"` when idle and `"Stop scanning"` while scanning. Stopping returns the phase machine to `idle` without resetting the voter — useful for "I held the card crooked, let me re-aim" flows.
+
+### Debug drawer
+
+Tap the bug icon in the bottom-right to open `DebugDrawer.tsx`. The drawer shows:
+- Scanner settings (auto-fallback toggle + seconds, min-confidence-tier slider, haptic on capture)
+- Aesthetic settings (direction = Onyx / Vellum / Lumen; theme = Auto / Light / Dark)
+- Fixture button (toggle the pipeline animation)
+- **Pipeline** — visual diagram of the 5-stage pipeline (camera frame → MLKit/VisionKit OCR → JS → Nitro JNI → C++ extractor → 4-gate voter)
+- Confidence tier legend
+- Raw payload of the most recent scan
+
+The pipeline animation is purely visual and isn't tied to the actual processing — it's an illustration aid, not a progress indicator. (#82 follow-up: tie animation to actual stages.)
+
+### Theme + direction tokens
+
+`theme/tokens.ts` defines three palettes (Onyx, Vellum, Lumen — the design's "directions") and three themes (Auto, Light, Dark). `theme/useTokens.ts` resolves both into a single `ThemeTokens` object that every component receives via prop. The example follows the system appearance by default. No third-party theming lib.
+
+### LogBox suppression
+
+`App.tsx` calls `LogBox.ignoreAllLogs(true)` at module load. In dev builds the yellow LogBox banner intercepts taps on the Start-scan button at the bottom of the screen during agent-device-driven testing. Release builds disable LogBox anyway. Disable this line if you want to see warnings in dev.
+
+## Layout
+
+```
+example/
+├── App.tsx                        — Orchestrates phase machine + cross-screen state
+├── components/
+│   ├── ActionBar.tsx              — Bottom bar: Start/Stop + scan-again + debug
+│   ├── DebugDrawer.tsx            — Tweaks + raw-payload bottom sheet
+│   ├── FlipCard.tsx               — 3D flip animation for the scan ↔ result transition
+│   ├── ModeFlip.tsx               — barcode/OCR toggle
+│   ├── PipelineOverlay.tsx        — Per-frame extraction stages overlay
+│   ├── ResultView.tsx             — Hero card + ALL FIELDS grid + ConfidenceRail
+│   ├── ScannerScreen.tsx          — Camera + viewfinder + reticle composition
+│   ├── TopBar.tsx                 — App name + session counter
+│   └── viewfinder/
+│       ├── FallbackCountdown.tsx  — Barcode → OCR auto-fallback ring
+│       ├── geometry.ts            — Pure geometry helper, unit-testable
+│       ├── Reticle.tsx            — Corner brackets + center anchor
+│       └── Viewfinder.tsx         — Cutout scrim + reticle + countdown
+├── hooks/
+│   ├── useDeviceLayout.ts         — Phone vs tablet, portrait vs landscape
+│   └── useTweaks.ts               — Persisted user-tweakable settings
+└── theme/
+    ├── tokens.ts                  — Palette + direction definitions
+    └── useTokens.ts               — Theme/direction resolver
 ```
 
-### Running the App
+## On-device test harness
 
-Start Metro bundler:
-```bash
-yarn start
-```
+Both platforms are driveable via [agent-device](https://incubator.callstack.com/agent-device/) for scripted UI testing. For Android the runner ships with the CLI; for iOS the runner needs a one-time sign-and-install — see `docs/agent-device-setup.md` if it exists, or `gh issue #80` for the recipe.
 
-Run on iOS:
-```bash
-yarn ios
-```
-
-Run on Android:
-```bash
-yarn android
-```
-
-## Navigation Structure
-
-The app uses React Navigation with a stack navigator. All screens are accessible from the home screen:
-
-```
-Home Screen
-├── Basic Scanning
-├── Intelligent Mode
-├── Manual Mode Selection
-├── Quality Indicators
-├── Accessibility Features
-├── Error Handling
-├── Performance Test
-└── History & Storage
-```
-
-## Feature Details
-
-### Basic Scanning
-Shows the simplest integration with minimal configuration. Automatically detects and uses the best scanning mode.
-
-### Intelligent Mode
-Demonstrates automatic switching between PDF417 barcode and OCR modes with visual feedback showing mode changes.
-
-### Manual Mode Selection
-Allows users to explicitly choose between barcode and OCR scanning modes, useful when you know which format to expect.
-
-### Quality Indicators
-Real-time feedback on scan quality including:
-- Document detection confidence
-- Lighting conditions
-- Focus clarity
-- Positioning coverage
-
-### Accessibility Features
-- Voice guidance during scanning
-- Haptic feedback for scan events
-- High contrast mode
-- Screen reader optimizations
-
-### Error Handling
-Simulates various error scenarios:
-- Permission denied
-- Invalid license format
-- Scan timeout
-- Camera not available
-- Processing errors
-- Unsupported license types
-
-### Performance Test
-Measures and displays:
-- Scan duration for each mode
-- Success rates
-- Average processing times
-- Performance comparison between modes
-
-### History & Storage
-Demonstrates:
-- Storing scan results locally
-- Retrieving historical data
-- Export functionality
-- Data management
-
-## Dependencies
-
-- `@react-navigation/native` - Navigation framework
-- `@react-navigation/native-stack` - Stack navigator
-- `react-native-screens` - Native navigation primitives
-- `react-native-safe-area-context` - Safe area handling
-- `react-native-reanimated` - Animation library
-- `react-native-vision-camera` - Camera functionality
-
-## Troubleshooting
-
-If you're having issues, see the [React Native Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-## Learn More
-
-- [React Native DL Scan Documentation](../README.md)
-- [React Native Documentation](https://reactnative.dev)
-- [React Navigation Documentation](https://reactnavigation.org)
+For iOS Simulator camera testing, [SimCam](https://simcam.swmansion.com) feeds a static image into the simulator's AVFoundation camera so the OCR pipeline can run end-to-end on an unattended machine. See the **SimCam** section of `~/.iotaclaude/rules/simcam.md` (user-local) for the image-prep recipe — 3:4 portrait canvas with the DL at ~50% width is the safe target.

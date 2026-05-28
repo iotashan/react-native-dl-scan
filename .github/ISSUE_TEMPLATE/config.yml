@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Feature Request 💡
-    url: https://github.com/iotashan/react-native-dl-scan/discussions/new?category=ideas
-    about: If you have a feature request, please create a new discussion on GitHub.
-  - name: Discussions on GitHub 💬
+  - name: Security vulnerability
+    url: https://github.com/iotashan/react-native-dl-scan/security/policy
+    about: Please report security vulnerabilities privately per SECURITY.md, not via a public issue.
+  - name: Question or discussion
     url: https://github.com/iotashan/react-native-dl-scan/discussions
-    about: If this library works as promised but you need help, please ask questions there.
+    about: For general questions, ideas, or "is this library a good fit for me?" — start a discussion.

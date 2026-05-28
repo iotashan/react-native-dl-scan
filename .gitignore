@@ -83,7 +83,9 @@ ios/generated
 android/generated
 
 # React Native Nitro Modules
-nitrogen/
+# nitrogen/generated/ is committed (podspec + SPM glob it at install time)
+# Only exclude the internal build artifacts that nitrogen itself produces
+nitrogen/build/
 
 # Test Coverage
 coverage/
@@ -92,3 +94,23 @@ coverage/
 
 # Test artifacts
 test-output.log
+
+# Git worktrees
+.worktrees/
+
+# C++ build artifacts
+cpp/build/
+
+# ML training runs (model-training/.gitignore covers model-training/runs/)
+runs/
+
+# SPM build artifacts (Package.swift target)
+.build/
+
+# YOLO debug-dump scratch images (frame-processor diagnostic; never source)
+yolo-input*.jpg
+dlscan-*.png
+dlscan-*.jpg
+
+# C++ build directory
+cpp/build/

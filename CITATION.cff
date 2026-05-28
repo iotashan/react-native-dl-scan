@@ -1,0 +1,63 @@
+cff-version: 1.2.0
+title: "react-native-dl-scan: On-Device Driver's License Scanning for React Native"
+message: >-
+  If you use this software or the bundled ML models in academic work,
+  please cite both this repository and the IDNet dataset used for training
+  (see preferred-citation below and docs/DATA_CARD.md).
+type: software
+authors:
+  - family-names: Hicks
+    given-names: Shannon
+    orcid: ""
+    email: shan@iotashan.com
+repository-code: "https://github.com/iotashan/react-native-dl-scan"
+url: "https://github.com/iotashan/react-native-dl-scan"
+license: MIT
+version: "0.1.0"
+date-released: "2025-05-01"
+abstract: >-
+  A React Native library for real-time on-device scanning of US and Canadian
+  driver's licenses and ICAO 9303 MRZ documents. Bundles three ML models
+  (YOLOv8n-OBB document detector, YOLOv8n field detector, and a Keras
+  character-level disambiguation model) trained on the IDNet synthetic identity
+  document dataset. Models are quantized to Core ML (iOS, weight-only int8)
+  and TFLite (Android, full int8) for on-device inference.
+keywords:
+  - react-native
+  - driver-license
+  - identity-document
+  - ocr
+  - object-detection
+  - yolov8
+  - core-ml
+  - tflite
+  - on-device-ml
+  - aamva
+  - mrz
+  - icao-9303
+references:
+  - type: dataset
+    title: "IDNet: A Novel Dataset for Identity Document Analysis and Fraud Detection"
+    authors:
+      - family-names: Guan
+        given-names: Bingyu
+      - family-names: Coleman
+        given-names: Sriram
+      - family-names: Bhanu
+        given-names: Bir
+    year: 2024
+    url: "https://huggingface.co/datasets/cactuslab/IDNet-2025"
+    repository: "https://zenodo.org/records/13852734"
+    identifiers:
+      - type: other
+        value: "arXiv:2408.01690"
+        description: arXiv preprint
+preferred-citation:
+  type: software
+  title: "react-native-dl-scan: On-Device Driver's License Scanning for React Native"
+  authors:
+    - family-names: Hicks
+      given-names: Shannon
+  year: 2025
+  url: "https://github.com/iotashan/react-native-dl-scan"
+  license: MIT

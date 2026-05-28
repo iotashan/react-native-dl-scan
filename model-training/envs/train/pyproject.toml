@@ -1,0 +1,19 @@
+[project]
+name = "dlscan-train"
+version = "0.1.0"
+description = "YOLOv8 training env (torch + ultralytics, no TF)"
+requires-python = "==3.12.*"
+dependencies = [
+    "torch==2.11.0",
+    "torchvision==0.26.0",
+    "ultralytics==8.4.46",
+    "numpy==1.26.4",
+    "opencv-python==4.10.0.84",
+    "pyyaml==6.0.2",
+    "pillow==11.0.0",
+    "pandas==2.2.3",
+    "matplotlib==3.9.2",
+    "tqdm==4.67.0",
+    "psutil==6.1.0",
+    "py-cpuinfo==9.0.0",
+]

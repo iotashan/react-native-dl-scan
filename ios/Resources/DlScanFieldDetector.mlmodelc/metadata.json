@@ -1,0 +1,91 @@
+[
+  {
+    "shortDescription" : "Ultralytics best model trained on \/Volumes\/Work4TB\/dev\/iotashan\/idnet-data\/yolo_fields\/data.yaml",
+    "metadataOutputVersion" : "3.0",
+    "outputSchema" : [
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float32",
+        "formattedType" : "MultiArray (Float32 1 × 34 × 8400)",
+        "shortDescription" : "",
+        "shape" : "[1, 34, 8400]",
+        "name" : "var_910",
+        "type" : "MultiArray"
+      }
+    ],
+    "version" : "8.4.46",
+    "modelParameters" : [
+
+    ],
+    "author" : "Ultralytics",
+    "specificationVersion" : 7,
+    "storagePrecision" : "Mixed (Float16, Int8)",
+    "license" : "AGPL-3.0 License (https:\/\/ultralytics.com\/license)",
+    "mlProgramOperationTypeHistogram" : {
+      "Concat" : 17,
+      "Ios16.cast" : 2,
+      "Ios16.mul" : 3,
+      "Ios16.constexprAffineDequantize" : 15,
+      "Transpose" : 1,
+      "Ios16.sub" : 2,
+      "Ios16.maxPool" : 3,
+      "UpsampleNearestNeighbor" : 2,
+      "Ios16.conv" : 64,
+      "Ios16.add" : 8,
+      "Ios16.sigmoid" : 1,
+      "Ios16.softmax" : 1,
+      "Split" : 9,
+      "Ios16.reshape" : 8,
+      "Ios16.silu" : 56
+    },
+    "computePrecision" : "Mixed (Float16, Float32, Int32)",
+    "stateSchema" : [
+
+    ],
+    "isUpdatable" : "0",
+    "availability" : {
+      "macOS" : "13.0",
+      "tvOS" : "16.0",
+      "visionOS" : "1.0",
+      "watchOS" : "9.0",
+      "iOS" : "16.0",
+      "macCatalyst" : "16.0"
+    },
+    "modelType" : {
+      "name" : "MLModelType_mlProgram"
+    },
+    "inputSchema" : [
+      {
+        "height" : "640",
+        "colorspace" : "RGB",
+        "isOptional" : "0",
+        "width" : "640",
+        "isColor" : "1",
+        "formattedType" : "Image (Color 640 × 640)",
+        "hasSizeFlexibility" : "0",
+        "type" : "Image",
+        "shortDescription" : "",
+        "name" : "image"
+      }
+    ],
+    "userDefinedMetadata" : {
+      "batch" : "1",
+      "docs" : "https:\/\/docs.ultralytics.com",
+      "com.github.apple.coremltools.version" : "9.0",
+      "imgsz" : "[640, 640]",
+      "names" : "{0: 'birthday', 1: 'card_num1', 2: 'card_num2', 3: 'country', 4: 'donor', 5: 'expire_date', 6: 'face', 7: 'gender', 8: 'ghostimg', 9: 'given_name', 10: 'list_1', 11: 'list_12', 12: 'list_15', 13: 'list_16', 14: 'list_17', 15: 'list_18', 16: 'list_19', 17: 'list_2', 18: 'list_3', 19: 'list_3c', 20: 'list_4a', 21: 'list_4b', 22: 'list_4d', 23: 'list_5', 24: 'list_8f', 25: 'list_8s', 26: 'list_9', 27: 'list_9a', 28: 'personal_num', 29: 'surname'}",
+      "com.github.apple.coremltools.conversion_date" : "2026-05-08",
+      "channels" : "3",
+      "stride" : "32",
+      "date" : "2026-05-08T12:49:42.323102",
+      "args" : "{'batch': 1, 'half': False, 'int8': False, 'dynamic': False, 'nms': False}",
+      "com.github.apple.coremltools.source_dialect" : "TorchScript",
+      "com.github.apple.coremltools.source" : "torch==2.11.0",
+      "task" : "detect",
+      "end2end" : "False"
+    },
+    "generatedClassName" : "DlScanFieldDetector",
+    "method" : "predict"
+  }
+]

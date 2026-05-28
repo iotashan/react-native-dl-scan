@@ -1,130 +1,168 @@
-# Contributing
+# Contributing to react-native-dl-scan
 
-Contributions are always welcome, no matter how large or small!
+Thanks for taking the time to contribute. This library is a small project, and
+every bug report, feature suggestion, and pull request is appreciated. The
+fastest way to get traction on a change is to open an issue first so we can
+agree on the shape of it before code is written.
 
-We want this community to be friendly and respectful to each other. Please follow it in all your interactions with the project. Before contributing, please read the [code of conduct](./CODE_OF_CONDUCT.md).
+The issue tracker lives at
+<https://github.com/iotashan/react-native-dl-scan/issues>.
 
-## Development workflow
+## Reporting bugs
 
-This project is a monorepo managed using [Yarn workspaces](https://yarnpkg.com/features/workspaces). It contains the following packages:
+Open a GitHub issue and include, at minimum:
 
-- The library package in the root directory.
-- An example app in the `example/` directory.
+- Library version (`react-native-dl-scan` from your `package.json`)
+- React Native version, and whether you're on Expo or bare RN
+- Platform and OS version (iOS 18.2, Android 15, etc.)
+- Device or simulator/emulator model
+- A minimal repro — ideally a branch of the example app, or a short snippet
+  that triggers the bug
+- Relevant error logs, including native logs (`xcrun simctl spawn ... log
+  stream` for iOS, `adb logcat` for Android) if the failure is native
 
-To get started with the project, run `yarn` in the root directory to install the required dependencies for each package:
+If the issue involves a specific driver's license, please **do not** attach a
+real one. A redacted photo or a description of the layout is enough.
 
-```sh
-yarn
+## Suggesting enhancements
+
+For anything non-trivial (new public API, new field, new platform behavior),
+open an issue describing the use case before sending a PR. This avoids the
+situation where a PR lands a week of work that has to be reshaped or rejected.
+Small fixes — typos, doc clarifications, obvious bugs — can go straight to a
+PR.
+
+## Development setup
+
+### Prerequisites
+
+- Node.js 20+
+- Yarn 3.6.1 (pinned via packageManager in package.json; run `corepack enable` once)
+- Xcode 16+ with Command Line Tools (for iOS)
+- Android Studio with NDK, and **JDK 21** (Android's Gradle build requires
+  JDK 21; set `JAVA_HOME` to your OpenJDK 21 installation, e.g.
+  `/opt/homebrew/opt/openjdk@21`)
+- CMake 3.22+ and a C++17 toolchain (for the C++ core and its tests)
+
+### Clone and install
+
+```bash
+git clone https://github.com/iotashan/react-native-dl-scan.git
+cd react-native-dl-scan
+yarn install
 ```
 
-> Since the project relies on Yarn workspaces, you cannot use [`npm`](https://github.com/npm/cli) for development.
+### Run the example app
 
-The [example app](/example/) demonstrates usage of the library. You need to run it to test any changes you make.
+The example app is the easiest way to exercise the library end to end.
 
-It is configured to use the local version of the library, so any changes you make to the library's source code will be reflected in the example app. Changes to the library's JavaScript code will be reflected in the example app without a rebuild, but native code changes will require a rebuild of the example app.
+```bash
+cd example
+yarn install
 
-If you want to use Android Studio or XCode to edit the native code, you can open the `example/android` or `example/ios` directories respectively in those editors. To edit the Objective-C or Swift files, open `example/ios/DlScanExample.xcworkspace` in XCode and find the source files at `Pods > Development Pods > react-native-dl-scan`.
+# iOS (boots a Simulator)
+yarn ios
 
-To edit the Java or Kotlin files, open `example/android` in Android studio and find the source files at `react-native-dl-scan` under `Android`.
-
-You can use various commands from the root directory to work with the project.
-
-To start the packager:
-
-```sh
-yarn example start
+# Android (needs an emulator running or a device attached)
+yarn android
 ```
 
-To run the example app on Android:
+For iOS Simulator testing of the camera pipeline, see the
+[SimCam](https://simcam.swmansion.com) workflow notes in the repo's internal
+docs — feeding a static image into the simulator camera is the only way to
+exercise the scanner without a physical card.
 
-```sh
-yarn example android
-```
+### Tests
 
-To run the example app on iOS:
-
-```sh
-yarn example ios
-```
-
-To confirm that the app is running with the new architecture, you can check the Metro logs for a message like this:
-
-```sh
-Running "DlScanExample" with {"fabric":true,"initialProps":{"concurrentRoot":true},"rootTag":1}
-```
-
-Note the `"fabric":true` and `"concurrentRoot":true` properties.
-
-Make sure your code passes TypeScript and ESLint. Run the following to verify:
-
-```sh
-yarn typecheck
-yarn lint
-```
-
-To fix formatting errors, run the following:
-
-```sh
-yarn lint --fix
-```
-
-Remember to add tests for your change if possible. Run the unit tests by:
-
-```sh
+```bash
+# TypeScript/JS unit tests (Jest)
 yarn test
+
+# C++ unit tests (GoogleTest, 261 cases)
+cd cpp
+cmake -S . -B build
+cmake --build build
+ctest --test-dir build --output-on-failure
 ```
 
-### Commit message convention
+### Lint and type-check
 
-We follow the [conventional commits specification](https://www.conventionalcommits.org/en) for our commit messages:
-
-- `fix`: bug fixes, e.g. fix crash due to deprecated method.
-- `feat`: new features, e.g. add new method to the module.
-- `refactor`: code refactor, e.g. migrate from class components to hooks.
-- `docs`: changes into documentation, e.g. add usage example for the module..
-- `test`: adding or updating tests, e.g. add integration tests using detox.
-- `chore`: tooling changes, e.g. change CI config.
-
-Our pre-commit hooks verify that your commit message matches this format when committing.
-
-### Linting and tests
-
-[ESLint](https://eslint.org/), [Prettier](https://prettier.io/), [TypeScript](https://www.typescriptlang.org/)
-
-We use [TypeScript](https://www.typescriptlang.org/) for type checking, [ESLint](https://eslint.org/) with [Prettier](https://prettier.io/) for linting and formatting the code, and [Jest](https://jestjs.io/) for testing.
-
-Our pre-commit hooks verify that the linter and tests pass when committing.
-
-### Publishing to npm
-
-We use [release-it](https://github.com/release-it/release-it) to make it easier to publish new versions. It handles common tasks like bumping version based on semver, creating tags and releases etc.
-
-To publish new versions, run the following:
-
-```sh
-yarn release
+```bash
+yarn lint
+yarn typecheck
 ```
 
-### Scripts
+### Updating the example app's open-source acknowledgments
 
-The `package.json` file contains various scripts for common tasks:
+The example app ships an "Open source licenses" screen (reachable from the
+debug drawer) that lists every dependency it bundles along with its license
+text. The data is generated from `example/node_modules` and checked in at
+`example/assets/licenses.json`. **Re-run the generator whenever you add,
+remove, or upgrade a dependency in `example/package.json`:**
 
-- `yarn`: setup project by installing dependencies.
-- `yarn typecheck`: type-check files with TypeScript.
-- `yarn lint`: lint files with ESLint.
-- `yarn test`: run unit tests with Jest.
-- `yarn example start`: start the Metro server for the example app.
-- `yarn example android`: run the example app on Android.
-- `yarn example ios`: run the example app on iOS.
+```bash
+cd example
+yarn generate-licenses
+```
 
-### Sending a pull request
+The script walks production dependencies + their transitive prod deps, reads
+each `LICENSE` file, and emits a single JSON file. devDependencies are skipped
+because they don't ship in the consumer's app bundle.
 
-> **Working on your first pull request?** You can learn how from this _free_ series: [How to Contribute to an Open Source Project on GitHub](https://app.egghead.io/playlists/how-to-contribute-to-an-open-source-project-on-github).
+Both are run by `lefthook` as pre-commit hooks, alongside `commitlint`, so
+broken commits are blocked locally before they reach CI.
 
-When you're sending a pull request:
+## Conventional commits
 
-- Prefer small pull requests focused on one change.
-- Verify that linters and tests are passing.
-- Review the documentation to make sure it looks good.
-- Follow the pull request template when opening a pull request.
-- For pull requests that change the API or implementation, discuss with maintainers first by opening an issue.
+Commit messages are validated by [commitlint](https://commitlint.js.org/) using
+the config in `commitlint.config.js`. The format is:
+
+```
+<type>(<optional scope>): <subject>
+```
+
+Examples that pass:
+
+```
+feat(ios): add Vision document segmentation request
+fix(cpp): handle empty AAMVA payload without throwing
+docs: clarify Android JDK 21 requirement
+chore: bump nitro-modules to 0.x
+```
+
+Common types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`,
+`build`, `ci`. The hook will reject the commit and print a message if the
+format is wrong — fix the message and re-commit (don't `--amend` blindly if
+other hook stages failed; create a fresh commit so nothing is lost).
+
+## Pull request flow
+
+1. Fork the repo (or branch directly if you have push access).
+2. Create a branch off `main`. Use a short descriptive name, e.g.
+   `fix/android-corner-overlay-rotation`.
+3. Make your change. Keep PRs focused — one fix or one feature per PR.
+4. Fill in the PR template. Link the issue it addresses.
+5. CI runs lint, types, JS tests, and the C++ test suite. All must pass.
+6. A maintainer will review. Expect a turnaround in days, not hours — this is
+   a small project.
+7. Once approved, the PR is merged into `main`. Releases are cut from `main`
+   on a release branch; you don't need to touch `CHANGELOG.md` unless your PR
+   is a release commit.
+
+## Code style
+
+- TypeScript and JS: ESLint + Prettier, both run from `yarn lint`. The
+  formatter is the source of truth — don't argue with it, and don't disable
+  rules without a comment explaining why.
+- C++: follow the style of the existing code in `cpp/`. The CMake build runs
+  with `-Wall -Wextra`; new warnings should be fixed, not silenced.
+- Native (Swift / Kotlin): match the surrounding file. Don't reformat
+  unrelated code in the same PR.
+
+If you need to disable a lint rule for a legitimate reason, leave a short
+inline comment so the next contributor knows it was intentional.
+
+## License
+
+By submitting a contribution, you agree that your work is licensed under the
+project's [MIT License](LICENSE).

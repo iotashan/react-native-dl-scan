@@ -1,60 +1,56 @@
 version: 2
 updates:
-  # Main library dependencies
+  # JavaScript / npm dependencies (root library)
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
-    reviewers:
-      - "iotashan"
-    assignees:
-      - "iotashan"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
     commit-message:
       prefix: "chore"
       include: "scope"
-    labels:
-      - "dependencies"
-      - "automerge"
-    
-  # Example app dependencies  
+
+  # JavaScript / npm dependencies (example app)
   - package-ecosystem: "npm"
     directory: "/example"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
     open-pull-requests-limit: 5
-    reviewers:
-      - "iotashan"
-    assignees:
-      - "iotashan"
-    commit-message:
-      prefix: "chore(example)"
-      include: "scope"
     labels:
       - "dependencies"
       - "example"
-      - "automerge"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
 
-  # GitHub Actions
+  # GitHub Actions workflows
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 5
-    reviewers:
-      - "iotashan"
-    assignees:
-      - "iotashan"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "ci"
     commit-message:
       prefix: "ci"
       include: "scope"
+
+  # Gradle (Android module)
+  - package-ecosystem: "gradle"
+    directory: "/android"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
     labels:
-      - "ci"
-      - "github-actions"
-      - "automerge"
+      - "dependencies"
+      - "android"
+    commit-message:
+      prefix: "chore"
+      include: "scope"

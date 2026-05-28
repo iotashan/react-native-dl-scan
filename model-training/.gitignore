@@ -1,0 +1,16 @@
+data/
+extracted/
+runs/
+*.pt
+*.mlpackage
+*.mlmodelc
+*.tflite
+*.h5
+*.keras
+*.onnx
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.log
+nohup.out

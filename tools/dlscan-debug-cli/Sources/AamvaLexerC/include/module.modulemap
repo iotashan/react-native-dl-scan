@@ -1,0 +1,5 @@
+module AamvaLexerC {
+    header "aamva_lexer_c.h"
+    export *
+    link "c++"
+}

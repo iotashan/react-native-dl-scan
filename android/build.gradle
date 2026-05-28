@@ -1,0 +1,185 @@
+buildscript {
+  repositories {
+    google()
+    mavenCentral()
+  }
+
+  dependencies {
+    classpath "com.android.tools.build:gradle:9.1.0"
+  }
+}
+
+def reactNativeArchitectures() {
+  // 32-bit Android (armeabi-v7a) is intentionally NOT supported. The TFLite
+  // field detector plus its bundled .tflite model assumes 64-bit pointers /
+  // ABI; play-services-tflite-java requires arm64-v8a. Dropping the 32-bit
+  // slice keeps the AAR small and avoids untested code paths. <2% of active
+  // Android devices are 32-bit-only as of 2026.
+  def value = rootProject.getProperties().get("reactNativeArchitectures")
+  return value ? value.split(",") : ["x86_64", "arm64-v8a"]
+}
+
+def isNewArchitectureEnabled() {
+  return rootProject.hasProperty("newArchEnabled") && rootProject.getProperty("newArchEnabled") == "true"
+}
+
+apply plugin: "com.android.library"
+apply plugin: 'org.jetbrains.kotlin.android'
+apply from: '../nitrogen/generated/android/DlScan+autolinking.gradle'
+
+// NOTE: do NOT apply "com.facebook.react" gradle plugin here. The plugin
+// generates fb codegen for EVERY autolinked package and bakes it into this
+// lib's AAR — which then collides with the same generated classes coming
+// from those packages' own AARs at the consumer's dex-merge step
+// (e.g. RNCSafeAreaProviderManagerDelegate from react-native-safe-area-context).
+// This lib uses Nitrogen for its bridge generation
+// (see ../nitrogen/generated/android/DlScan+autolinking.gradle), which is
+// scoped to this lib only — no fb-codegen needed at library level. The
+// consumer app applies the fb plugin itself for its own codegen needs.
+
+def getExtOrDefault(name) {
+  return rootProject.ext.has(name) ? rootProject.ext.get(name) : project.properties["DlScan_" + name]
+}
+
+def getExtOrIntegerDefault(name) {
+  return rootProject.ext.has(name) ? rootProject.ext.get(name) : (project.properties["DlScan_" + name]).toInteger()
+}
+
+android {
+  namespace "com.margelo.nitro.dlscan"
+
+  ndkVersion getExtOrDefault("ndkVersion")
+  compileSdkVersion getExtOrIntegerDefault("compileSdkVersion")
+
+  // Task #41 — JVM unit tests under android/src/test/ exercise the
+  // platform-layer regex tighteners on the host JVM. Without this,
+  // any reference to android.util.Log inside a tested code path throws
+  // "Method w in android.util.Log not mocked". `returnDefaultValues
+  // = true` makes Android framework stubs no-op (return 0/null) so
+  // the tighteners (pure Kotlin + java.util.regex) run cleanly.
+  testOptions {
+    unitTests.returnDefaultValues = true
+  }
+
+  defaultConfig {
+    minSdkVersion getExtOrIntegerDefault("minSdkVersion")
+    targetSdkVersion getExtOrIntegerDefault("targetSdkVersion")
+    // Required so `adb shell am instrument` can find the androidx-test
+    // runner inside the androidTest APK. Without this, the merged
+    // androidTest manifest has no <instrumentation> entry and the
+    // command fails with "Unable to find instrumentation info".
+    testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+    externalNativeBuild {
+      cmake {
+        cppFlags "-frtti -fexceptions -std=c++17"
+        arguments "-DANDROID_STL=c++_shared"
+        abiFilters (*reactNativeArchitectures())
+      }
+    }
+  }
+
+  externalNativeBuild {
+    cmake {
+      path "CMakeLists.txt"
+    }
+  }
+
+  androidResources {
+    // Don't compress the bundled .tflite model. Compressed assets have no
+    // file descriptor, and TFLite Interpreter loads via AssetManager.openFd()
+    // + memory-map — that path throws on compressed entries. Modern AGP
+    // (4.1+) excludes .tflite from compression by default, but explicit
+    // declaration prevents silent regressions when the AGP defaults change.
+    noCompress += ["tflite"]
+  }
+
+  packagingOptions {
+    excludes = [
+      "META-INF",
+      "META-INF/**",
+      "**/libc++_shared.so",
+      "**/libNitroModules.so",
+      "**/libfbjni.so",
+      "**/libjsi.so",
+      "**/libreact_nativemodule_core.so",
+      "**/libturbomodulejsijni.so",
+      "**/libreactnative.so",
+      "**/libreactnativejni.so"
+    ]
+  }
+
+  buildFeatures {
+    buildConfig true
+    prefab true
+  }
+
+  // NOTE: facebook codegen output ("${project.buildDir}/generated/source/codegen/java")
+  // is intentionally NOT added to this lib's sourceSets. With
+  // `apply plugin "com.facebook.react"` enabled, codegen emits delegates
+  // for EVERY autolinked package, not just this lib's own specs. Including
+  // them in the library's compiled output produces duplicate-class errors
+  // at the consumer app's dex-merge step (e.g. RNCSafeAreaProviderManagerDelegate
+  // when the consumer also depends on react-native-safe-area-context).
+  // Nitrogen handles this lib's bridge generation independently —
+  // see ../nitrogen/generated/android/DlScan+autolinking.gradle.
+}
+
+repositories {
+  mavenCentral()
+  google()
+}
+
+dependencies {
+  //noinspection GradleDynamicVersion
+  implementation "com.facebook.react:react-native:+"
+  // Project-path dependency: only resolves inside a consumer app's multi-project
+  // gradle build (where react-native-nitro-modules is autolinked as a sibling
+  // module under node_modules). Standalone library builds require an example/
+  // app or a consumer integration test — deferred follow-up.
+  implementation project(":react-native-nitro-modules")
+  // VisionCamera's HybridFrameSpec is referenced from HybridDlScanAndroid.kt
+  // (the recognizeLicenseFields(frame:) signature). The example app autolinks
+  // VisionCamera as a sibling project module, so this project-path resolves at
+  // consumer build time. Standalone library builds require an example/ app or
+  // a consumer integration test (same caveat as nitro-modules above).
+  implementation project(":react-native-vision-camera")
+  // VisionCamera uses `implementation` (not `api`) for its androidx.camera deps,
+  // so those don't transit. HybridDlScanAndroid.kt directly references
+  // ImageProxy + @ExperimentalGetImage, so declare camera-core here. Match
+  // VisionCamera's pinned camerax_version to keep versions aligned.
+  implementation "androidx.camera:camera-core:1.7.0-alpha01"
+  implementation "com.google.mlkit:text-recognition:16.0.1"
+  implementation "com.google.mlkit:face-detection:16.1.7"
+
+  // Standalone TFLite runtime for the bundled DlScanFieldDetector model.
+  // Self-contained AAR (no Google Play Services dependency) — works on AOSP
+  // and Huawei devices that lack GMS, in addition to all GMS-enabled devices.
+  // Pinned to 2.18.0 to match the producer version (envs/export-android
+  // ships TF 2.18.1; aligning the runtime avoids 'unsupported op' errors when
+  // the exported graph uses ops introduced after 2.16). Bump together when
+  // changing.
+  implementation "org.tensorflow:tensorflow-lite:2.17.0"
+  implementation("org.tensorflow:tensorflow-lite-support:0.4.4") {
+    // tensorflow-lite-support 0.4.4 transitively brings
+    // org.tensorflow:tensorflow-lite-api:2.13.0, which exposes the same
+    // org.tensorflow.lite.* classes as com.google.ai.edge.litert:litert-api
+    // (pulled in by tensorflow-lite:2.17.0 -> litert:1.0.1). Excluding the
+    // older API so litert wins; the support library still works because
+    // the API surface is identical between the two forks.
+    exclude group: "org.tensorflow", module: "tensorflow-lite-api"
+  }
+
+  androidTestImplementation "androidx.test.ext:junit:1.1.5"
+  androidTestImplementation "androidx.test:runner:1.5.2"
+  androidTestImplementation "androidx.test:rules:1.5.0"
+  androidTestImplementation "junit:junit:4.13.2"
+
+  // Unit tests for the platform-layer regex tighteners (task #41).
+  // Live under android/src/test/. JVM-only — no Android runtime needed
+  // because the tested helpers are pure Kotlin + java.util.regex on
+  // String input. Robolectric is deliberately NOT pulled in: the
+  // tighteners don't touch android.graphics, Bitmap, or any framework
+  // class, so a plain JUnit 4 runner is sufficient and fast.
+  testImplementation "junit:junit:4.13.2"
+}

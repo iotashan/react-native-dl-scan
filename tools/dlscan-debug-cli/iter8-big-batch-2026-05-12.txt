@@ -1,0 +1,246 @@
+Processing batch: 200 images across 10 states...
+  state: us_california_dl
+  state: us_pennsylvania_dl
+  state: us_north_carolina_dl
+  state: us_arizona_dl
+  state: us_wisconsin_dl
+  state: us_utah_dl
+  state: us_nevada_dl
+  state: us_west_virginia_dl
+  state: us_south_dakota_dl
+  state: us_dc_dl
+
+=== Per-State Per-Field Accuracy (SIMPLE | PRODUCTION | REGION) ===
+
+STATE                  FIELD         N   SIMPLE     PROD   REGION    P-Δ    R-Δ
+-------------------------------------------------------------------------------
+us_arizona_dl          list_1        4    25.0%    25.0%   100.0%  +0.0% +75.0%
+us_arizona_dl          list_2        4    25.0%    25.0%   100.0%  +0.0% +75.0%
+us_arizona_dl          list_3        4     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_arizona_dl          list_4a       4   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_arizona_dl          list_4b       4    25.0%   100.0%   100.0% +75.0%  +0.0%
+us_arizona_dl          list_4d       4   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_arizona_dl          list_8f       4    50.0%    50.0%   100.0%  +0.0% +50.0%
+us_arizona_dl          list_8s       4   100.0%   100.0%    75.0%  +0.0% -25.0%
+us_arizona_dl          list_9        4   100.0%   100.0%     0.0%  +0.0% -100.0%
+us_arizona_dl          list_9a       4   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_arizona_dl          list_12       4   100.0%   100.0%     0.0%  +0.0% -100.0%
+us_arizona_dl          list_15       4   100.0%   100.0%     0.0%  +0.0% -100.0%
+us_arizona_dl          list_16       4   100.0%    25.0%   100.0% -75.0% +75.0%
+us_arizona_dl          list_17       4    25.0%   100.0%   100.0% +75.0%  +0.0%
+us_arizona_dl          list_18       4   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_california_dl       list_1       39     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_california_dl       list_2       39     2.6%     2.6%    89.7%  +0.0% +87.2%
+us_california_dl       list_3       39     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_california_dl       list_4a      39   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_california_dl       list_4b      39     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_california_dl       list_4d      39     0.0%     7.7%   100.0%  +7.7% +92.3%
+us_california_dl       list_8f      39   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_california_dl       list_8s      39   100.0%   100.0%    97.4%  +0.0%  -2.6%
+us_california_dl       list_9       39     0.0%   100.0%     0.0% +100.0% -100.0%
+us_california_dl       list_9a      39     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_california_dl       list_12      39     0.0%   100.0%     0.0% +100.0% -100.0%
+us_california_dl       list_15      39    76.9%   100.0%   100.0% +23.1%  +0.0%
+us_california_dl       list_16      39     2.6%   100.0%   100.0% +97.4%  +0.0%
+us_california_dl       list_17      39     5.1%   100.0%   100.0% +94.9%  +0.0%
+us_california_dl       list_18      39     0.0%    94.9%   100.0% +94.9%  +5.1%
+us_california_dl       list_19      39     0.0%    94.9%   100.0% +94.9%  +5.1%
+us_nevada_dl           list_1        3   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_nevada_dl           list_2        3   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_nevada_dl           list_3        3     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_nevada_dl           list_4a       3    66.7%    66.7%   100.0%  +0.0% +33.3%
+us_nevada_dl           list_4b       3   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_nevada_dl           list_4d       3    66.7%   100.0%   100.0% +33.3%  +0.0%
+us_nevada_dl           list_8f       3     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_nevada_dl           list_8s       3    33.3%    33.3%    66.7%  +0.0% +33.3%
+us_nevada_dl           list_15       1   100.0%   100.0%     0.0%  +0.0% -100.0%
+us_nevada_dl           list_16       3   100.0%   100.0%     0.0%  +0.0% -100.0%
+us_nevada_dl           list_17       3    66.7%    66.7%   100.0%  +0.0% +33.3%
+us_nevada_dl           list_18       3     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_nevada_dl           list_19       3     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_north_carolina_dl   list_1        9    66.7%    66.7%   100.0%  +0.0% +33.3%
+us_north_carolina_dl   list_2        9   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_north_carolina_dl   list_3        9    66.7%   100.0%   100.0% +33.3%  +0.0%
+us_north_carolina_dl   list_4a       9     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_north_carolina_dl   list_4b       9   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_north_carolina_dl   list_4d       9   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_north_carolina_dl   list_8f       9   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_north_carolina_dl   list_8s       9   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_north_carolina_dl   list_9        4     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_north_carolina_dl   list_9a       9     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_north_carolina_dl   list_12       9     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_north_carolina_dl   list_15       9     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_north_carolina_dl   list_16       9     0.0%     0.0%    75.0%  +0.0% +75.0%
+us_north_carolina_dl   list_18       9     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_north_carolina_dl   list_19       9     0.0%    66.7%   100.0% +66.7% +33.3%
+us_pennsylvania_dl     list_1       11   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_pennsylvania_dl     list_2       11   100.0%   100.0%    90.9%  +0.0%  -9.1%
+us_pennsylvania_dl     list_3       11     0.0%   100.0%    81.8% +100.0% -18.2%
+us_pennsylvania_dl     list_4a      11     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_pennsylvania_dl     list_4b      11     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_pennsylvania_dl     list_4d      11    27.3%   100.0%   100.0% +72.7%  +0.0%
+us_pennsylvania_dl     list_8f      11    81.8%    81.8%   100.0%  +0.0% +18.2%
+us_pennsylvania_dl     list_9       11     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_pennsylvania_dl     list_9a      11     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_pennsylvania_dl     list_12      11     0.0%     0.0%     0.0%  +0.0%  +0.0%
+us_pennsylvania_dl     list_15      11     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_pennsylvania_dl     list_16      11     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_pennsylvania_dl     list_18      11     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_south_dakota_dl     list_1        1   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_south_dakota_dl     list_2        1   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_south_dakota_dl     list_3        1   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_south_dakota_dl     list_4a       1   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_south_dakota_dl     list_4b       1     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_south_dakota_dl     list_4d       1     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_south_dakota_dl     list_8f       1   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_south_dakota_dl     list_8s       1   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_south_dakota_dl     list_9        1     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_south_dakota_dl     list_9a       1     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_south_dakota_dl     list_12       1     0.0%   100.0%     0.0% +100.0% -100.0%
+us_south_dakota_dl     list_15       1   100.0%   100.0%     0.0%  +0.0% -100.0%
+us_south_dakota_dl     list_16       1     0.0%     0.0%     0.0%  +0.0%  +0.0%
+us_south_dakota_dl     list_17       1     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_south_dakota_dl     list_18       1   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_utah_dl             list_1        4   100.0%   100.0%    75.0%  +0.0% -25.0%
+us_utah_dl             list_2        4   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_utah_dl             list_3        4    25.0%   100.0%   100.0% +75.0%  +0.0%
+us_utah_dl             list_4a       4   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_utah_dl             list_4b       4   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_utah_dl             list_4d       4    25.0%    25.0%   100.0%  +0.0% +75.0%
+us_utah_dl             list_8f       4    75.0%    75.0%   100.0%  +0.0% +25.0%
+us_utah_dl             list_8s       4   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_utah_dl             list_9        4     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_utah_dl             list_9a       4     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_utah_dl             list_12       4     0.0%   100.0%     0.0% +100.0% -100.0%
+us_utah_dl             list_15       4     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_utah_dl             list_16       4     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_utah_dl             list_17       4     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_utah_dl             list_18       4     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_utah_dl             list_19       4     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_west_virginia_dl    list_1        1   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_west_virginia_dl    list_2        1   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_west_virginia_dl    list_3        1     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_west_virginia_dl    list_4a       1     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_west_virginia_dl    list_4b       1   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_west_virginia_dl    list_4d       1     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_west_virginia_dl    list_8f       1   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_west_virginia_dl    list_8s       1   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_west_virginia_dl    list_9        1     0.0%     0.0%     0.0%  +0.0%  +0.0%
+us_west_virginia_dl    list_9a       1     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_west_virginia_dl    list_12       1     0.0%     0.0%     0.0%  +0.0%  +0.0%
+us_west_virginia_dl    list_15       1     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_west_virginia_dl    list_16       1     0.0%     0.0%     0.0%  +0.0%  +0.0%
+us_west_virginia_dl    list_17       1     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_west_virginia_dl    list_18       1     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_wisconsin_dl        list_1        3    66.7%   100.0%   100.0% +33.3%  +0.0%
+us_wisconsin_dl        list_2        3    66.7%   100.0%   100.0% +33.3%  +0.0%
+us_wisconsin_dl        list_3        3     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_wisconsin_dl        list_4a       3     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_wisconsin_dl        list_4b       3     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_wisconsin_dl        list_4d       3   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_wisconsin_dl        list_8f       3    66.7%    66.7%   100.0%  +0.0% +33.3%
+us_wisconsin_dl        list_8s       3   100.0%   100.0%   100.0%  +0.0%  +0.0%
+us_wisconsin_dl        list_9        1   100.0%   100.0%     0.0%  +0.0% -100.0%
+us_wisconsin_dl        list_15       3     0.0%   100.0%   100.0% +100.0%  +0.0%
+us_wisconsin_dl        list_16       3     0.0%     0.0%     0.0%  +0.0%  +0.0%
+us_wisconsin_dl        list_17       3     0.0%    33.3%   100.0% +33.3% +66.7%
+us_wisconsin_dl        list_18       3     0.0%     0.0%   100.0%  +0.0% +100.0%
+us_wisconsin_dl        list_19       3     0.0%     0.0%   100.0%  +0.0% +100.0%
+
+=== Per-State Roll-Up ===
+
+  us_arizona_dl          N=  60  PROD= 81.7%  REGION= 97.8%  COMBINED= 98.2%  (best Δ vs PROD=+16.6%)
+  us_california_dl       N= 624  PROD= 81.2%  REGION= 99.0%  COMBINED= 99.2%  (best Δ vs PROD=+17.9%)
+  us_nevada_dl           N=  37  PROD= 64.9%  REGION= 88.9%  COMBINED= 89.2%  (best Δ vs PROD=+24.3%)
+  us_north_carolina_dl   N= 130  PROD= 78.5%  REGION= 99.2%  COMBINED= 93.8%  (best Δ vs PROD=+15.4%)
+  us_pennsylvania_dl     N= 143  PROD= 67.8%  REGION= 97.3%  COMBINED= 76.9%  (best Δ vs PROD= +9.1%)
+  us_south_dakota_dl     N=  15  PROD= 80.0%  REGION=100.0%  COMBINED= 93.3%  (best Δ vs PROD=+13.3%)
+  us_utah_dl             N=  64  PROD= 62.5%  REGION= 98.2%  COMBINED= 95.3%  (best Δ vs PROD=+32.8%)
+  us_west_virginia_dl    N=  15  PROD= 66.7%  REGION= 92.3%  COMBINED= 80.0%  (best Δ vs PROD=+13.3%)
+  us_wisconsin_dl        N=  40  PROD= 70.0%  REGION=100.0%  COMBINED= 92.5%  (best Δ vs PROD=+22.5%)
+
+=== Per-Field Roll-Up (all states) ===
+
+  list_1     N=  75  PROD= 40.0%  REGION= 98.7%  COMBINED= 98.7%  (best Δ vs PROD=+58.7%)
+  list_2     N=  75  PROD= 45.3%  REGION= 93.3%  COMBINED= 93.3%  (best Δ vs PROD=+48.0%)
+  list_3     N=  75  PROD=100.0%  REGION= 97.3%  COMBINED= 97.3%  (best Δ vs PROD= -2.7%)
+  list_4a    N=  75  PROD= 98.7%  REGION=100.0%  COMBINED=100.0%  (best Δ vs PROD= +1.3%)
+  list_4b    N=  75  PROD=100.0%  REGION=100.0%  COMBINED=100.0%  (best Δ vs PROD= +0.0%)
+  list_4d    N=  75  PROD= 46.7%  REGION=100.0%  COMBINED=100.0%  (best Δ vs PROD=+53.3%)
+  list_8f    N=  75  PROD= 88.0%  REGION=100.0%  COMBINED=100.0%  (best Δ vs PROD=+12.0%)
+  list_8s    N=  64  PROD= 96.9%  REGION= 95.3%  COMBINED= 95.3%  (best Δ vs PROD= -1.6%)
+  list_9     N=  65  PROD= 69.2%  REGION= 87.5%  COMBINED= 78.5%  (best Δ vs PROD= +9.2%)
+  list_9a    N=  69  PROD=100.0%  REGION=100.0%  COMBINED=100.0%  (best Δ vs PROD= +0.0%)
+  list_12    N=  69  PROD= 82.6%  REGION=100.0%  COMBINED= 82.6%  (best Δ vs PROD= +0.0%)
+  list_15    N=  73  PROD=100.0%  REGION=100.0%  COMBINED=100.0%  (best Δ vs PROD= +0.0%)
+  list_16    N=  75  PROD= 57.3%  REGION= 85.2%  COMBINED= 66.7%  (best Δ vs PROD= +9.3%)
+  list_17    N=  55  PROD= 83.6%  REGION=100.0%  COMBINED=100.0%  (best Δ vs PROD=+16.4%)
+  list_18    N=  75  PROD= 56.0%  REGION=100.0%  COMBINED=100.0%  (best Δ vs PROD=+44.0%)
+  list_19    N=  58  PROD= 74.1%  REGION=100.0%  COMBINED=100.0%  (best Δ vs PROD=+25.9%)
+
+=== Divergence Examples (PROD vs REGION) ===
+
+  list_1:
+    [us_california_dl] want='MENDOZA'  prod='LN MENDOZA'  region='MENDOZA'
+    [us_california_dl] want='MARTIN'  prod='LN MARTIN'  region='MARTIN'
+    [us_california_dl] want='CARLOS'  prod='LNCARLOS'  region='CARLOS'
+    [us_california_dl] want='JOHNSON'  prod='INJOHNSON'  region='JOHNSON'
+    [us_california_dl] want='CHUNG'  prod='LNCHUNG'  region='CHUNG'
+  list_16:
+    [us_pennsylvania_dl] want='7\'-01"'  prod='HGT 7\'-01"'  region="7'-01''"
+    [us_pennsylvania_dl] want='6\'-07"'  prod='HGT 6\'-07"'  region="6'-07''"
+    [us_north_carolina_dl] want='6\'-03"'  prod='HGT 6\'-03"'  region="6'-03''"
+    [us_north_carolina_dl] want='7\'-06"'  prod='HGT 7\'-06"'  region="7'-06''"
+    [us_north_carolina_dl] want='6\'-06"'  prod='HGT 6\'-06"'  region='.90-.9'
+  list_17:
+    [us_wisconsin_dl] want='146 LB'  prod='WGT 146lb'  region='146 LB'
+    [us_wisconsin_dl] want='206 LB'  prod='WGT 206 lb'  region='206 LB'
+    [us_utah_dl] want='159 LB'  prod='WGT 159 lb'  region='159 LB'
+    [us_utah_dl] want='154 LB'  prod='WGT 154 lb'  region='154 LB'
+    [us_utah_dl] want='123 LB'  prod='WGT 123 lb'  region='123 LB'
+  list_18:
+    [us_california_dl] want='GRA'  prod='EYES GRA'  region='GRA'
+    [us_california_dl] want='GRA'  prod='EYES GRA'  region='GRA'
+    [us_pennsylvania_dl] want='BRO'  prod='EYES BRO'  region='BRO'
+    [us_pennsylvania_dl] want='BRO'  prod='EYES BRO'  region='BRO'
+    [us_pennsylvania_dl] want='BRO'  prod='EYES BRO'  region='BRO'
+  list_19:
+    [us_california_dl] want='BLN'  prod='HAIR BL'  region='BLN'
+    [us_california_dl] want='BLN'  prod='HAIR BL'  region='BLN'
+    [us_north_carolina_dl] want='BLK'  prod='HAIR BLK'  region='BLK'
+    [us_north_carolina_dl] want='BLK'  prod='HAIR BLK'  region='BLK'
+    [us_north_carolina_dl] want='BLK'  prod='HAIR BLK'  region='BLK'
+  list_2:
+    [us_california_dl] want='JULIANA'  prod='FNJULIANA'  region='JULIANA'
+    [us_california_dl] want='LEAH'  prod='FLEAH'  region='LEAH'
+    [us_california_dl] want='JUAN'  prod='FNJUAN'  region='JUAN'
+    [us_california_dl] want='LEAH'  prod='FLEAH'  region='LEAH'
+    [us_california_dl] want='YUSUKE'  prod='FN YUSUKE'  region='YUSÜKE'
+  list_3:
+    [us_pennsylvania_dl] want='11/27/1990'  prod='11/27/1990'  region='11/2711990'
+    [us_pennsylvania_dl] want='07/10/1995'  prod='07/10/1995'  region='07 110/1995'
+  list_4a:
+    [us_nevada_dl] want='10/21/2021'  prod='0/21/2021'  region='10/21/2021'
+  list_4d:
+    [us_california_dl] want='17214115'  prod='DL 17214115'  region='17214115'
+    [us_california_dl] want='12822598'  prod='DL |2822598'  region='12822598'
+    [us_california_dl] want='18013350'  prod='DL 18013350'  region='18013350'
+    [us_california_dl] want='19406185'  prod='DL 19406185'  region='19406185'
+    [us_california_dl] want='16802348'  prod='DL 16802348'  region='16802348'
+  list_8f:
+    [us_pennsylvania_dl] want='47 HOWARD AVENUE'  prod='847 HOWARD AVENUE'  region='47 HOWARD AVENUE'
+    [us_pennsylvania_dl] want='98 DEKALB PIKE'  prod='898 DEKALB PIKE'  region='98 DEKALB PIKE'
+    [us_arizona_dl] want='9 RAY ROAD'  prod='• 9 RAY ROAD'  region='9 RAY ROAD'
+    [us_arizona_dl] want='105 SWAN DRIVE'  prod='в 105 SWAN DRIVE'  region='105 SWAN DRIVE'
+    [us_wisconsin_dl] want='8498 BLVD AVENUE'  prod='88498 BLVD AVENUE'  region='8498 BLVD AVENUE'
+  list_8s:
+    [us_california_dl] want='FRESNO, CA 93701'  prod='FRESNO, CA 93701'  region='FRESNO. CA 93701'
+    [us_arizona_dl] want='BULLHEAD CITY, AZ 86442'  prod='BULLHEAD CITY, AZ 86442'  region='BULLHEAD CITY,AZ 86442'
+    [us_nevada_dl] want='WEST WENDOVER, NV 89883'  prod='WEST WENDOVER, NV 89883.'  region='WEST WENDOVER, NV 89883'
+    [us_nevada_dl] want='BOULDER CITY, NV 89005'  prod='BOULDER CIIY. NV 89005 VevAoP'  region='BOULDER CITY. NV 89005'
+  list_9:
+    [us_pennsylvania_dl] want='A'  prod='CLASS A'  region='A'
+    [us_north_carolina_dl] want='A'  prod='CLASS A'  region='A'
+    [us_north_carolina_dl] want='A'  prod='CLASS A'  region='A'
+    [us_utah_dl] want='B'  prod='CLASS B'  region='B'
+    [us_utah_dl] want='B'  prod='CLASS B'  region='B'

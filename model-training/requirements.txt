@@ -1,0 +1,24 @@
+# Dependencies are now managed per-stage with uv, not a single shared venv.
+#
+# See:
+#   envs/train/pyproject.toml         (+ uv.lock) — torch + ultralytics, no TF
+#   envs/export-ios/pyproject.toml    (+ uv.lock) — torch + ultralytics + coremltools
+#   envs/export-android/pyproject.toml (+ uv.lock) — torch + ultralytics + TF 2.18.1 + onnx2tf + ai-edge-litert
+#
+# To recreate any env:
+#
+#   cd envs/<task>
+#   uv sync --frozen
+#
+# Run any pipeline stage via the launchers in scripts/, which set
+# YOLO_AUTOINSTALL=False and print version assertions before doing real work:
+#
+#   bash scripts/train_field.sh
+#   bash scripts/export_ios.sh
+#   bash scripts/export_android.sh
+#
+# The single shared .venv that this file used to provision is no longer
+# supported — Ultralytics' check_requirements() AutoInstall would
+# repeatedly clobber pinned wheels when invoked from the export path. The
+# per-stage env layout sidesteps that. See docs/TRAINING_DETAILS.md
+# §"Software Stack" for the full rationale.

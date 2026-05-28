@@ -1,0 +1,29 @@
+[project]
+name = "dlscan-export-android"
+version = "0.1.0"
+description = "TFLite export env (review-pinned stack — fragile on macOS arm64)"
+requires-python = "==3.12.*"
+dependencies = [
+    "torch==2.11.0",
+    "torchvision==0.26.0",
+    "ultralytics==8.4.46",
+    "coremltools==9.0",  # for parity tests against the iOS Core ML build
+    "tensorflow==2.18.1",
+    "tf-keras==2.18.0",
+    "numpy==2.0.2",
+    "protobuf==5.29.5",
+    "ml-dtypes==0.5.4",
+    "onnx==1.17.0",
+    "onnx2tf==1.27.4",
+    "onnxslim==0.1.82",
+    "onnx-graphsurgeon==0.5.8",
+    "sng4onnx==1.0.4",
+    "ai-edge-litert==1.2.0",
+    "onnxruntime==1.20.1",
+    "opencv-python==4.10.0.84",
+    "pyyaml==6.0.2",
+    "pillow==11.0.0",
+    "pandas==2.2.3",
+    "matplotlib==3.9.2",
+    "tqdm==4.67.0",
+]
