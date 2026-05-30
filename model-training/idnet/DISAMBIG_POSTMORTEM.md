@@ -144,7 +144,7 @@ useful for future OCR research, dataset audits, or any v2 disambig attempt.
 
 | Asset | Path | Notes |
 |---|---|---|
-| Raw OCR pairs (full 50K run) | `/Volumes/Work4TB/dev/iotashan/idnet-data/ocr_pairs.jsonl` | 111 897 lines, ~30 MB. Generated from 50 000 stratified IDNet images via VisionKit on M3 Ultra ANE. |
+| Raw OCR pairs (full 50K run) | `$IDNET_DATA_ROOT/ocr_pairs.jsonl` | 111 897 lines, ~30 MB. Generated from 50 000 stratified IDNet images via VisionKit on M3 Ultra ANE. |
 | Trained (broken) Keras model | `model-training/runs/disambig/best.keras` | 2.7 MB. Kept for reference — runs but produces the mode-collapse outputs documented above. |
 | Per-epoch training history | `model-training/runs/disambig/history.csv` | 11 epochs of loss + accuracy. |
 

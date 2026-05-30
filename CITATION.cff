@@ -13,8 +13,8 @@ authors:
 repository-code: "https://github.com/iotashan/react-native-dl-scan"
 url: "https://github.com/iotashan/react-native-dl-scan"
 license: MIT
-version: "0.1.0"
-date-released: "2025-05-01"
+version: "0.2.0"
+date-released: "2026-05-28"
 abstract: >-
   A React Native library for real-time on-device scanning of US and Canadian
   driver's licenses and ICAO 9303 MRZ documents. Bundles three ML models
@@ -40,12 +40,29 @@ references:
     title: "IDNet: A Novel Dataset for Identity Document Analysis and Fraud Detection"
     authors:
       - family-names: Guan
-        given-names: Bingyu
-      - family-names: Coleman
-        given-names: Sriram
-      - family-names: Bhanu
-        given-names: Bir
+        given-names: Hong
+      - family-names: Wang
+        given-names: Yancheng
+      - family-names: Xie
+        given-names: Lulu
+      - family-names: Nag
+        given-names: Soham
+      - family-names: Goel
+        given-names: Rajeev
+      - family-names: Erappa Narayana Swamy
+        given-names: Niranjan
+      - family-names: Yang
+        given-names: Yingzhen
+      - family-names: Xiao
+        given-names: Chaowei
+      - family-names: Prisby
+        given-names: Jonathan
+      - family-names: Maciejewski
+        given-names: Ross
+      - family-names: Zou
+        given-names: Jia
     year: 2024
+    license: CC-BY-4.0
     url: "https://huggingface.co/datasets/cactuslab/IDNet-2025"
     repository: "https://zenodo.org/records/13852734"
     identifiers:
@@ -58,6 +75,6 @@ preferred-citation:
   authors:
     - family-names: Hicks
       given-names: Shannon
-  year: 2025
+  year: 2026
   url: "https://github.com/iotashan/react-native-dl-scan"
   license: MIT

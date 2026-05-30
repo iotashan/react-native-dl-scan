@@ -20,8 +20,8 @@ For the architectural decision that dropped the doc detector see [ARCHITECTURE_D
 | Model family | `react-native-dl-scan` v0.x |
 | Trained sub-models | DlScanFieldDetector; DocAligner (Android only) |
 | Doc segmentation | Apple Vision `VNDetectDocumentSegmentationRequest` on iOS (vendor); DocAligner `lcnet100` TFLite FP16 on Android (bundled — Android has no equivalent free Vision API for corner-based rectification, see [ADR 001](ARCHITECTURE_DECISIONS.md)) |
-| Training date | `<TBD: filled post-training from models/version.json>` |
-| Model version | `<TBD: see models/version.json>` |
+| Training date | 2026-05-08 |
+| Model version | YOLOv8n field detector, Ultralytics 8.4.46 export 2026-05-08 |
 | Training framework | PyTorch 2.6+ / Ultralytics ≥8.3.0 (field detector) |
 | Export formats | Core ML (iOS, weight-only int8); TFLite (Android, full int8) |
 | License (code) | MIT |
@@ -39,13 +39,14 @@ For the architectural decision that dropped the doc detector see [ARCHITECTURE_D
 ## Document Segmentation (Platform-Vendor)
 
 Document segmentation — detecting the ID card in the camera frame and producing
-the corner points needed to rectify it — is handled by platform-vendor APIs
-rather than a bundled trained model.
+the corner points needed to rectify it — uses a platform-vendor API on iOS and
+a bundled trained model on Android (Android has no equivalent free Vision API
+for corner-based rectification).
 
-| Platform | API | Notes |
+| Platform | Method | Notes |
 |---|---|---|
-| iOS | [`VNDetectDocumentSegmentationRequest`](https://developer.apple.com/documentation/vision/vndetectdocumentsegmentationrequest) | Apple Vision framework; iOS 15+; ANE-accelerated |
-| Android | [ML Kit Document Scanner](https://developers.google.com/ml-kit/vision/doc-scanner) (`com.google.mlkit.vision.documentscanner`) | Play Services-backed; ANE-friendly |
+| iOS | [`VNDetectDocumentSegmentationRequest`](https://developer.apple.com/documentation/vision/vndetectdocumentsegmentationrequest) | Apple Vision framework (vendor, not bundled); iOS 15+; ANE-accelerated |
+| Android | DocAligner `lcnet100` TFLite FP16 (`android/src/main/assets/docaligner_lcnet100.tflite`, ~2.4 MB) | Bundled trained model loaded at runtime; Apache-2.0 from [DocsaidLab](https://github.com/DocsaidLab/DocAligner). See [THIRD_PARTY_MODELS.md](THIRD_PARTY_MODELS.md) |
 
 ### Rationale
 
@@ -55,15 +56,18 @@ bug (KL divergence on predicted angle distribution > 0.10) matching the
 documented Ultralytics MPS-OBB issues
 [#10181](https://github.com/ultralytics/ultralytics/issues/10181) and
 [#13081](https://github.com/ultralytics/ultralytics/issues/13081). With no
-cloud compute available, the vendor API path was chosen instead.
+cloud compute available, Apple's Vision API was chosen on iOS, and the
+pre-trained DocAligner `lcnet100` TFLite model was bundled on Android (Android
+has no equivalent free Vision API for corner-based rectification).
 
-Benefits of the vendor approach:
+Benefits of this approach:
 
-- Both APIs are ANE-accelerated with no bundle-size cost.
-- Apple and Google maintain and improve these APIs independently; accuracy
-  typically exceeds what a small bundled model would achieve.
+- On iOS, the Apple Vision API is ANE-accelerated with no bundle-size cost.
+- On Android, the bundled DocAligner model (~2.4 MB) is a small, pre-trained
+  TFLite model — far cheaper to ship than training and bundling our own
+  OBB doc detector, and Apple/DocsaidLab maintain these independently.
 - No OBB NMS implementation required in Swift/Kotlin consumer wrappers.
-- Bundle size is ~2 MB smaller (no `.mlmodelc` / `.tflite` doc detector files).
+- No custom doc-detector training was needed (Stage 3 training was eliminated).
 
 The full architectural decision record is in
 [docs/ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md).
@@ -137,12 +141,16 @@ verifies that int8 mAP is within 1% absolute of the FP32 baseline.
 
 Full methodology and per-jurisdiction breakdown: [EVALUATION.md](EVALUATION.md).
 
-### Summary metrics (placeholders — filled post-training)
+### Summary metrics
 
-| Model | Metric | FP32 | int8 (quantized) |
-|---|---|---|---|
-| DlScanFieldDetector | mAP@0.5 | `<TBD: see models/version.json>` | `<TBD: see models/version.json>` |
-| Document segmentation | — | Vendor-evaluated (Apple / Google) | — |
+Evaluated on the held-out synthetic test split (see [EVALUATION.md](EVALUATION.md)).
+Source of record: [`models/version.json`](../models/version.json).
+
+| Model | Metric | FP32 (.pt) | Core ML int8 | TFLite int8 |
+|---|---|---|---|---|
+| DlScanFieldDetector | mAP@0.5 | 0.995 | 0.995 | 0.9554 |
+| DlScanFieldDetector | mAP@0.5:0.95 | 0.995 | 0.994 | 0.7338 |
+| Document segmentation | — | iOS: Apple Vision (vendor-evaluated) · Android: DocAligner (bundled) | — | — |
 
 Target thresholds based on IDNet paper baselines:
 
@@ -196,7 +204,7 @@ and this repository.
 ```bibtex
 @inproceedings{guan2024idnet,
   title     = {{IDNet}: A Novel Dataset for Identity Document Analysis and Fraud Detection},
-  author    = {Guan, Bingyu and Coleman, Sriram and Bhanu, Bir and others},
+  author    = {Guan, Hong and Wang, Yancheng and Xie, Lulu and Nag, Soham and Goel, Rajeev and Erappa Narayana Swamy, Niranjan and Yang, Yingzhen and Xiao, Chaowei and Prisby, Jonathan and Maciejewski, Ross and Zou, Jia},
   booktitle = {2024 IEEE International Conference on Big Data (BigData)},
   year      = {2024},
   publisher = {IEEE},
@@ -207,7 +215,7 @@ and this repository.
 ```bibtex
 @misc{guan2024idnetpreprint,
   title         = {{IDNet}: A Novel Dataset for Identity Document Analysis and Fraud Detection},
-  author        = {Guan, Bingyu and Coleman, Sriram and Bhanu, Bir and others},
+  author        = {Guan, Hong and Wang, Yancheng and Xie, Lulu and Nag, Soham and Goel, Rajeev and Erappa Narayana Swamy, Niranjan and Yang, Yingzhen and Xiao, Chaowei and Prisby, Jonathan and Maciejewski, Ross and Zou, Jia},
   year          = {2024},
   eprint        = {2408.01690},
   archivePrefix = {arXiv},
@@ -244,10 +252,15 @@ Rationale for Apache 2.0 for weights:
 - The explicit patent grant in Apache 2.0 provides additional clarity for
   downstream commercial use.
 
-**Document segmentation** (VisionKit / ML Kit): These are platform-vendor
-APIs. Apple's `VNDetectDocumentSegmentationRequest` is governed by the Apple
-SDK license; ML Kit Document Scanner is governed by Google's ML Kit Terms of
-Service. Neither is bundled with this package.
+**Document segmentation**: Handled differently per platform.
+
+- **iOS** uses Apple's `VNDetectDocumentSegmentationRequest` (Apple Vision),
+  a platform-vendor API governed by the Apple SDK license. It is not bundled
+  with this package.
+- **Android** bundles the pre-trained DocAligner `lcnet100` TFLite FP16 model
+  (`android/src/main/assets/docaligner_lcnet100.tflite`), licensed Apache-2.0
+  by [DocsaidLab](https://github.com/DocsaidLab/DocAligner). Full attribution
+  for this third-party model is in [THIRD_PARTY_MODELS.md](THIRD_PARTY_MODELS.md).
 
 **Note:** IDNet is licensed CC-BY-4.0. Models derived by training on
 CC-BY-4.0 data inherit an attribution requirement. The attribution provided

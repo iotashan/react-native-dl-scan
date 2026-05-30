@@ -21,12 +21,15 @@ Usage:
 from __future__ import annotations
 import argparse
 import json
+import os
 import random
 import sys
 from collections import defaultdict
 from pathlib import Path
 
-IDNET = Path("/Volumes/Work4TB/dev/iotashan/idnet-data/extracted")
+# Dataset root is configured via the IDNET_DATA_ROOT environment variable,
+# e.g. `export IDNET_DATA_ROOT=/path/to/idnet-data` (defaults to ./idnet-data).
+IDNET = Path(os.environ.get("IDNET_DATA_ROOT", "idnet-data")) / "extracted"
 USED_FILE = Path("tools/dlscan-debug-cli/used-images.txt")
 
 # US Census 2023 mid-year estimates (millions). Source:

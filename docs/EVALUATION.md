@@ -1,13 +1,13 @@
 # Evaluation
 
 This document describes the held-out test methodology for the trained ML
-model in `react-native-dl-scan` (`DlScanFieldDetector`) and provides
-placeholder metrics filled post-training by
+model in `react-native-dl-scan` (`DlScanFieldDetector`) and reports the
+metrics measured post-training by
 `model-training/export/validate_quantization.py`.
 
 Document segmentation (the step that locates the card in the camera frame) is
-handled by platform-vendor APIs. See the
-[Document Segmentation Evaluation](#document-segmentation-evaluation-vendor-apis)
+handled by a platform-vendor API on iOS and by a bundled model on Android. See
+the [Document Segmentation Evaluation](#document-segmentation-evaluation)
 section for details.
 
 ---
@@ -22,7 +22,9 @@ The test set is the **held-out 10% split** drawn during dataset preparation:
 - **Never seen during training or validation.**
 - The same split boundary (sample IDs) is shared across all training stages.
 
-Test set size: `<TBD: exact count from prepare_yolo_obb.py output>` images.
+Test set size: **12,035 held-out IDNet images** (the same held-out split
+recorded in [`MODEL_CONTRACT.md`](MODEL_CONTRACT.md) and `models/version.json`),
+never seen during training.
 
 All test images are synthetic (from IDNet). No real identity documents are
 included in any evaluation.
@@ -59,10 +61,11 @@ fails if the threshold is not met.
 
 ---
 
-## Results (Placeholders)
+## Results
 
-All metrics below are filled post-training by `validate_quantization.py`.
-The authoritative source for all measured numbers is **`models/version.json`**.
+The metrics below were measured post-training by `validate_quantization.py`
+(export run dated **2026-05-08**) and copied from the authoritative source for
+all measured numbers, **`models/version.json`**.
 
 ### DlScanFieldDetector
 
@@ -72,38 +75,40 @@ The authoritative source for all measured numbers is **`models/version.json`**.
 | Recall@0.5 | 1.0000 | 1.0000 | 0.9962 |
 | Quantization delta vs FP32 | — | 0.000 (within tolerance — head-protected weight-only int8) | 0.040 (full-int8; flagged but within product tolerance) |
 
-#### Per-field AP@0.5 (FP32) — selected fields
+#### Per-field / per-class breakdown
 
-| Field class | AP@0.5 |
-|---|---|
-| First name | `<TBD>` |
-| Last name | `<TBD>` |
-| Date of birth | `<TBD>` |
-| License number | `<TBD>` |
-| Expiration date | `<TBD>` |
-| Address | `<TBD>` |
-| Sex | `<TBD>` |
-| Eye color | `<TBD>` |
-| Height | `<TBD>` |
-| Vehicle class | `<TBD>` |
-| (full list from data.yaml) | `<TBD>` |
+Only **aggregate** detection metrics were exported to `models/version.json`
+(FP32 mAP@0.5 0.9950 / mAP@0.5:0.95 0.9950; Core ML int8 0.9950 / 0.9942;
+TFLite int8 0.9554 / 0.7338). A per-class AP@0.5 breakdown across the 30
+detection-region classes was **not separately recorded** in this release, and
+the detector's classes are document **detection regions** (e.g. `given_name`,
+`surname`, `birthday`, `expire_date`) rather than parsed-field accuracies —
+so per-parsed-field precision/recall is not measured here either. Treat the
+aggregate mAP and recall in the table above as the authoritative detector
+quality numbers for v0.2.0.
 
 ---
 
-## Document Segmentation Evaluation (Vendor APIs)
+## Document Segmentation Evaluation
 
 Document segmentation — detecting the ID card in the camera frame and
-computing the rectification corners — is performed by platform-vendor APIs:
+computing the rectification corners — uses different mechanisms per platform:
 
-- **iOS:** `VNDetectDocumentSegmentationRequest` (Apple Vision framework)
-- **Android:** ML Kit Document Scanner (`com.google.mlkit.vision.documentscanner`)
+- **iOS:** `VNDetectDocumentSegmentationRequest` (Apple Vision framework — a
+  vendor API, not a bundled model).
+- **Android:** a **bundled DocAligner `lcnet100` TFLite FP16 model**
+  (`android/src/main/assets/docaligner_lcnet100.tflite`, ~2.4 MB) loaded and
+  run at runtime. DocAligner is Apache-2.0, by DocsaidLab
+  (<https://github.com/DocsaidLab/DocAligner>).
 
-We do not run our own benchmarks against these APIs. Apple and Google publish
-their own quality assessments; accuracy is expected to vary by lighting, viewing
-angle, and document contrast against the background (see
-[LIMITATIONS.md](LIMITATIONS.md) for the failure mode description).
+We do not run our own segmentation benchmarks. For the iOS vendor API, Apple
+publishes its own quality assessments; for the bundled Android DocAligner
+model, upstream DocsaidLab reports its own metrics. In both cases accuracy is
+expected to vary by lighting, viewing angle, and document contrast against the
+background (see [LIMITATIONS.md](LIMITATIONS.md) for the failure mode
+description).
 
-If the vendor API fails to detect the document (e.g., extreme angle or poor
+If segmentation fails to detect the document (e.g., extreme angle or poor
 lighting), the field detector is not invoked. The runtime surfaces this as
 a `null` result to the JavaScript layer, which the calling application
 should handle by prompting the user to reposition the card.
@@ -120,8 +125,9 @@ python model-training/export/validate_quantization.py
 ```
 
 `validate_quantization.py` writes measured mAP, quantization deltas, and
-model metadata to `models/version.json`. The `<TBD>` placeholders in this
-file should be updated from that JSON after training is complete.
+model metadata to `models/version.json`. After any future re-train and export,
+the Results numbers in this file should be re-synced from that JSON, which
+remains the authoritative source for all measured metrics.
 
 For Core ML (iOS) models, on-device validation against the test set on a
 physical iPhone is required to obtain reliable mAP estimates. macOS-side

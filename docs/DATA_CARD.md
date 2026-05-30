@@ -187,10 +187,12 @@ Format:         ZIP archives, one per document type (~388 GB total)
 
 The local download manifest used in this project is at:
 ```
-/Volumes/Work4TB/dev/iotashan/idnet-data/manifest.tsv
+$IDNET_DATA_ROOT/manifest.tsv
 ```
-This file contains file names, byte sizes, and MD5 checksums for all 20 ZIP
-archives. It is the canonical reference for verifying download integrity.
+(`$IDNET_DATA_ROOT` is an environment variable pointing at the local IDNet
+extract, e.g. `~/idnet-data`.) This file contains file names, byte sizes, and
+MD5 checksums for all 20 ZIP archives. It is the canonical reference for
+verifying download integrity.
 
 To download IDNet (~388 GB, approximately 12 hours on a fast connection), use
 `huggingface-hub` or the Zenodo download API. See
@@ -206,7 +208,7 @@ preprint:
 ```bibtex
 @inproceedings{guan2024idnet,
   title     = {{IDNet}: A Novel Dataset for Identity Document Analysis and Fraud Detection},
-  author    = {Guan, Bingyu and Coleman, Sriram and Bhanu, Bir and others},
+  author    = {Hong Guan and Yancheng Wang and Lulu Xie and Soham Nag and Rajeev Goel and Niranjan Erappa Narayana Swamy and Yingzhen Yang and Chaowei Xiao and Jonathan Prisby and Ross Maciejewski and Jia Zou},
   booktitle = {2024 IEEE International Conference on Big Data (BigData)},
   year      = {2024},
   publisher = {IEEE},
@@ -217,7 +219,7 @@ preprint:
 ```bibtex
 @misc{guan2024idnetpreprint,
   title         = {{IDNet}: A Novel Dataset for Identity Document Analysis and Fraud Detection},
-  author        = {Guan, Bingyu and Coleman, Sriram and Bhanu, Bir and others},
+  author        = {Hong Guan and Yancheng Wang and Lulu Xie and Soham Nag and Rajeev Goel and Niranjan Erappa Narayana Swamy and Yingzhen Yang and Chaowei Xiao and Jonathan Prisby and Ross Maciejewski and Jia Zou},
   year          = {2024},
   eprint        = {2408.01690},
   archivePrefix = {arXiv},

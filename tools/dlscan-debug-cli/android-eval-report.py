@@ -22,13 +22,16 @@ Special YOLO_CLASS values: "EMPTY" (pipeline returned no fields),
 from __future__ import annotations
 import argparse
 import json
+import os
 import re
 import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Tuple
 
-IDNET = Path("/Volumes/Work4TB/dev/iotashan/idnet-data/extracted")
+# Dataset root is configured via the IDNET_DATA_ROOT environment variable,
+# e.g. `export IDNET_DATA_ROOT=/path/to/idnet-data` (defaults to ./idnet-data).
+IDNET = Path(os.environ.get("IDNET_DATA_ROOT", "idnet-data")) / "extracted"
 
 TRACKED_FIELDS = [
     "list_1", "list_2", "list_3", "list_4a", "list_4b", "list_4d",

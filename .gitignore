@@ -114,3 +114,22 @@ dlscan-*.jpg
 
 # C++ build directory
 cpp/build/
+
+# Personal/per-user Claude Code state (shared CLAUDE.md + .claude/settings.json + .claude/commands/ stay tracked)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/*.lock
+.claude/worktrees/
+
+# npm lockfile — this repo uses yarn (packageManager: yarn@3.6.1); yarn.lock is the single source of truth
+package-lock.json
+
+# debug-CLI scratch artifacts (dated eval dumps / overnight logs are not source)
+tools/dlscan-debug-cli/OVERNIGHT-*.md
+tools/dlscan-debug-cli/*-2026-*.txt
+tools/dlscan-debug-cli/*results*.tsv
+tools/dlscan-debug-cli/used-images.txt
+
+# Python bytecode cache
+__pycache__/
+*.pyc

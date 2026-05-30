@@ -12,17 +12,17 @@ const FIELD_POSITIONS: FieldPosition[] = [
   { key: 'licenseNumber', label: 'DLN', u: 0.25, v: 0.12 },
   { key: 'lastName', label: '', u: 0.05, v: 0.28 },
   { key: 'firstName', label: '', u: 0.05, v: 0.36 },
-  { key: 'street', label: '', u: 0.05, v: 0.50 },
+  { key: 'street', label: '', u: 0.05, v: 0.5 },
   { key: 'city', label: '', u: 0.05, v: 0.58 },
   { key: 'dateOfBirth', label: 'DOB', u: 0.05, v: 0.78 },
   { key: 'sex', label: 'SEX', u: 0.05, v: 0.86 },
   { key: 'height', label: 'HGT', u: 0.25, v: 0.78 },
   { key: 'eyeColor', label: 'EYES', u: 0.25, v: 0.86 },
-  { key: 'hairColor', label: 'HAIR', u: 0.40, v: 0.86 },
-  { key: 'weight', label: 'WGT', u: 0.40, v: 0.78 },
+  { key: 'hairColor', label: 'HAIR', u: 0.4, v: 0.86 },
+  { key: 'weight', label: 'WGT', u: 0.4, v: 0.78 },
   { key: 'vehicleClass', label: 'CLASS', u: 0.72, v: 0.12 },
   { key: 'expirationDate', label: 'EXP', u: 0.05, v: 0.94 },
-  { key: 'issueDate', label: 'ISS', u: 0.30, v: 0.94 },
+  { key: 'issueDate', label: 'ISS', u: 0.3, v: 0.94 },
 ];
 
 interface FieldOverlayProps {
@@ -39,15 +39,20 @@ function bilinear(
 ): { x: number; y: number } {
   const [tlx, tly, trx, try_, brx, bry, blx, bly] = corners;
   return {
-    x: (1 - u) * (1 - v) * tlx + u * (1 - v) * trx + u * v * brx + (1 - u) * v * blx,
-    y: (1 - u) * (1 - v) * tly + u * (1 - v) * try_ + u * v * bry + (1 - u) * v * bly,
+    x:
+      (1 - u) * (1 - v) * tlx +
+      u * (1 - v) * trx +
+      u * v * brx +
+      (1 - u) * v * blx,
+    y:
+      (1 - u) * (1 - v) * tly +
+      u * (1 - v) * try_ +
+      u * v * bry +
+      (1 - u) * v * bly,
   };
 }
 
-export function FieldOverlay({
-  data,
-  viewCorners,
-}: FieldOverlayProps) {
+export function FieldOverlay({ data, viewCorners }: FieldOverlayProps) {
   if (!data || viewCorners.length !== 8) return null;
 
   return (
@@ -65,16 +70,8 @@ export function FieldOverlay({
         const pos = bilinear(fp.u, fp.v, viewCorners);
 
         return (
-          <View
-            key={fp.key}
-            style={[
-              styles.chip,
-              { left: pos.x, top: pos.y },
-            ]}
-          >
-            {fp.label ? (
-              <Text style={styles.label}>{fp.label} </Text>
-            ) : null}
+          <View key={fp.key} style={[styles.chip, { left: pos.x, top: pos.y }]}>
+            {fp.label ? <Text style={styles.label}>{fp.label} </Text> : null}
             <Text style={styles.value} numberOfLines={1}>
               {displayVal}
             </Text>

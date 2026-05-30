@@ -332,12 +332,37 @@ function FieldLockTally({
           );
         })}
       </View>
-
+      {/* Thin continuous progress bar below the segment tally (OCR progress). */}
+      <View
+        style={{
+          marginTop: 4,
+          height: 2,
+          borderRadius: 1,
+          backgroundColor: 'rgba(255,255,255,0.12)',
+        }}
+      >
+        <View
+          style={{
+            width: `${Math.max(0, Math.min(1, progress)) * 100}%`,
+            height: 2,
+            borderRadius: 1,
+            backgroundColor: barColor,
+          }}
+        />
+      </View>
     </View>
   );
 }
 
-export function Reticle({ cutout, color, successColor, phase, showFieldLock, ocrProgress = 0, ocrStage }: ReticleProps) {
+export function Reticle({
+  cutout,
+  color,
+  successColor,
+  phase,
+  showFieldLock,
+  ocrProgress = 0,
+  ocrStage,
+}: ReticleProps) {
   // When OCR fields are locked, transition brackets to the success color.
   const bracketColor = ocrStage?.tag === 'locked' ? successColor : color;
   // Bar color: green when locked, accent (reticle) during scanning.

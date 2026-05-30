@@ -1,6 +1,20 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
+  // Resolve platform-specific module variants (e.g. ./scanner/barcodeOutput ->
+  // barcodeOutput.ios.ts) the way Metro does. Tests run against the iOS variant.
+  haste: { defaultPlatform: 'ios', platforms: ['ios', 'android', 'native'] },
+  moduleFileExtensions: [
+    'ios.ts',
+    'android.ts',
+    'native.ts',
+    'ts',
+    'tsx',
+    'js',
+    'jsx',
+    'json',
+    'node',
+  ],
   // Use a test-specific tsconfig that turns off verbatimModuleSyntax
   // (required by the main tsconfig for ESM) so ts-jest can run in CJS mode.
   transform: {

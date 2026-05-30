@@ -14,7 +14,8 @@
 set -uo pipefail
 
 TRAINING_ROOT="$(cd "$(dirname "$0")" && pwd)"
-LOG_FILE="/Volumes/Work4TB/dev/iotashan/idnet-data/training-$(date '+%Y%m%d-%H%M%S').log"
+: "${IDNET_DATA_ROOT:?set IDNET_DATA_ROOT to your idnet-data directory}"
+LOG_FILE="${IDNET_DATA_ROOT}/training-$(date '+%Y%m%d-%H%M%S').log"
 
 cd "$TRAINING_ROOT"
 

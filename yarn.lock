@@ -7913,8 +7913,8 @@ __metadata:
     ts-jest: ^29.3.2
     typescript: ^5.8.3
   peerDependencies:
-    react: "*"
-    react-native: "*"
+    react: ">=18.0.0"
+    react-native: ">=0.79.0"
     react-native-nitro-image: ^0.14.0
     react-native-nitro-modules: ^0.35.0
     react-native-vision-camera: ^5.0.0

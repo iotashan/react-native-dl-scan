@@ -1,7 +1,9 @@
 # react-native-dl-scan — Model Training Pipeline
 
 > **Doc detector training was deliberately skipped after MPS smoke test failure.**
-> Document segmentation at runtime uses VisionKit (iOS) and ML Kit (Android).
+> Document segmentation at runtime uses Apple Vision's
+> `VNDetectDocumentSegmentationRequest` (iOS) and a bundled DocAligner lcnet100
+> TFLite model (Android, `android/src/main/assets/docaligner_lcnet100.tflite`).
 > See [docs/TRAINING_DETAILS.md](../docs/TRAINING_DETAILS.md) for the rationale
 > and [docs/ARCHITECTURE_DECISIONS.md](../docs/ARCHITECTURE_DECISIONS.md) for
 > the full decision record.
@@ -15,17 +17,24 @@
 > For the full model card (architecture, evaluation, limitations, citation), see
 > [docs/MODEL_CARD.md](../docs/MODEL_CARD.md).
 
-Local training pipeline for the two trained on-device ML models that power
+Local training pipeline for the single trained on-device ML model that powers
 `react-native-dl-scan`:
 
 | Model | Architecture | Purpose |
 |---|---|---|
 | `DlScanFieldDetector` | YOLOv8n (axis-aligned) | Locate individual text fields on the rectified document |
-| `DlScanFieldDisambig` | Keras per-char LSTM | Correct OCR substitution errors |
+
+A Keras OCR-disambiguation model (`DlScanFieldDisambig`) was attempted and
+**removed from the product** after a held-out diagnostic showed it was
+net-negative on accuracy. v1 ships **no ML disambig**: platform-vendor OCR
+(VisionKit / ML Kit) feeds the shared C++ field extractor directly. The full
+postmortem is at [idnet/DISAMBIG_POSTMORTEM.md](idnet/DISAMBIG_POSTMORTEM.md);
+the disambig training code has been removed and the stages below are marked
+inactive.
 
 Document segmentation (formerly `DlScanDocDetector`, YOLOv8n-OBB) is handled
-at runtime by `VNDetectDocumentSegmentationRequest` (iOS) and the ML Kit
-Document Scanner (Android) — see the note above.
+at runtime by `VNDetectDocumentSegmentationRequest` (iOS) and a bundled
+DocAligner TFLite model (Android) — see the note above.
 
 All training is **local on an M3 Ultra Mac Studio**. There is no cloud fallback budget.
 
@@ -57,11 +66,18 @@ This requires macOS 14 (Sonoma) or later.
 
 ### IDNet dataset
 
-All 20 `.zip` files are already downloaded and verified at:
+Point the pipeline at your downloaded copy of the dataset with the
+`IDNET_DATA_ROOT` environment variable (defaults to `./idnet-data` if unset):
+
+```bash
+export IDNET_DATA_ROOT=/path/to/idnet-data
+```
+
+All 20 `.zip` files must be downloaded and verified at:
 
 ```
-/Volumes/Work4TB/dev/iotashan/idnet-data/zips/   (388 GB total)
-/Volumes/Work4TB/dev/iotashan/idnet-data/manifest.tsv
+$IDNET_DATA_ROOT/zips/   (388 GB total)
+$IDNET_DATA_ROOT/manifest.tsv
 ```
 
 **Do not modify these files.** The manifest contains md5 checksums.
@@ -106,8 +122,9 @@ python model-training/idnet/extract_subsets.py
 
 # Verify extraction
 python -c "
+import os
 from pathlib import Path
-root = Path('/Volumes/Work4TB/dev/iotashan/idnet-data/extracted')
+root = Path(os.environ.get('IDNET_DATA_ROOT', 'idnet-data')) / 'extracted'
 for d in sorted(root.iterdir()):
     n = len(list(d.glob('*.jpg')))
     print(f'{d.name:40s} {n:6d} images')
@@ -139,50 +156,26 @@ Monitor thermals during this stage:
 sudo powermetrics --samplers smc,gpu_power,thermal -i 1000
 ```
 
-**Can run concurrently with Stage 3** — the field detector uses the GPU, and
-OCR pair generation runs on the Neural Engine (a separate physical chip).
+### Stage 3 — OCR pair generation — **REMOVED** (was disambig data prep)
 
-### Stage 3 — OCR pair generation (~4-6 hours)
+> **Inactive.** These stages produced training data for the OCR-disambiguation
+> model, which was removed from the product (net-negative accuracy — see
+> [idnet/DISAMBIG_POSTMORTEM.md](idnet/DISAMBIG_POSTMORTEM.md)). The disambig
+> scripts (`render_ocr_pairs.py`, `measure_error_types.py`, `train_disambig.py`,
+> `export_disambig.py`) have been removed from the repo and are no longer
+> invoked by `run_full_pipeline.sh`. The raw OCR-pair training data it generated
+> is retained for reference (see the postmortem's "Data assets retained").
 
-Generates training data for the disambig model. Uses VisionKit text recognition
-via the Neural Engine — **does not use the GPU**.
+### Stage 4 — Disambig model training — **REMOVED**
 
-```bash
-# Generate 50K (image, OCR output, ground truth) triples
-python model-training/disambig/render_ocr_pairs.py
+> **Inactive.** See Stage 3 above and the postmortem. v1 ships no ML disambig;
+> platform-vendor OCR feeds the shared C++ field extractor directly.
 
-# Analyze error type distribution and determine architecture
-python model-training/disambig/measure_error_types.py
-```
-
-`measure_error_types.py` prints one of:
-
-```
-ARCHITECTURE: per-char-classification    ← default; substitutions dominate
-ARCHITECTURE: seq2seq                    ← if insertion/deletion errors >= 20%
-```
-
-The `train_disambig.py` script reads this output automatically.
-
-### Stage 4 — Disambig model training (~2 hours)
-
-```bash
-python model-training/disambig/train_disambig.py
-```
-
-- Keras 3 (TensorFlow backend), 30 epochs, batch=64
-- Auto-detects architecture from `measure_error_types.py` output
-- Best model: `runs/disambig/best.keras`
-- Training history: `runs/disambig/history.csv`
-
-### Stage 5 — Export (~4-6 hours total)
+### Stage 5 — Export (~5 min)
 
 ```bash
 # Export field detector (Core ML int8 + TFLite int8)
 python model-training/export/export_field_detector.py
-
-# Export disambig (Core ML + TFLite float16)
-python model-training/export/export_disambig.py
 
 # Validate quantization accuracy vs FP32 baseline
 python model-training/export/validate_quantization.py
@@ -209,15 +202,12 @@ there is no doc detector to export in the current pipeline.
 | Chip | Used by |
 |---|---|
 | GPU (80-core) | Field detector training |
-| Neural Engine (32-core) | VisionKit OCR pair generation, Core ML export/inference |
+| Neural Engine (32-core) | Core ML export/inference |
 | CPU (32-core) | DataLoader workers, TFLite conversion |
 
 **Sequential GPU**: do not run multiple GPU training jobs simultaneously. GPU
 training jobs serialize at the kernel level on MPS; two processes compete and
 both degrade.
-
-**Overlapping GPU + Neural Engine is fine**: run `render_ocr_pairs.py` (Stage 3)
-while `train_field_detector.py` (Stage 2) is running.
 
 ### Thermal management
 
@@ -267,36 +257,28 @@ images from the training distribution.
 
 - **Calibration data required**: both weights AND activations are quantized.
 - More aggressive compression; requires accurate calibration data.
-- Android v1 ships a heuristic disambig fallback (no TFLite disambig);
-  v2 adds ML Kit-tuned disambig.
+- v1 ships **no ML disambig** on either platform — OCR output is parsed
+  directly by the shared C++ field extractor (see the postmortem).
 
 ### OBB NMS
 
 The OBB doc detector is not trained in the current pipeline; there is no OBB
-NMS to handle at export time. Both the field detector and disambig use
-axis-aligned operations compatible with standard Core ML and TFLite NMS. If a
-future contributor re-enables the OBB doc detector, note that rotated NMS would
-need to be implemented in the Swift / Kotlin consumer wrappers (Core ML and
-TFLite only support axis-aligned NMS natively).
+NMS to handle at export time. The field detector uses axis-aligned operations
+compatible with standard Core ML and TFLite NMS. If a future contributor
+re-enables the OBB doc detector, note that rotated NMS would need to be
+implemented in the Swift / Kotlin consumer wrappers (Core ML and TFLite only
+support axis-aligned NMS natively).
 
 ---
 
-## Disambig architecture
+## Disambig architecture — **REMOVED**
 
-The architecture is selected by `measure_error_types.py` based on the
-error distribution in `ocr_pairs.jsonl`.
-
-**Per-character classification** (default):
-- Input: one-hot OCR string padded to 24 chars + field-type embedding
-- 1D conv × 2 → Bidirectional LSTM (64 units) → per-position softmax
-- TFLite-trivial, quantization-friendly
-- Works well when OCR errors are mostly substitutions (same position, wrong char)
-
-**Seq2seq fallback** (if insertion/deletion errors >= 20%):
-- Encoder: 1D conv + LSTM(128)
-- Decoder: fixed max-output-length LSTM(128) + Bahdanau attention
-- Fixed output length preserves TFLite export compatibility
-- Slightly higher complexity; ~3x training time
+> The OCR-disambiguation model was trained, evaluated, and dropped from the
+> product. The two candidate architectures (per-character classification and a
+> seq2seq fallback), why the trained model collapsed, and what a future v2
+> attempt would need to change are all documented in
+> [idnet/DISAMBIG_POSTMORTEM.md](idnet/DISAMBIG_POSTMORTEM.md). v1 ships no ML
+> disambig.
 
 ---
 
@@ -308,16 +290,17 @@ After export, the `models/` directory at repo root contains:
 models/
   DlScanFieldDetector.mlpackage/   Core ML field detector (int8)
   DlScanFieldDetector.mlmodelc/    Compiled for on-device deployment
-  DlScanFieldDisambig.mlpackage/   Core ML disambig
-  DlScanFieldDisambig.mlmodelc/    Compiled
   dl_scan_field_detector.tflite    Android field detector (int8)
-  dl_scan_field_disambig.tflite    Android disambig (float16)
   version.json                     Training metadata + export timestamps
 ```
 
+Note: the disambig artifacts (`DlScanFieldDisambig.*`, `dl_scan_field_disambig.tflite`)
+are NOT produced — the disambig model was removed from the product.
+
 Note: `DlScanDocDetector.*` and `dl_scan_doc_detector.tflite` are NOT produced.
 Document segmentation is handled at runtime by `VNDetectDocumentSegmentationRequest`
-(iOS) and `com.google.mlkit:document-scanner` (Android).
+(iOS) and a bundled DocAligner lcnet100 TFLite model on Android
+(`android/src/main/assets/docaligner_lcnet100.tflite`, loaded at runtime).
 
 These files will be committed to the repo via Git LFS once they pass
 `validate_quantization.py`.
@@ -346,11 +329,15 @@ consumer Macs. Monitor with `powermetrics` and ensure the machine has good
 airflow. An unexpected drop in throughput after the first 30-60 min usually
 indicates thermal throttling.
 
-### Android v1 disambig coverage
+### No ML disambig (removed)
 
-Android v1 ships without an ML Kit-trained disambig. The C++ layer falls back
-to heuristic character correction (AAMVA date format normalization, common
-OCR substitution tables). The Keras/TFLite disambig model targets v2+.
+The product ships without any ML OCR-disambiguation model on either platform.
+The shared C++ layer handles OCR errors at parse time — AAMVA date-format
+normalization, height/postal-code regex fallbacks, and common substitution
+tables — rather than at the character level. The Keras disambig model was
+attempted and removed after it proved net-negative; revisiting it is a
+possible v2 path documented in the
+[postmortem](idnet/DISAMBIG_POSTMORTEM.md).
 
 ### tensorflow-macos compatibility
 
@@ -368,7 +355,8 @@ python -c "import tensorflow as tf; print(tf.config.list_physical_devices())"
 ## Quick-reference: all scripts
 
 Scripts marked **[inactive]** are preserved for future CUDA-based resumption
-but are not invoked by `run_full_pipeline.sh`.
+but are not invoked by `run_full_pipeline.sh`. The disambig scripts have been
+**removed** (see [idnet/DISAMBIG_POSTMORTEM.md](idnet/DISAMBIG_POSTMORTEM.md)).
 
 | Script | Full/Skeleton | Purpose |
 |---|---|---|
@@ -378,15 +366,12 @@ but are not invoked by `run_full_pipeline.sh`.
 | `smoke_test_obb.py` | Full | **[inactive]** 2-epoch MPS-vs-CPU OBB correctness check |
 | `train_doc_detector.py` | Full | **[inactive]** 80-epoch YOLOv8n-OBB training |
 | `train_field_detector.py` | Full | 60-epoch YOLOv8n field training |
-| `disambig/render_ocr_pairs.py` | Full | VisionKit OCR → pairs.jsonl |
-| `disambig/measure_error_types.py` | Full | Error analysis → architecture flag |
-| `disambig/train_disambig.py` | Full | Keras per-char / seq2seq training |
 | `export/export_doc_detector.py` | Full | **[inactive]** Core ML int8 + TFLite int8 export |
 | `export/export_field_detector.py` | Full | Core ML int8 + TFLite int8 export |
-| `export/export_disambig.py` | Full | Core ML + TFLite float16 export |
 | `export/validate_quantization.py` | Full | mAP delta + latency regression check |
 | `utils/paths.py` | Full | Canonical path constants |
 | `utils/benchmarks.py` | Skeleton | GPU/CPU/ANE throughput benchmarks (fill in) |
+| `disambig/*.py`, `export/export_disambig.py` | **[removed]** | OCR disambig (net-negative; see postmortem) |
 
 ---
 

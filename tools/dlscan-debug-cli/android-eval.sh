@@ -23,7 +23,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IDNET_ROOT="/Volumes/Work4TB/dev/iotashan/idnet-data/extracted"
+: "${IDNET_DATA_ROOT:?set IDNET_DATA_ROOT to your idnet-data directory}"
+IDNET_ROOT="${IDNET_DATA_ROOT}/extracted"
 OUT="$REPO_ROOT/tools/dlscan-debug-cli/android-results.tsv"
 OUT_REGION="$REPO_ROOT/tools/dlscan-debug-cli/android-results-region.tsv"
 APP_PKG="com.iotashan.dlscanexample"

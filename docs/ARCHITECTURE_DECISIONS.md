@@ -8,7 +8,7 @@ entries.
 
 ---
 
-## ADR 001: Drop YOLOv8n-OBB doc detector; use vendor APIs
+## ADR 001: Drop YOLOv8n-OBB doc detector; use Apple Vision (iOS) + bundled DocAligner (Android)
 
 **Status**: Accepted (2026-05-06)
 
@@ -55,10 +55,16 @@ Drop the YOLOv8n-OBB doc detector training stage entirely.
   [`VNDetectDocumentSegmentationRequest`](https://developer.apple.com/documentation/vision/vndetectdocumentsegmentationrequest)
   (introduced iOS 15, ANE-accelerated, part of `Vision.framework` which is
   already required by the package).
-- **Android runtime**: use Google's
-  [ML Kit Document Scanner](https://developers.google.com/ml-kit/vision/doc-scanner)
-  (`com.google.mlkit.vision.documentscanner`, Play Services-backed,
-  ANE-friendly).
+- **Android runtime**: bundle and run the
+  [DocAligner](https://github.com/DocsaidLab/DocAligner) `lcnet100` corner
+  detector (Apache-2.0, by DocsaidLab) as an FP16 TFLite model
+  (`android/src/main/assets/docaligner_lcnet100.tflite`, ~2.4 MB), loaded at
+  runtime via the same TFLite `Interpreter` path as the field detector. It
+  is a lightweight heatmap regression model that predicts the document's four
+  corners per camera frame, feeding the same perspective-rectification step
+  the OBB detector would have. Unlike Google's ML Kit Document Scanner (a
+  full-screen Activity, not a per-frame API), this runs inline in the
+  frame-processing pipeline with no Play Services dependency.
 
 **Alternatives considered**:
 
@@ -71,26 +77,33 @@ Drop the YOLOv8n-OBB doc detector training stage entirely.
 **Consequences**:
 
 Positive:
-- **Bundle size**: ~2 MB smaller — no `DlScanDocDetector.mlmodelc` or
-  `dl_scan_doc_detector.tflite` shipped with the package.
+- **Bundle size**: no self-trained `DlScanDocDetector.mlmodelc` or
+  `dl_scan_doc_detector.tflite` shipped with the package. iOS adds nothing
+  (Apple Vision is part of the OS); Android bundles the pre-trained
+  DocAligner `lcnet100` TFLite model (~2.4 MB) instead of a much larger
+  self-trained OBB model.
 - **Training time**: ~25 hrs total (was ~50 hrs) — one full training job saved.
 - **Carbon footprint**: roughly halved (~3 kg CO₂ vs ~5.7 kg CO₂).
-- **Accuracy**: both vendor APIs are ANE-accelerated and generally better than
-  what a small bundled OBB model would achieve on real-world camera frames.
-- **Maintenance**: Apple and Google maintain and improve these APIs
-  independently; no retraining required when new document designs appear.
+- **Accuracy**: Apple Vision is ANE-accelerated, and DocAligner `lcnet100` is
+  a purpose-built corner detector — both are generally better than what a
+  small self-trained OBB model would achieve on real-world camera frames.
+- **Maintenance**: Apple maintains its Vision API independently, and
+  DocAligner is an established open-source model; no self-retraining required
+  when new document designs appear.
 - **No OBB NMS required**: eliminates the Swift/Kotlin rotated NMS
   implementation that would have been needed in the consumer wrappers.
 
 Negative:
-- **Runtime accuracy depends on vendor APIs**: we no longer control this layer.
-  Accuracy varies by lighting, viewing angle, and document contrast against the
-  background (see [LIMITATIONS.md](LIMITATIONS.md)).
-- **New Android dependency**: consumer apps must add
-  `com.google.android.gms:play-services-mlkit-document-scanner:16.x` to their
-  Android Gradle dependencies. Document this in installation instructions.
-- **Minimum SDK unchanged**: ML Kit Document Scanner requires
-  `minSdkVersion 24`, already set in the project's `build.gradle`.
+- **iOS runtime accuracy depends on Apple's Vision API**: we no longer control
+  the iOS segmentation layer. Accuracy varies by lighting, viewing angle, and
+  document contrast against the background (see [LIMITATIONS.md](LIMITATIONS.md)).
+- **Android ships an extra bundled asset**: the DocAligner `lcnet100` TFLite
+  model (~2.4 MB) is packaged under `android/src/main/assets/`. No additional
+  consumer Gradle dependency is required — it loads via the TFLite runtime the
+  field detector already uses.
+- **Android third-party model provenance**: the DocAligner weights are
+  third-party (DocsaidLab, Apache-2.0); see [DATA_CARD.md](DATA_CARD.md) for
+  provenance and license.
 - **iOS 15+ minimum unchanged**: `VNDetectDocumentSegmentationRequest` was
   introduced in iOS 15, which is already the package floor.
 

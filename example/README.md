@@ -105,6 +105,20 @@ example/
 
 ## On-device test harness
 
-Both platforms are driveable via [agent-device](https://incubator.callstack.com/agent-device/) for scripted UI testing. For Android the runner ships with the CLI; for iOS the runner needs a one-time sign-and-install — see `docs/agent-device-setup.md` if it exists, or `gh issue #80` for the recipe.
+Both platforms are driveable via [agent-device](https://incubator.callstack.com/agent-device/) for scripted UI testing. For Android the runner ships with the CLI; for iOS the runner needs a one-time sign-and-install: add an Apple ID in **Xcode → Settings → Accounts** so Xcode can auto-create the runner provisioning profiles, then set `AGENT_DEVICE_IOS_TEAM_ID=<your-team-id>` and run `agent-device open <bundle-id> --platform ios` once (the first run takes ~30–60s while it builds and installs the runner). See the [agent-device docs](https://incubator.callstack.com/agent-device/) for the full runner-signing walkthrough.
 
-For iOS Simulator camera testing, [SimCam](https://simcam.swmansion.com) feeds a static image into the simulator's AVFoundation camera so the OCR pipeline can run end-to-end on an unattended machine. See the **SimCam** section of `~/.iotaclaude/rules/simcam.md` (user-local) for the image-prep recipe — 3:4 portrait canvas with the DL at ~50% width is the safe target.
+For iOS Simulator camera testing, [SimCam](https://simcam.swmansion.com) feeds a static image into the simulator's AVFoundation camera so the OCR pipeline can run end-to-end on an unattended machine. The image-prep recipe that frames a full DL inside the viewfinder in iPad-portrait is a **3:4 portrait canvas (1080×1440)** with the license upscaled to ~50% of canvas width and centered, e.g. with ImageMagick:
+
+```sh
+magick "$src.jpg" \
+  -resize 540x \
+  -background gray85 \
+  -gravity center \
+  -extent 1080x1440 \
+  out.png
+
+# then point SimCam's back camera at it (absolute path):
+/Applications/SimCam.app/Contents/MacOS/simcamctl set-source --back --image "$PWD/out.png"
+```
+
+The extra horizontal margin absorbs the cumulative crop from the AVCaptureSession sensor stage and Vision Camera's `resizeMode='cover'`. See the [SimCam docs](https://simcam.swmansion.com) for source-setup details and license activation.

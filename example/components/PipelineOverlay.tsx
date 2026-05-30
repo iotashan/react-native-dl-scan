@@ -24,7 +24,12 @@ interface Stage {
 
 const STAGES_BARCODE: Stage[] = [
   { k: 'cam', nativeStage: 0, label: 'Camera', sub: '1080p @ 30fps' },
-  { k: 'pd', nativeStage: 0, label: 'PDF417', sub: 'vision-camera-barcode-scanner' },
+  {
+    k: 'pd',
+    nativeStage: 0,
+    label: 'PDF417',
+    sub: 'vision-camera-barcode-scanner',
+  },
   { k: 'nitro', nativeStage: 0, label: 'Nitro JNI', sub: 'JS ↔ C++ bridge' },
   { k: 'aamva', nativeStage: 0, label: 'AAMVA', sub: 'C++ field resolver' },
 ];
@@ -46,17 +51,17 @@ const STAGES_OCR: Stage[] = [
     k: 'card',
     nativeStage: 3,
     label: 'Saving card image',
-    sub: Platform.OS === 'ios'
-      ? 'CIPerspectiveCorrection → JPEG'
-      : 'Matrix.setPolyToPoly → JPEG',
+    sub:
+      Platform.OS === 'ios'
+        ? 'CIPerspectiveCorrection → JPEG'
+        : 'Matrix.setPolyToPoly → JPEG',
   },
   {
     k: 'face',
     nativeStage: 4,
     label: 'Detecting headshot',
-    sub: Platform.OS === 'ios'
-      ? 'VNDetectFaceRectangles'
-      : 'MLKit FaceDetection',
+    sub:
+      Platform.OS === 'ios' ? 'VNDetectFaceRectangles' : 'MLKit FaceDetection',
   },
   {
     k: 'done',
@@ -100,12 +105,15 @@ export function PipelineOverlay({
         const delay = 200 + i * MIN_STAGE_DISPLAY_MS;
         timeouts.push(setTimeout(() => setVisibleStep(i), delay));
       });
-      const tail = setTimeout(() => {
-        if (!doneRef.current) {
-          doneRef.current = true;
-          onDone();
-        }
-      }, 200 + stages.length * MIN_STAGE_DISPLAY_MS + 400);
+      const tail = setTimeout(
+        () => {
+          if (!doneRef.current) {
+            doneRef.current = true;
+            onDone();
+          }
+        },
+        200 + stages.length * MIN_STAGE_DISPLAY_MS + 400
+      );
       timeouts.push(tail);
       return () => timeouts.forEach(clearTimeout);
     } else {
@@ -236,22 +244,16 @@ function StageRow({
     }
   }, [active, done, glow]);
   const glowAnim = useAnimatedStyle(() => ({
-    borderColor: active && !done
-      ? `rgba(255,255,255,${0.06 + glow.value * 0.08})`
-      : 'rgba(255,255,255,0.06)',
+    borderColor:
+      active && !done
+        ? `rgba(255,255,255,${0.06 + glow.value * 0.08})`
+        : 'rgba(255,255,255,0.06)',
   }));
 
   const color = done ? t.tierCV : t.reticle;
 
   return (
-    <Animated.View
-      style={[
-        styles.row,
-        { borderWidth: 1 },
-        rowAnim,
-        glowAnim,
-      ]}
-    >
+    <Animated.View style={[styles.row, { borderWidth: 1 }, rowAnim, glowAnim]}>
       <View
         style={[
           styles.badge,
@@ -273,9 +275,7 @@ function StageRow({
         )}
       </View>
       <View style={styles.labelCol}>
-        <Text style={[styles.label, done && { color: t.tierCV }]}>
-          {label}
-        </Text>
+        <Text style={[styles.label, done && { color: t.tierCV }]}>{label}</Text>
         <Text style={styles.sub}>{sub}</Text>
       </View>
     </Animated.View>

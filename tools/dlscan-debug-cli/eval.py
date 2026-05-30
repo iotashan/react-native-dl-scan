@@ -24,7 +24,9 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 CLI = "./tools/dlscan-debug-cli/.build/debug/dlscan-debug-cli"
-IDNET = Path("/Volumes/Work4TB/dev/iotashan/idnet-data/extracted")
+# Dataset root is configured via the IDNET_DATA_ROOT environment variable,
+# e.g. `export IDNET_DATA_ROOT=/path/to/idnet-data` (defaults to ./idnet-data).
+IDNET = Path(os.environ.get("IDNET_DATA_ROOT", "idnet-data")) / "extracted"
 US_STATES = [
     "us_arizona_dl",
     "us_california_dl",

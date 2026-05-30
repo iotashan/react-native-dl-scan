@@ -47,10 +47,11 @@ so it works for any ICAO-compliant document regardless of jurisdiction.
 **Document segmentation coverage:** The field detector covers all 20 trained
 document types. However, the document segmentation step — detecting and
 rectifying the card in the camera frame — is performed by
-`VNDetectDocumentSegmentationRequest` (iOS) and the ML Kit Document Scanner
-(Android). These vendor APIs may have different per-jurisdiction accuracy
-characteristics than a trained model would; we do not control or benchmark
-their accuracy per document type.
+`VNDetectDocumentSegmentationRequest` (a vendor API on iOS) and the bundled
+DocAligner `lcnet100` TFLite model (on Android). Neither was trained by us on
+IDNet, so each may have different per-jurisdiction accuracy characteristics
+than our field detector; we do not benchmark their corner-detection accuracy
+per document type.
 
 ### Out of scope (not covered)
 
@@ -93,26 +94,27 @@ decisions.**
 
 ## Known Failure Modes
 
-### Document segmentation accuracy depends on vendor APIs
+### Document segmentation accuracy depends on the segmentation model/API
 
 Document segmentation (locating the card in the camera frame and computing
 rectification corners) is performed by `VNDetectDocumentSegmentationRequest`
-(iOS) and ML Kit Document Scanner (Android). We do not control or train these
-APIs; their accuracy varies by lighting, viewing angle, and document contrast
-against the background.
+(a vendor API on iOS) and the bundled DocAligner `lcnet100` TFLite model
+(on Android). We did not train either on IDNet; their accuracy varies by
+lighting, viewing angle, and document contrast against the background.
 
-Known vendor-API limitations:
+Known segmentation limitations:
 
 - Documents held at angles > ~30° from frontal may be missed or produce
   incorrect corner estimates.
 - Poor contrast between the card edge and the background (e.g., white card on
   white table) degrades detection.
 - Extreme perspective distortion (near edge-on viewing angle) will cause the
-  vendor API to fail or produce a poor rectification, which then degrades field
-  detection accuracy downstream.
+  segmentation step to fail or produce a poor rectification, which then degrades
+  field detection accuracy downstream.
 
-Because we do not run our own benchmarks against these APIs, per-jurisdiction
-segmentation accuracy is not characterized. See
+Because we do not run our own per-jurisdiction benchmarks against the iOS
+Vision API or the bundled DocAligner model, per-jurisdiction segmentation
+accuracy is not characterized. See
 [EVALUATION.md](EVALUATION.md#document-segmentation-evaluation-vendor-apis)
 for the evaluation rationale.
 
@@ -120,10 +122,10 @@ for the evaluation rationale.
 
 The IDNet training images have no background: the synthetic document fills the
 entire frame. This means the field detector operates on a rectified crop
-produced by the vendor segmentation API.
+produced by the segmentation step (iOS Vision API / Android DocAligner).
 
 If the rectification is poor (e.g., due to extreme angle or glare defeating
-the vendor API), field detection quality will degrade accordingly. Data
+the segmentation step), field detection quality will degrade accordingly. Data
 augmentation (affine, mosaic, color jitter) partially compensates for
 rectification imprecision.
 
@@ -257,8 +259,8 @@ from these regions is expected to be poor to nonexistent.
 |---|---|---|
 | 40 US states not covered (OCR) | High | Use barcode (`'barcode'` mode) for AAMVA PDF417 |
 | Canada not covered (OCR) | High | Use barcode mode for Canadian licenses |
-| Vendor segmentation API accuracy varies by jurisdiction/lighting | Medium | UX guidance: instruct user to hold card flat against a contrasting surface |
-| >30° angle or poor contrast may defeat vendor doc segmentation | Medium | UX guidance; prompt user to reposition if null result |
+| Segmentation accuracy (iOS Vision / Android DocAligner) varies by jurisdiction/lighting | Medium | UX guidance: instruct user to hold card flat against a contrasting surface |
+| >30° angle or poor contrast may defeat doc segmentation | Medium | UX guidance; prompt user to reposition if null result |
 | No ML per-char OCR correction (either platform) | Medium | Vendor OCR errors flow through to the C++ extractor; runtime fuzzy matching is a possible v2 enhancement |
 | Glare on laminated surface | Medium | Suggest diffuse lighting in UX |
 | No fraud detection | N/A | Out of scope by design |

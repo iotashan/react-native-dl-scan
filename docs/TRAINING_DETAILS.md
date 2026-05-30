@@ -13,9 +13,10 @@ documented MPS-OBB silent-correctness bug (Ultralytics issues
 [#10181](https://github.com/ultralytics/ultralytics/issues/10181) and
 [#13081](https://github.com/ultralytics/ultralytics/issues/13081)). Document
 segmentation at runtime is instead handled by
-`VNDetectDocumentSegmentationRequest` (iOS) and the ML Kit Document Scanner
-(Android). See [ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md) for the
-full decision record.
+`VNDetectDocumentSegmentationRequest` (iOS) and the bundled DocAligner
+`lcnet100` TFLite model (Android). See
+[ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md) for the full decision
+record.
 
 For the one-command retrain walkthrough see [REPRODUCIBILITY.md](REPRODUCIBILITY.md).
 For dataset provenance see [DATA_CARD.md](DATA_CARD.md).
@@ -126,9 +127,10 @@ The model and its pipeline were removed from the v1 product.
 
 See [`../model-training/idnet/DISAMBIG_POSTMORTEM.md`](../model-training/idnet/DISAMBIG_POSTMORTEM.md)
 for the full failure analysis, the surviving training data location
-(`/Volumes/Work4TB/dev/iotashan/idnet-data/ocr_pairs.jsonl`, 111 897 pairs
-preserved for any future v2 attempt), and the architectural changes that
-would be required for any future retry.
+(`$IDNET_DATA_ROOT/ocr_pairs.jsonl`, 111 897 pairs preserved for any future v2
+attempt; `$IDNET_DATA_ROOT` is the IDNet data directory, e.g.
+`~/idnet-data`), and the architectural changes that would be required for any
+future retry.
 
 In v1, OCR errors made by VisionKit (iOS) or ML Kit Text Recognition
 (Android) flow through to the C++ field extractor as-is. The C++ extractor
@@ -204,8 +206,9 @@ a KL divergence of **>0.10** on the predicted angle distribution — above the
 The MPS path produces loss convergence but incorrect angle predictions — a
 silent correctness failure. We chose to skip OBB training entirely rather
 than commit to a CUDA cloud spend.** Document segmentation at runtime uses
-`VNDetectDocumentSegmentationRequest` (iOS) and the ML Kit Document Scanner
-(Android). See [ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md).
+`VNDetectDocumentSegmentationRequest` (iOS) and the bundled DocAligner
+`lcnet100` TFLite model (Android). See
+[ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md).
 
 If a future contributor wants to resume OBB training (e.g., from a CUDA cloud
 instance), the scaffolding (`prepare_yolo_obb.py`, `train_doc_detector.py`,

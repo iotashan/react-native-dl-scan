@@ -262,7 +262,7 @@ Reads the PDF417 barcode on the back of the license. iOS uses Vision Camera v5's
 
 ### `'ocr'`
 
-Reads text from the front of the license. Uses VisionKit on iOS and ML Kit Text Recognition on Android, with rate-limiting to approximately 2 fps internally (500 ms cooldown between OCR jobs). The platform layer collects OCR observations and YOLO bbox detections, then hands typed `FieldCandidate` records over Nitro to the C++ extractor — the same `extract_fields_from_candidates` runs on both iOS and Android. Multi-frame voting (8 frames by default with adaptive consensus exit on 2 consecutive identical results) converges on the per-(FieldId, FieldSource) consensus value before structured normalization. Accuracy varies by jurisdiction; covered jurisdictions are listed in [docs/MODEL_CARD.md](docs/MODEL_CARD.md).
+Reads text from the front of the license. Uses VisionKit on iOS and ML Kit Text Recognition on Android, with rate-limiting to approximately 3.3 fps internally (300 ms cooldown between OCR jobs). The platform layer collects OCR observations and YOLO bbox detections, then hands typed `FieldCandidate` records over Nitro to the C++ extractor — the same `extract_fields_from_candidates` runs on both iOS and Android. Multi-frame voting (8 frames by default with adaptive consensus exit on 2 consecutive identical results) converges on the per-(FieldId, FieldSource) consensus value before structured normalization. Accuracy varies by jurisdiction; covered jurisdictions are listed in [docs/MODEL_CARD.md](docs/MODEL_CARD.md).
 
 OCR runs **asynchronously** inside the Nitro hybrid: the worklet returns the most recently cached result immediately and queues a fresh OCR job in the background. New results surface on subsequent frames with no frame-processor stall.
 
@@ -317,8 +317,8 @@ JavaScript / React
 | Mode | Latency | Notes |
 |---|---|---|
 | Barcode | Sub-frame (~1–3 ms) | Handled by the VC v5 barcode-scanner plugin; parsing adds negligible overhead |
-| OCR — iOS | ~200–400 ms / frame | Serialized on a `DispatchQueue`; 500 ms cooldown → ~2 fps effective |
-| OCR — Android | ~250–500 ms / frame | Same 500 ms cooldown; result cached between frames |
+| OCR — iOS | ~200–400 ms / frame | Serialized on a `DispatchQueue`; 300 ms cooldown → ~3.3 fps effective |
+| OCR — Android | ~250–500 ms / frame | Same 300 ms cooldown; result cached between frames |
 
 The Nitro HybridObject bridge overhead is in the single-digit microseconds range for small calls — roughly 5–10× less than a legacy TurboModule JSI bridge.
 
@@ -342,7 +342,10 @@ on iOS (Vision framework, iOS 15+, ANE-accelerated). On Android we ship
 **DocAligner** (`lcnet100`, FP16, 2.4 MB) as a bundled TFLite model — Android
 has no equivalent free Vision API for corner-based rectification, and the
 DocAligner channel-2 heatmap with `setPolyToPoly` matrix transform gives a
-parity-quality rectified card.
+parity-quality rectified card. DocAligner is a third-party model from
+[DocsaidLab](https://github.com/DocsaidLab/DocAligner), redistributed under
+Apache-2.0; see [docs/THIRD_PARTY_MODELS.md](docs/THIRD_PARTY_MODELS.md) for its
+license and NOTICE.
 
 The trained field detector is shipped as Core ML (iOS, mode=linear weight-only
 int8 with `weight_threshold=65536` to leave the detection head at full FP16) and
@@ -360,6 +363,7 @@ jurisdictions and known failure modes.
 Full documentation:
 
 - [docs/MODEL_CARD.md](docs/MODEL_CARD.md) — model architecture, license, carbon footprint, citation
+- [docs/MODEL_CONTRACT.md](docs/MODEL_CONTRACT.md) — field-detector runtime I/O contract (input preprocessing, output tensor layout, NMS)
 - [docs/DATA_CARD.md](docs/DATA_CARD.md) — dataset provenance, privacy, and ethics
 - [docs/TRAINING_DETAILS.md](docs/TRAINING_DETAILS.md) — hardware, hyperparameters, reproducibility
 - [docs/EVALUATION.md](docs/EVALUATION.md) — evaluation methodology and metrics

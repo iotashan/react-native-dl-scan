@@ -1,10 +1,37 @@
-## Debugging Tips
-- remember to use zen:debug when solving errors
-- use Serena tools
-- don't be shy about using zen deepthink before starting a task
+# react-native-dl-scan
 
-## Instructions
-- Read the initial instructions
+A React Native library for scanning US driver's licenses. It runs a tiered
+pipeline: the **back** of the card is read from its PDF417 barcode via Vision
+Camera v5, and the **front** is read with OCR plus YOLO field detection and a
+C++ AAMVA parser. The native layer is built on **Nitro Modules** (New
+Architecture only). A thin TypeScript API in `src/` sits over a shared core
+implemented once in C++17 (`cpp/`) and bridged through Swift (`ios/`) and
+Kotlin (`android/`); the Nitro codegen is committed under
+`nitrogen/generated/`.
+
+## Architecture map
+
+- `src/` — TypeScript API: the `useLicenseScanner` hook, the Nitro spec at
+  `src/specs/DlScan.nitro.ts`, and per-platform barcode outputs under
+  `src/scanner/`.
+- `ios/` — Swift Nitro hybrid object backed by Core ML.
+- `android/` — Kotlin Nitro hybrid object backed by TFLite.
+- `cpp/` — the shared core: `aamva/`, `mrz/`, `ocr/`, and `yolo/` parsers plus
+  the field voter, with 261 GoogleTest cases in `cpp/tests/`.
+- `nitrogen/generated/` — committed Nitro codegen (do not hand-edit).
+- `example/` — Expo demo app.
+- `docs/` — model and data cards.
+
+## Build & test
+
+- `yarn typecheck` — TypeScript (`tsc`).
+- `yarn lint` — ESLint.
+- `yarn test` — JS test suite (Jest).
+- `yarn test:cpp` — configures and builds the C++ core with CMake, then runs the
+  GoogleTest suite via `ctest`.
+
+Full prerequisites and instructions for running the example app live in
+[CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Git Workflow
 - after a successful merge, delete the task branch
