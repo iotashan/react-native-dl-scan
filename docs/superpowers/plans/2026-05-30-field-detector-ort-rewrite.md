@@ -64,6 +64,19 @@ The detector must be Apache/BSD/MIT-permissive AND mobile-tiny (the role is a ~3
 
 **Decision: NanoDet-Plus-m primary, YOLOX-Nano as the fallback** if NanoDet's export/decode proves troublesome (Phase −1 gate decides). Caveat to carry into Phase −1: **RangiLyu/nanodet is largely unmaintained since ~2022-2023** — verify it exports to ONNX under a current PyTorch/opset before committing; if export is broken, switch to YOLOX-Nano (more active, Apache-2.0). The C++ decode differs between them, so the model choice gates Task 1.3.
 
+## DocAligner: folded into the unified ORT runtime (do-it-right scope — user decision 2026-05-30)
+
+The field detector is not the only model: Android also runs **DocAligner lcnet100** (Apache-2.0, DocsaidLab) for document segmentation, today via its own TFLite `Interpreter`; iOS does doc-seg via Apple Vision `VNDetectDocumentSegmentationRequest` (no bundled model). That's *two* asymmetries (Android-TFLite vs iOS-Apple-Vision, AND a different method entirely per platform). Per "do it right," DocAligner is folded into the **same** unified ORT-in-C++ runtime as the field detector, so doc-seg also runs one model + one decode + one quantization path.
+
+**Deltas to the phases (DocAligner rides the same infrastructure as NanoDet):**
+- **Phase 0 (Task 0.6):** export DocAligner lcnet100 → ONNX (FP16; from DocsaidLab source if available, else convert the existing `docaligner_lcnet100.tflite` → ONNX). Generate goldens for its **4-channel 128×128 corner-heatmap** output (the validated approach per the doc-seg notes: channel→peak → 4 corners → `setPolyToPoly` rectification). Apache-2.0 — clean, no AGPL issue (only the YOLOv8 field detector had that).
+- **Phase 1 (Task 1.6):** `cpp/detect/doc_aligner.{hpp,cpp}` — reuse the `FieldDetector` ORT-session pattern; decode = per-channel heatmap peak → 4 corner points (its own golden test on the Mac).
+- **Phase 2:** Android — replace the DocAligner TFLite `Interpreter` (`docAlignerInterpreter`) with the ORT C++ `DocAligner`. iOS — **sub-decision (measure, don't assume):** keep Apple Vision doc-seg (free, ANE, zero bundle cost, maintained by Apple) vs. switch to bundled DocAligner-via-ORT for true cross-platform parity (adds ~2.4 MB to the iOS bundle, drops a working vendor path). Default per the parity argument = unify onto DocAligner; **but** Apple Vision's zero-cost ANE doc-seg is a real win, so this one is gated on a Phase-3 measurement (does unified DocAligner match Apple Vision's corner accuracy on real iPad captures? if yes, unify; if Apple Vision is clearly better/cheaper, keep it iOS-only and accept the doc-seg asymmetry while the *field detector* stays unified).
+- **Phase 3:** add doc-seg to the per-device timing matrix (its own EP/quant), plus the iOS Apple-Vision-vs-DocAligner accuracy+latency comparison.
+- **Phase 4:** delete `android/src/main/assets/docaligner_lcnet100.tflite` (replaced by the ONNX); keep the THIRD_PARTY_MODELS.md DocAligner attribution; update docs.
+
+This makes the **entire** on-device model story — field detection AND document segmentation — run through one C++ ORT path (modulo the iOS-doc-seg sub-decision), which is the maximal expression of the single-core thesis.
+
 ## Decided up-front (objectively better — NOT A/B'd)
 
 Per the "do it right pre-publish" SOP and performance reasoning, two of the candidate "variations" have a clear winner and are decided, not measured:
@@ -376,7 +389,7 @@ Construct the `Ort::SessionOptions` from `opts_.provider` (CPU/XNNPACK by defaul
 - Modify: `ios/HybridDlScanIOS.swift`, `android/.../HybridDlScanAndroid.kt`
 
 - [ ] **Step 1:** iOS (Swift↔C++ interop): from `recognizeLicenseFields`, after doc-seg rectification, get the rectified image as a tightly-packed RGB buffer (convert the `CVPixelBuffer`/`CGImage` → RGB8 once) and call `FieldDetector::run`. Delete `runYOLO`, `ensureYoloRequest`, `cachedYoloRequest`, and the `VNCoreMLRequest` field-detector code. Construct one `FieldDetector` lazily (cache it) with the bundled ONNX bytes.
-- [ ] **Step 2:** Android (JNI): from `recognizeLicenseFields`, pass the rectified `Bitmap`'s RGB bytes to a new JNI method that calls `FieldDetector::run`. Delete the TFLite `Interpreter` field-detector lifecycle (`tfliteInterpreter`, `runYolo`, the ByteBuffer quantization). Keep the DocAligner TFLite interpreter for now (separate model; Phase 4 decides whether to also move it to ORT).
+- [ ] **Step 2:** Android (JNI): from `recognizeLicenseFields`, pass the rectified `Bitmap`'s RGB bytes to a new JNI method that calls `FieldDetector::run`. Delete the TFLite `Interpreter` field-detector lifecycle (`tfliteInterpreter`, `runYolo`, the ByteBuffer quantization). **Also** replace the DocAligner TFLite `Interpreter` with the ORT C++ `DocAligner` (Task 1.6) — DocAligner is folded into the unified runtime per the do-it-right scope; see the DocAligner section. (iOS doc-seg Apple-Vision-vs-DocAligner is the Phase-3 sub-decision.)
 - [ ] **Step 3: Verify (Tier 1 still green):** `yarn test:cpp` passes; `yarn typecheck`/`yarn lint` pass.
 - [ ] **Step 4:** Commit per platform.
 
@@ -509,4 +522,4 @@ Construct the `Ort::SessionOptions` from `opts_.provider` (CPU/XNNPACK by defaul
 ## Open question for the user before execution
 
 - **Worktree:** this is a large, multi-phase change — implement on a dedicated branch/worktree (e.g. `claude/nanodet-ort`) off the current `main`? (Recommended, per `using-git-worktrees`.)
-- **DocAligner too?** Phase 2 leaves the Android DocAligner doc-seg on TFLite. Folding it into the same ORT runtime (full single-runtime consistency) is a clean follow-up but out of this plan's scope — do you want it in-scope or as a separate later plan?
+- **DocAligner:** ✅ IN SCOPE (user decided 2026-05-30, "do it right") — folded into the unified ORT runtime; see the DocAligner section. The only residual is the Phase-3 iOS sub-decision (keep Apple Vision doc-seg vs. unify onto bundled DocAligner), settled by measurement.
