@@ -109,6 +109,9 @@
     "react-native-vision-camera-worklets": "^5.0.0",
     "react-native-worklets": "^0.8.0"
   },
+  "resolutions": {
+    "fast-uri": "^3.1.2"
+  },
   "packageManager": "yarn@3.6.1",
   "prettier": {
     "quoteProps": "consistent",
