@@ -22,6 +22,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ADR 002 in [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md).
 - The field detector now ships at `models/nanodet_field_416.tflite`
   (416x416 NHWC, `[1,3598,62]` output).
+- **Front-OCR parsing generalized across US jurisdictions** — alphabetic-label
+  (California-style) layouts, bare-number license numbers, DC marker+label+next-line
+  names, marker-9 vehicle-class hardening, and a partial-parse validity gate.
+  Verified by a 10-state replay guardrail with no per-field regressions.
+- **Default `requiredFields` no longer gates on `sex`.** It is the slowest field
+  to converge on Android, so it is captured opportunistically rather than blocking
+  completion (iOS reads it reliably via VisionKit). Use the new
+  `STRICT_REQUIRED_FIELDS` to require it. `maxFrames` default stays 30.
+- **Per-field confidence is provenance-aware.** Free-text fields (name/street)
+  located by their authoritative AAMVA marker report a `marker_located` (0.88)
+  tier rather than the flat 0.50 floor; corroborated free-text caps at
+  `all_gates_passed` (0.95). The example result screen colors tiers perceptually,
+  reserving red for missing fields.
 
 ### Removed
 
@@ -35,6 +48,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `loadDetectorModels` / `loadFieldModel` / `runFieldDetection` / `runDocAligner`
   and the `OcrModelSources` type for the JS-orchestrated detector path.
+- `STRICT_REQUIRED_FIELDS` — the default required set plus `sex`, for consumers
+  that must not finalize a scan without it (pair with `maxFrames: 40`).
+
+### Fixed
+
+- The OCR validation pass could finalize prematurely when a higher-confidence
+  re-read overwrote the accumulator before the contradiction check; it now
+  compares the fresh frame against a pre-merge snapshot.
+- A failed `"city, ST zip"` address split no longer dumps the raw line into `city`.
 
 ## [0.2.0] - 2026-05-28
 
