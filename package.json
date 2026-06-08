@@ -33,7 +33,9 @@
     "docs",
     "Package.swift",
     "!cpp/tests",
-    "!cpp/eval"
+    "!cpp/eval",
+    "!android/src/test",
+    "!android/src/androidTest"
   ],
   "scripts": {
     "typecheck": "tsc",
