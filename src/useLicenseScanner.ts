@@ -101,7 +101,11 @@ const DEFAULT_TTA_MODES: TtaMode[] = [
  * `requiredFields` array is still correct, but allocates each render.
  */
 export interface ScanCompletionPolicy {
-  /** Fields that must ALL be present to finish. Default: {@link DEFAULT_REQUIRED_FIELDS}. */
+  /**
+   * Fields that must ALL be present to finish. Default: {@link DEFAULT_REQUIRED_FIELDS}
+   * (core identity + address; `sex` is captured opportunistically, NOT gated). For a
+   * sex-guaranteed scan use {@link STRICT_REQUIRED_FIELDS} with `maxFrames: 40`.
+   */
   requiredFields?: (keyof LicenseData)[];
   /** Hard cap on consensus frames before best-effort finalize. Default 30. */
   maxFrames?: number;
@@ -169,7 +173,15 @@ export interface ScanStatus {
   fieldConfidence: LicenseData['dataConfidence'];
 }
 
-/** Default minimum set required to finish a scan (core identity fields). */
+/**
+ * Default minimum set required to finish a scan — the core identity + address
+ * fields. `sex` is deliberately NOT gated by default: it is the slowest field to
+ * converge on Android (Google MLKit), so gating completion on it roughly triples
+ * the worst-case scan time for a high-throughput operator. It is still captured
+ * opportunistically whenever it reads (and reads reliably on iOS via VisionKit).
+ * Consumers who must not finalize without it should use {@link STRICT_REQUIRED_FIELDS}
+ * with a higher `maxFrames` (~40). (Default chosen 2026-06-08, codex-paired.)
+ */
 export const DEFAULT_REQUIRED_FIELDS: (keyof LicenseData)[] = [
   'firstName',
   'lastName',
@@ -179,6 +191,16 @@ export const DEFAULT_REQUIRED_FIELDS: (keyof LicenseData)[] = [
   'postalCode',
   'dateOfBirth',
   'licenseNumber',
+];
+
+/**
+ * Strict preset — {@link DEFAULT_REQUIRED_FIELDS} plus `sex`, for consumers
+ * (e.g. compliance / downstream-matching) that must not finalize without `sex`.
+ * Pair it with a higher `maxFrames` (~40) so the slower-to-read `sex` field has
+ * time to converge on Android.
+ */
+export const STRICT_REQUIRED_FIELDS: (keyof LicenseData)[] = [
+  ...DEFAULT_REQUIRED_FIELDS,
   'sex',
 ];
 

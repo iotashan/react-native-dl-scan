@@ -19,6 +19,7 @@ export { scanFrame } from './scanFrame';
 export {
   useLicenseScanner,
   DEFAULT_REQUIRED_FIELDS,
+  STRICT_REQUIRED_FIELDS,
 } from './useLicenseScanner';
 export type {
   OcrModelSources,
