@@ -2483,6 +2483,156 @@ FieldCandidateVector parse_aamva_demographic_fields(
         norm.push_back(normalize_observation_for_lexing(o));
     }
 
+    // ===================================================================
+    // POSITIONAL BLOCK-MATCHING (#118) — multi-column label-block /
+    // value-block OCR layouts.
+    //
+    // Some OCR engines emit the left-column visible LABELS as one
+    // contiguous run of observations and the right-column VALUES as a
+    // SECOND contiguous run, e.g.:
+    //
+    //   "1.FAMILY NAME" "2.GIVEN NAMES"   "DOE" "JANE"
+    //   [---- label block (run>=2) ----]  [- value block (run>=2) -]
+    //
+    // The one-step look-ahead below is WRONG here: marker 2 (GIVEN NAMES)
+    // sees "DOE" (the SURNAME) as its immediately-next observation and
+    // binds it as firstName, dropping the real first name "JANE". This
+    // pre-pass detects the [label-block][value-block] shape and records a
+    // POSITIONAL binding (1st label-marker -> 1st value, 2nd -> 2nd, …),
+    // which the main loop consults BEFORE the one-step look-ahead.
+    //
+    // ADDITIVE / FALLBACK-ONLY. The pre-pass fires ONLY for the specific
+    // shape: a run of >=2 consecutive observations each carrying exactly
+    // one demographic AAMVA marker whose same-row value is a recognised
+    // LABEL phrase (no real same-row value — same_row_value_is_marker_label),
+    // immediately followed by a run of >=2 consecutive BARE observations
+    // (no AAMVA token at all). Single-column INTERLEAVED layouts (label,
+    // value, label, value …) never form a label-run of length >=2, so the
+    // pre-pass is inert and the existing one-step look-ahead is unchanged.
+    // Numeric-marker same-row states (WI "1 DELGADO") carry a real value,
+    // not a label phrase, so they never enter a label block either.
+    //
+    // `positional_value[oi]` holds the domain-validated value to bind for
+    // the label-marker observation at `oi`. `positional_claimed` marks the
+    // label-marker observations that participated in a detected block:
+    // even when a marker's positionally-paired value FAILS its domain (and
+    // so is not recorded in positional_value), the marker is still claimed
+    // so it does NOT fall through to the one-step look-ahead and
+    // cross-adopt a neighbouring value.
+    std::unordered_map<std::size_t, std::string> positional_value;
+    std::unordered_set<std::size_t> positional_claimed;
+    {
+        // True iff `oi` is a label-ONLY demographic marker: exactly one
+        // demographic AAMVA token whose same-row value is a label phrase.
+        auto label_only_marker =
+            [&](std::size_t oi, std::string* out_index) -> bool {
+            auto toks = find_all_aamva_tokens(norm[oi]);
+            if (toks.size() != 1) return false;
+            const auto& t = toks[0];
+            if (demographic_index_to_field_id(t.index) == FieldId::Unknown) {
+                return false;
+            }
+            std::string val = trim_punct_ends(t.value);
+            val = extract_field_shape(t.index, val);
+            if (!same_row_value_is_marker_label(t.index, val)) return false;
+            if (out_index) *out_index = t.index;
+            return true;
+        };
+        // True iff `oi` is a BARE value observation: non-blank and carrying
+        // no AAMVA token of its own.
+        auto bare_value = [&](std::size_t oi) -> bool {
+            if (trim_ws(norm[oi]).empty()) return false;
+            return find_all_aamva_tokens(norm[oi]).empty();
+        };
+        // Validate a positionally-paired value against its marker's domain.
+        // Returns the cleaned value to bind, or "" when it fails the domain.
+        // Mirrors EVERY gate the normal look-ahead path applies so the
+        // positional path can never bind a value the one-step look-ahead
+        // would have rejected:
+        //   • 4d: extract_4d_value() pulls the DLN-shaped run, THEN the final
+        //     value_matches_domain(.,"4d") gate (the normal path's gate (c))
+        //     rejects an edge-shaped run that exceeds the 4d domain regex
+        //     (e.g. a hyphenated value longer than the {3,31} cap).
+        //   • 9 (vehicle class): the permissive index-9 domain
+        //     (^[A-Z]{1,3}-?\d?$) lets broad 1-3-letter tokens (USA/SEX/DLN/
+        //     DOB) through, so — exactly like the look-ahead branch — also
+        //     require is_plausible_vehicle_class so a bogus next-column token
+        //     can't bind List9 (and then suppress the safer class fallback).
+        auto positional_domain_value =
+            [&](const std::string& index,
+                const std::string& raw) -> std::string {
+            std::string cand = trim_punct_ends(raw);
+            if (index == "4d") {
+                std::string recovered = extract_4d_value(cand);
+                return value_matches_domain(recovered, index)
+                           ? recovered
+                           : std::string();
+            }
+            std::string shaped = extract_field_shape(index, cand);
+            if (!value_matches_domain(shaped, index)) return std::string();
+            if (index == "9" && !is_plausible_vehicle_class(shaped)) {
+                return std::string();
+            }
+            return shaped;
+        };
+
+        std::size_t i = 0;
+        while (i < norm.size()) {
+            std::string idx;
+            if (!label_only_marker(i, &idx)) {
+                ++i;
+                continue;
+            }
+            // Gather the maximal run of consecutive label-only markers.
+            std::vector<std::size_t> labels;
+            std::vector<std::string> label_indices;
+            std::size_t j = i;
+            while (j < norm.size() && label_only_marker(j, &idx)) {
+                labels.push_back(j);
+                label_indices.push_back(idx);
+                ++j;
+            }
+            // Immediately-following run of consecutive bare value rows.
+            std::vector<std::size_t> values;
+            std::size_t k = j;
+            while (k < norm.size() && bare_value(k)) {
+                values.push_back(k);
+                ++k;
+            }
+            // Block shape requires >=2 labels AND >=2 values.
+            if (labels.size() >= 2 && values.size() >= 2) {
+                std::size_t pairs = std::min(labels.size(), values.size());
+                // Claim EVERY label-marker in the detected block — not just
+                // the paired ones. When labels.size() > values.size() the
+                // trailing UNPAIRED label-markers have no positional value,
+                // but they MUST still be claimed: otherwise the main parse
+                // loop reprocesses them and its one-step look-ahead would
+                // one-step-ADOPT the first value row's text — e.g. block
+                // "1.FAMILY NAME, 2.GIVEN NAMES, 12.RESTRICTIONS" + values
+                // "A, BOB": marker 12 (unpaired) would wrongly adopt "A".
+                // A claimed-but-unvalued marker has no positional_value entry,
+                // so the main loop's positional branch binds NOTHING for it.
+                for (std::size_t p = 0; p < labels.size(); ++p) {
+                    positional_claimed.insert(labels[p]);
+                }
+                for (std::size_t p = 0; p < pairs; ++p) {
+                    std::string bound = positional_domain_value(
+                        label_indices[p], norm[values[p]]);
+                    if (!bound.empty()) {
+                        positional_value[labels[p]] = bound;
+                    }
+                }
+                // Advance past the consumed label rows so a value row is never
+                // re-scanned as the start of a new block. All label-markers in
+                // [i, j) are now claimed, so resume at j (after the run).
+                i = j;
+                continue;
+            }
+            // Not a block — resume scanning after this label run.
+            i = j;
+        }
+    }
+
     for (std::size_t oi = 0; oi < norm.size(); ++oi) {
         const std::string& text = norm[oi];
         for (const auto& token : find_all_aamva_tokens(text)) {
@@ -2491,6 +2641,31 @@ FieldCandidateVector parse_aamva_demographic_fields(
             }
             std::string cleaned = trim_punct_ends(token.value);
             cleaned = extract_field_shape(token.index, cleaned);
+
+            // (0-pre) POSITIONAL BLOCK-MATCHING (#118): when this observation
+            // is a label-only marker that participated in a detected
+            // [label-block][value-block] layout, bind its POSITIONALLY-paired
+            // value (recorded in the pre-pass above) instead of the one-step
+            // look-ahead — which would wrongly adopt the neighbouring column's
+            // value. A claimed marker whose paired value FAILED its domain has
+            // no positional_value entry; it binds nothing AND must not fall
+            // through to the look-ahead (which would cross-adopt a neighbour),
+            // so we `continue` past it. Emitted via the from_lookahead path so
+            // the recovered value (not the label phrase) is bound for names/
+            // class. This branch fires ONLY for the multi-column block shape;
+            // all single-column / interleaved / same-row layouts skip it.
+            if (positional_claimed.count(oi)) {
+                auto pv = positional_value.find(oi);
+                if (pv == positional_value.end()) {
+                    continue;  // paired value failed domain — bind nothing
+                }
+                Entry e;
+                e.tok = token;
+                e.cleaned = pv->second;
+                e.from_lookahead = true;
+                by_index[token.index].push_back(std::move(e));
+                continue;
+            }
 
             // (0) SAME-ROW 4d recovery: the DLN value can sit on the marker's
             // own row behind a residual label fragment and/or as space-grouped

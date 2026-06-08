@@ -823,3 +823,227 @@ TEST(AamvaDemographic, Marker8WellFormedSplitStillParses) {
     EXPECT_EQ(sval(ld->state), "WI");
     EXPECT_EQ(sval(ld->postalCode), "53703");
 }
+
+// ===========================================================================
+// POSITIONAL BLOCK-MATCHING — multi-column label-block / value-block OCR (#118).
+//
+// Some OCR engines emit the left-column visible LABELS as one contiguous run of
+// observations and the right-column VALUES as a SECOND contiguous run, instead
+// of interleaving each label with its value:
+//
+//   "1.FAMILY NAME"  "2.GIVEN NAMES"   "DOE"  "JANE"
+//   [---- label block (run >=2) ----]  [-- value block (run >=2) --]
+//
+// The pre-existing ONE-STEP look-ahead is wrong here: marker 2 (GIVEN NAMES)
+// sees "DOE" (the SURNAME) as its immediately-next observation and binds it as
+// firstName, dropping the real first name "JANE"; marker 1 sees "2.GIVEN NAMES"
+// (another marker) and binds nothing. The positional block-matcher detects the
+// [label-block][value-block] shape and binds the values POSITIONALLY: the 1st
+// label-marker -> 1st value, 2nd -> 2nd, so lastName=DOE, firstName=JANE.
+//
+// FAIL-BEFORE/PASS-AFTER: on HEAD 7ca2d65 (pre-fix) marker-2 one-step-adopts
+// "DOE" (List2="DOE", firstName=DOE) and marker-1 binds nothing (List1=""); the
+// fix binds List1=DOE / List2=JANE positionally.
+// ===========================================================================
+
+// Headline #118 case: a 2-marker label block ("1.FAMILY NAME","2.GIVEN NAMES")
+// followed by a 2-value block ("DOE","JANE"). The values must bind POSITIONALLY,
+// NOT via the (wrong) one-step look-ahead that would give firstName=DOE.
+TEST(AamvaDemographic, PositionalBlockTwoMarkerNames) {
+    auto strict = parse_aamva_demographic_fields({
+        "1.FAMILY NAME", "2.GIVEN NAMES", "DOE", "JANE",
+    });
+    EXPECT_EQ(strict_text(strict, FieldId::List1), "DOE")
+        << "marker-1 must bind the 1st value 'DOE' positionally";
+    EXPECT_EQ(strict_text(strict, FieldId::List2), "JANE")
+        << "marker-2 must bind the 2nd value 'JANE' positionally, not one-step "
+           "the surname 'DOE'";
+
+    auto ld = extract_fields_from_candidates(strict);
+    ASSERT_TRUE(ld.has_value());
+    EXPECT_EQ(sval(ld->lastName), "DOE");
+    EXPECT_EQ(sval(ld->firstName), "JANE");
+}
+
+// A longer run (3-4 markers including a DLN and an address marker) must bind
+// every value positionally. "8" (address/street) carries no value-domain gate
+// (free-form), so it is intentionally excluded from the demographic-index label
+// run; here we use 1/2/3/4d — name, name, DOB, licence number — a 4-marker
+// label block followed by its 4-value block.
+TEST(AamvaDemographic, PositionalBlockFourMarkerRunWithDlnAndDob) {
+    auto strict = parse_aamva_demographic_fields({
+        "1.FAMILY NAME", "2.GIVEN NAMES", "3.DOB", "4d.DLN",
+        "DOE", "JANE", "03/27/1976", "D1234567",
+    });
+    EXPECT_EQ(strict_text(strict, FieldId::List1), "DOE");
+    EXPECT_EQ(strict_text(strict, FieldId::List2), "JANE");
+    EXPECT_EQ(strict_text(strict, FieldId::List3), "03/27/1976");
+    EXPECT_EQ(strict_text(strict, FieldId::List4d), "D1234567");
+
+    auto ld = extract_fields_from_candidates(strict);
+    ASSERT_TRUE(ld.has_value());
+    EXPECT_EQ(sval(ld->lastName), "DOE");
+    EXPECT_EQ(sval(ld->firstName), "JANE");
+    EXPECT_EQ(sval(ld->dateOfBirth), "1976-03-27");
+    EXPECT_EQ(sval(ld->licenseNumber), "D1234567");
+}
+
+// NON-REGRESSION: the normal single-column DC layout is INTERLEAVED — each
+// label-marker is immediately followed by its OWN value ("1.FAMILY NAME" then
+// "GARCIA" then "2.GIVEN NAMES" then "EMMA"). The consecutive label-only-marker
+// run is therefore length 1, never a block, so the positional matcher must NOT
+// fire and the existing label-aware one-step look-ahead must bind unchanged.
+//
+// The DOB uses "04/05/1988" deliberately: per the SCOPE NOTE above, a date
+// whose digit-groups embed an AAMVA index (e.g. "07/17/1987" carries "17"=WGT)
+// fails the one-step DOB look-ahead's "next row carries no AAMVA token" guard
+// on HEAD — a pre-existing lexer quirk, NOT this change. "04/05/1988" has no
+// embedded index, so the unchanged look-ahead binds it; asserting List3 here
+// therefore proves the interleaved single-column DATE path is also untouched.
+TEST(AamvaDemographic, PositionalBlockDoesNotFireOnInterleavedSingleColumn) {
+    auto strict = parse_aamva_demographic_fields({
+        "1.FAMILY NAME", "GARCIA", "2.GIVEN NAMES", "EMMA",
+        "3.DOB", "04/05/1988", "4d.DLN", "8559533",
+    });
+    EXPECT_EQ(strict_text(strict, FieldId::List1), "GARCIA")
+        << "interleaved single-column must still one-step 'GARCIA', unchanged";
+    EXPECT_EQ(strict_text(strict, FieldId::List2), "EMMA");
+    EXPECT_EQ(strict_text(strict, FieldId::List3), "04/05/1988");
+    EXPECT_EQ(strict_text(strict, FieldId::List4d), "8559533");
+
+    auto ld = extract_fields_from_candidates(strict);
+    ASSERT_TRUE(ld.has_value());
+    EXPECT_EQ(sval(ld->lastName), "GARCIA");
+    EXPECT_EQ(sval(ld->firstName), "EMMA");
+}
+
+// NON-REGRESSION: a numeric-marker same-row state (WI prints the real value on
+// the marker's own row: "1 DELGADO","2 MARCUS ...") is NOT a label block — the
+// same-row values are real, not label phrases — so positional matching is inert
+// and the same-row values bind as before.
+TEST(AamvaDemographic, PositionalBlockInertOnNumericMarkerSameRowValues) {
+    auto strict = parse_aamva_demographic_fields({
+        "1 DELGADO", "2 MARCUS ANTOINE", "8 4827 LAKERIDGE DR",
+        "FAIRBROOK, WI 54016",
+    });
+    EXPECT_EQ(strict_text(strict, FieldId::List1), "DELGADO");
+    EXPECT_EQ(strict_text(strict, FieldId::List2), "MARCUS ANTOINE");
+}
+
+// NON-REGRESSION (additive precedence): a lone marker followed by a single bare
+// value is the EXISTING one-step-look-ahead case (run length 1, not a block).
+// The positional matcher must not engage; one-step must still link it.
+TEST(AamvaDemographic, PositionalBlockDoesNotFireOnSingleMarkerValue) {
+    auto strict = parse_aamva_demographic_fields({"4d", "J415-2208-5573-28"});
+    EXPECT_EQ(strict_text(strict, FieldId::List4d), "J415-2208-5573-28");
+}
+
+// A positionally-paired value that FAILS its marker's domain must NOT bind, and
+// (the key safety property) the marker must NOT then fall through to the old
+// one-step look-ahead and cross-adopt a neighbouring value. Here the DOB slot
+// holds a non-date "NOTADATE": marker-3 stays empty, marker-1/2 still bind their
+// own positional values correctly.
+TEST(AamvaDemographic, PositionalBlockDomainFailSkipsPairWithoutCrossAdopt) {
+    auto strict = parse_aamva_demographic_fields({
+        "1.FAMILY NAME", "2.GIVEN NAMES", "3.DOB",
+        "DOE", "JANE", "NOTADATE",
+    });
+    EXPECT_EQ(strict_text(strict, FieldId::List1), "DOE");
+    EXPECT_EQ(strict_text(strict, FieldId::List2), "JANE");
+    EXPECT_EQ(strict_text(strict, FieldId::List3), "")
+        << "marker-3's non-date positional value must not bind, and marker-3 "
+           "must not cross-adopt a neighbour via the one-step look-ahead";
+}
+
+// ===========================================================================
+// POSITIONAL BLOCK-MATCHING — codex round-2 correctness gaps (#62 follow-on).
+//
+// Three gates the normal look-ahead path applies that the positional pre-pass
+// originally bypassed. Each test is fail-before / pass-after against the pre-
+// fix commit (the gaps in positional_domain_value / the unpaired-label claim).
+// ===========================================================================
+
+// FINDING #1 (marker-9 plausible-class gate). A label block whose marker-9
+// (vehicle class) positional value is a BOGUS non-class token ("USA" passes the
+// permissive index-9 domain ^[A-Z]{1,3}-?\d?$ but is not a real class). The
+// positional bind MUST apply is_plausible_vehicle_class — exactly like the
+// one-step look-ahead path — so List9 does NOT bind "USA". And because List9
+// stays unbound, the safer CLASS-line fallback (scan_for_class) is no longer
+// suppressed and can still recover the real class "D" from a "CLASS D" line.
+//
+// FAIL-BEFORE: positional_domain_value("9","USA") returned "USA" (only the
+// value_matches_domain gate, no plausibility gate) → List9="USA" bound, which
+// ALSO suppressed the class fallback. PASS-AFTER: List9 unbound by the
+// positional path → fallback binds List9="D".
+TEST(AamvaDemographic, PositionalBlockMarker9RejectsImplausibleClass) {
+    auto strict = parse_aamva_demographic_fields({
+        "9.CLASS", "1.FAMILY NAME",   // label block (2 markers)
+        "USA", "DOE",                 // value block (positional: 9->USA, 1->DOE)
+        "CLASS D",                    // real class on its own line -> fallback
+    });
+    EXPECT_NE(strict_text(strict, FieldId::List9), "USA")
+        << "marker-9 positional bind must NOT adopt the implausible 'USA'";
+    EXPECT_EQ(strict_text(strict, FieldId::List9), "D")
+        << "with the bogus positional bind rejected, the CLASS-line fallback "
+           "must still recover the real class 'D'";
+    EXPECT_EQ(strict_text(strict, FieldId::List1), "DOE")
+        << "marker-1 still binds its positional value 'DOE'";
+
+    auto ld = extract_fields_from_candidates(strict);
+    ASSERT_TRUE(ld.has_value());
+    EXPECT_FALSE(ld->vehicleClass.has_value() &&
+                 ld->vehicleClass.value() == "USA");
+    EXPECT_EQ(sval(ld->vehicleClass), "D");
+    EXPECT_EQ(sval(ld->lastName), "DOE");
+}
+
+// FINDING #2 (unpaired labels can re-adopt a value). A label block with MORE
+// label-markers than values ("1.FAMILY NAME","2.GIVEN NAMES","12.RESTRICTIONS"
+// + only "A","BOB"). The paired markers 1/2 bind A/BOB positionally; the
+// UNPAIRED trailing marker-12 must bind NOTHING. The bug: marker-12 was not
+// claimed, so the main parse loop reprocessed it and one-step-adopted "A"
+// (values[0]) as a restriction — a cross-column re-adopt.
+//
+// FAIL-BEFORE: only the paired markers were claimed; marker-12 fell through to
+// the look-ahead and List12 bound "A". PASS-AFTER: every label-marker in the
+// block is claimed, so marker-12 binds nothing.
+TEST(AamvaDemographic, PositionalBlockUnpairedLabelDoesNotReadoptValue) {
+    auto strict = parse_aamva_demographic_fields({
+        "1.FAMILY NAME", "2.GIVEN NAMES", "12.RESTRICTIONS",  // 3 label markers
+        "A", "BOB",                                           // only 2 values
+    });
+    EXPECT_EQ(strict_text(strict, FieldId::List1), "A")
+        << "marker-1 binds the 1st value 'A' positionally";
+    EXPECT_EQ(strict_text(strict, FieldId::List2), "BOB")
+        << "marker-2 binds the 2nd value 'BOB' positionally";
+    EXPECT_EQ(strict_text(strict, FieldId::List12), "")
+        << "UNPAIRED marker-12 must bind NOTHING — it must not re-adopt "
+           "values[0] ('A') via the one-step look-ahead";
+}
+
+// FINDING #3 (positional 4d bypasses the final domain gate). A positional 4d
+// value that extract_4d_value accepts (>=1 digit, <=20 alnum) but that FAILS
+// the 4d domain ^[A-Za-z0-9][A-Za-z0-9-]{3,31}$ — here a hyphenated value 34
+// chars long (18 alnum + 16 hyphens), exceeding the 32-char domain cap. The
+// positional bind must apply value_matches_domain(.,"4d") exactly like the
+// normal path's gate (c), so List4d stays UNBOUND.
+//
+// FAIL-BEFORE: positional_domain_value("4d",.) returned extract_4d_value(.)
+// directly (no domain gate) → List4d bound the 34-char run. PASS-AFTER: the
+// domain gate rejects it → List4d empty. (The paired name still binds, proving
+// the block fired and only the 4d slot was gated out.)
+TEST(AamvaDemographic, PositionalBlock4dDomainEdgeUnbound) {
+    // 34 chars, 18 alnum (<=20 so extract_4d_value accepts) + 16 hyphens, total
+    // length 34 > 32 so value_matches_domain(.,"4d") rejects it. No internal
+    // run lexes as an AAMVA index, so it is a clean bare value row.
+    const std::string edge4d = "A1-B-C-D-E-F-G-H-I-J-K-L-M-N-O-P-Q";
+    auto strict = parse_aamva_demographic_fields({
+        "4d.DLN", "1.FAMILY NAME",   // label block (2 markers)
+        edge4d, "DOE",               // value block (positional: 4d->edge, 1->DOE)
+    });
+    EXPECT_EQ(strict_text(strict, FieldId::List4d), "")
+        << "positional 4d value that fails the 4d domain must NOT bind";
+    EXPECT_EQ(strict_text(strict, FieldId::List1), "DOE")
+        << "the paired name still binds, proving the block fired and only the "
+           "domain-failing 4d slot was gated out";
+}
