@@ -270,18 +270,20 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
             .sortedByDescending { it.value }
             .take(6)
             .joinToString(",") { "${it.key}:${it.value}" }
-        Log.i(
-            TAG,
-            "TELEMETRY corner_cache=" + telemetryCacheHits + "h/" + telemetryCacheMisses + "m" +
-                " last_cache_age_ms=" + telemetryLastCacheAgeMs +
-                " demo_gates=" + telemetryDemoAccepted + "ok/" +
-                telemetryDemoFailGateA + "idx/" +
-                telemetryDemoFailGateB + "lbl/" +
-                telemetryDemoFailGateC + "dom/" +
-                telemetryDemoFailGateD + "amb" +
-                " demo_seen=" + telemetryDemoSeen +
-                " prefix_mismatch=[" + mismatchSummary + "]"
-        )
+        if (VERBOSE_LOGGING) {
+            Log.i(
+                TAG,
+                "TELEMETRY corner_cache=" + telemetryCacheHits + "h/" + telemetryCacheMisses + "m" +
+                    " last_cache_age_ms=" + telemetryLastCacheAgeMs +
+                    " demo_gates=" + telemetryDemoAccepted + "ok/" +
+                    telemetryDemoFailGateA + "idx/" +
+                    telemetryDemoFailGateB + "lbl/" +
+                    telemetryDemoFailGateC + "dom/" +
+                    telemetryDemoFailGateD + "amb" +
+                    " demo_seen=" + telemetryDemoSeen +
+                    " prefix_mismatch=[" + mismatchSummary + "]"
+            )
+        }
         telemetryCacheHits = 0
         telemetryCacheMisses = 0
         telemetryLastCacheAgeMs = -1L
@@ -408,10 +410,12 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
                 // lighting. Cleaner to skip the frame entirely and let the
                 // voter accumulate from frames where docseg succeeded
                 // outright. Slower scans, but each output is meaningful.
-                val nowDbg = System.currentTimeMillis()
-                if (nowDbg - lastDocSegLog > 2000L) {
-                    lastDocSegLog = nowDbg
-                    Log.i(TAG, "DEBUG: DocAligner channel $ch had no signal (maxHmap=" + maxHmap + ") — skipping frame")
+                if (VERBOSE_LOGGING) {
+                    val nowDbg = System.currentTimeMillis()
+                    if (nowDbg - lastDocSegLog > 2000L) {
+                        lastDocSegLog = nowDbg
+                        Log.i(TAG, "DEBUG: DocAligner channel $ch had no signal (maxHmap=" + maxHmap + ") — skipping frame")
+                    }
                 }
                 telemetryCacheMisses += 1
                 return null
@@ -438,7 +442,9 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
                 val dx = corners[i * 2] - corners[j * 2]
                 val dy = corners[i * 2 + 1] - corners[j * 2 + 1]
                 if (dx * dx + dy * dy < minDist * minDist) {
-                    Log.i(TAG, "DEBUG: DocAligner rejected degenerate quad (corners $i,$j too close)")
+                    if (VERBOSE_LOGGING) {
+                        Log.i(TAG, "DEBUG: DocAligner rejected degenerate quad (corners $i,$j too close)")
+                    }
                     return null
                 }
             }
@@ -669,7 +675,9 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
                 val modelBuffer = loadModelFile(context, "docaligner_lcnet100.tflite")
                 val interpreter = Interpreter(modelBuffer, Interpreter.Options())
                 docAlignerInterpreter = interpreter
-                Log.i(TAG, "DocAligner TFLite loaded (" + modelBuffer.capacity() + " bytes)")
+                if (VERBOSE_LOGGING) {
+                    Log.i(TAG, "DocAligner TFLite loaded (" + modelBuffer.capacity() + " bytes)")
+                }
                 interpreter
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to load DocAligner TFLite", t)
@@ -1156,7 +1164,7 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
 
         val result = LinkedHashMap<String, String>()
         val nowDbg = System.currentTimeMillis()
-        val logIoU = nowDbg - lastBboxLog > 2000L
+        val logIoU = VERBOSE_LOGGING && nowDbg - lastBboxLog > 2000L
         val iouTrace = if (logIoU) StringBuilder("DEBUG IoU per-detection: ") else null
 
         // Iterate detection indices in ASCENDING order — C++ NMS returns
@@ -1829,6 +1837,15 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
 
     companion object {
         private const val TAG = "DlScanAndroid"
+
+        /**
+         * Verbose diagnostic logging gate. These DEBUG/telemetry/IoU-trace
+         * logs are useful for maintainer debug builds but are pure logcat
+         * noise for consumers, so they are silenced in RELEASE builds.
+         * BuildConfig.DEBUG is the library module's build type, which the
+         * Nitro/RN consumer build resolves at compile time.
+         */
+        private val VERBOSE_LOGGING = BuildConfig.DEBUG
 
         /**
          * Per-AAMVA-index value pre-extractor. OCR commonly concatenates
