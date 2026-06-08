@@ -12,6 +12,7 @@ export function ActionBar({
   phase,
   onStart,
   onStop,
+  onScanAgain,
   showFixture,
   onRunFixture,
 }: {
@@ -19,10 +20,27 @@ export function ActionBar({
   phase: Phase;
   onStart: () => void;
   onStop: () => void;
+  onScanAgain?: () => void;
   showFixture: boolean;
   onRunFixture: () => void;
 }) {
   const scanning = phase === 'scanning';
+  // In the result phase the primary button must RESET the scanner via
+  // onScanAgain (remounts useLicenseScanner + clears the native voter).
+  // Calling onStart here only flips phase back to 'scanning'; the stale
+  // hook state then re-emits the PRIOR result instantly with no fresh
+  // frames — the "Start scan just shows the last scan again" bug.
+  const inResult = phase === 'result';
+  const primaryPress = scanning
+    ? onStop
+    : inResult && onScanAgain
+      ? onScanAgain
+      : onStart;
+  const primaryLabel = scanning
+    ? 'Stop scanning'
+    : inResult && onScanAgain
+      ? 'Scan again'
+      : 'Start scan';
   return (
     <View style={styles.host}>
       {showFixture && (
@@ -45,8 +63,8 @@ export function ActionBar({
         </Pressable>
       )}
       <Pressable
-        onPress={scanning ? onStop : onStart}
-        accessibilityLabel={scanning ? 'Stop scanning' : 'Start scan'}
+        onPress={primaryPress}
+        accessibilityLabel={primaryLabel}
         style={[
           styles.primary,
           {
@@ -79,7 +97,7 @@ export function ActionBar({
               ]}
             />
             <Text style={[styles.primaryLabel, { color: t.bg }]}>
-              Start scan
+              {primaryLabel}
             </Text>
           </View>
         )}

@@ -188,6 +188,7 @@ export function TabletShell({
           phase={phase}
           onStart={onStart}
           onStop={onStop}
+          onScanAgain={onScanAgain}
           showFixture={showFixture}
           onRunFixture={runFixture}
         />
