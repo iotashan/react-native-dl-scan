@@ -2237,13 +2237,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"async-limiter@npm:~1.0.0":
-  version: 1.0.1
-  resolution: "async-limiter@npm:1.0.1"
-  checksum: 2b849695b465d93ad44c116220dee29a5aeb63adac16c1088983c339b0de57d76e82533e8e364a93a9f997f28bbfc6a92948cefc120652bd07f3b59f8d75cf2b
-  languageName: node
-  linkType: hard
-
 "babel-jest@npm:^29.7.0":
   version: 29.7.0
   resolution: "babel-jest@npm:29.7.0"
@@ -5423,9 +5416,9 @@ __metadata:
     react-native-fast-tflite: ^3.0.0
     react-native-nitro-image: ^0.14.0
     react-native-nitro-modules: ^0.35.0
-    react-native-vision-camera: ^5.0.0
-    react-native-vision-camera-barcode-scanner: ^5.0.0
-    react-native-vision-camera-worklets: ^5.0.0
+    react-native-vision-camera: ^5.0.11
+    react-native-vision-camera-barcode-scanner: ^5.0.11
+    react-native-vision-camera-worklets: ^5.0.11
     react-native-worklets: ^0.8.0
   languageName: node
   linkType: soft
@@ -6364,12 +6357,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"uuid@npm:^7.0.3":
-  version: 7.0.3
-  resolution: "uuid@npm:7.0.3"
+"uuid@npm:^11":
+  version: 11.1.1
+  resolution: "uuid@npm:11.1.1"
   bin:
-    uuid: dist/bin/uuid
-  checksum: f5b7b5cc28accac68d5c083fd51cca64896639ebd4cca88c6cfb363801aaa83aa439c86dfc8446ea250a7a98d17afd2ad9e88d9d4958c79a412eccb93bae29de
+    uuid: dist/esm/bin/uuid
+  checksum: 1c1ea6ffc9fd02a343d77151734af65644ebf5bac733b59bdab85859cf793cf03ac8d60909fa19dcd2272e154b20734c464b667afd8bdac02b4da5e206079469
   languageName: node
   linkType: hard
 
@@ -6501,33 +6494,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ws@npm:^6.2.3":
-  version: 6.2.3
-  resolution: "ws@npm:6.2.3"
-  dependencies:
-    async-limiter: ~1.0.0
-  checksum: bbc96ff5628832d80669a88fd117487bf070492dfaa50df77fa442a2b119792e772f4365521e0a8e025c0d51173c54fa91adab165c11b8e0674685fdd36844a5
-  languageName: node
-  linkType: hard
-
-"ws@npm:^7, ws@npm:^7.5.10":
-  version: 7.5.10
-  resolution: "ws@npm:7.5.10"
-  peerDependencies:
-    bufferutil: ^4.0.1
-    utf-8-validate: ^5.0.2
-  peerDependenciesMeta:
-    bufferutil:
-      optional: true
-    utf-8-validate:
-      optional: true
-  checksum: f9bb062abf54cc8f02d94ca86dcd349c3945d63851f5d07a3a61c2fcb755b15a88e943a63cf580cbdb5b74436d67ef6b67f745b8f7c0814e411379138e1863cb
-  languageName: node
-  linkType: hard
-
-"ws@npm:^8.12.1":
-  version: 8.20.0
-  resolution: "ws@npm:8.20.0"
+"ws@npm:^8":
+  version: 8.21.0
+  resolution: "ws@npm:8.21.0"
   peerDependencies:
     bufferutil: ^4.0.1
     utf-8-validate: ">=5.0.2"
@@ -6536,7 +6505,7 @@ __metadata:
       optional: true
     utf-8-validate:
       optional: true
-  checksum: 2b31d24a53690770564a033c21ea48390f84d23fbc5abc14b2bbec4e112846f2f3ca66caee769a73fb8bc89ba16b452a6911a553e9742bbc75bccb79e203953e
+  checksum: 83ff89ae011bc5c3c5605a45a0d50e12589143c7500ca4de83a8d43b3cd26e71f422cb3206fd1a9e6d541d666eeb66255c30d095d62d413b3c7afe5d2c5cb928
   languageName: node
   linkType: hard
 

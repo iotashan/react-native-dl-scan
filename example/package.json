@@ -39,7 +39,9 @@
     "typescript": "~5.9.2"
   },
   "resolutions": {
-    "postcss": "^8.5.10"
+    "postcss": "^8.5.10",
+    "ws": "^8",
+    "uuid": "^11"
   },
   "expo": {
     "autolinking": {
