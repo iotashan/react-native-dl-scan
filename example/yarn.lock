@@ -3186,7 +3186,7 @@ __metadata:
     react-native-reanimated: ~4.1.1
     react-native-safe-area-context: ~5.6.0
     react-native-svg: 15.12.1
-    react-native-vision-camera: ^5.0.0
+    react-native-vision-camera: ^5.0.11
     react-native-vision-camera-worklets: ^5.0.0
     react-native-worklets: ^0.8.3
     typescript: ~5.9.2
@@ -5523,15 +5523,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-vision-camera@npm:^5.0.0":
-  version: 5.0.9
-  resolution: "react-native-vision-camera@npm:5.0.9"
+"react-native-vision-camera@npm:^5.0.11":
+  version: 5.0.11
+  resolution: "react-native-vision-camera@npm:5.0.11"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-image: "*"
     react-native-nitro-modules: "*"
-  checksum: 34423f0f4c71ae9f6ce3eb22a2622ac0491f7808776d90d1e0e005b1adee4e1119b5688115f739467942b6952665e86b7f3ae13b9a6f649298fa1528aeb6c0ef
+  checksum: 414aadc564149fd010e52b91a6c20e36050a27909180d72e20aa36507fb193fdf2752d539eeafbc99f72558429123ded362b41731e415138e9e72dfde31fead5
   languageName: node
   linkType: hard
 
