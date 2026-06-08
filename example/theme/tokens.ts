@@ -70,8 +70,11 @@ const VELLUM_DISPLAY = Platform.select({
  *   hairline               — translucent border for chrome
  *   ink, ink2..4           — primary, secondary, tertiary, quaternary text
  *   accent / accentSoft    — brand accent + low-opacity tinted background
- *   tierCV/AG/SM/ER        — confidence-tier foreground colors
- *   tierCVbg/AGbg/SMbg/ERbg — confidence-tier background tints
+ *   tierCV/AG/ML/SM/ER     — confidence-tier foreground colors. The ramp
+ *                            TRACKS the score top→bottom: CV green, AG blue,
+ *                            ML teal, SM emerald, ER amber (neutral, NOT red).
+ *                            Red is reserved for genuinely missing fields.
+ *   tierCVbg/AGbg/MLbg/SMbg/ERbg — confidence-tier background tints
  *   cardGrad               — license-hero gradient (CSS string; pulled
  *                            apart by LicenseHero into expo-linear-gradient
  *                            stops in Phase D)
@@ -96,6 +99,8 @@ export interface ThemeTokens {
   tierCVbg: string;
   tierAG: string;
   tierAGbg: string;
+  tierML: string;
+  tierMLbg: string;
   tierSM: string;
   tierSMbg: string;
   tierER: string;
@@ -121,14 +126,19 @@ const ONYX_LIGHT: ThemeTokens = {
   ink4: 'rgba(10,10,12,0.18)',
   accent: '#0a7d4f',
   accentSoft: 'rgba(10,125,79,0.12)',
-  tierCV: '#0a7d4f',
-  tierCVbg: 'rgba(10,125,79,0.14)',
-  tierAG: '#1d4ed8',
-  tierAGbg: 'rgba(29,78,216,0.12)',
-  tierSM: '#92400e',
-  tierSMbg: 'rgba(146,64,14,0.12)',
-  tierER: 'rgba(10,10,12,0.45)',
-  tierERbg: 'rgba(10,10,12,0.06)',
+  // Confidence ramp (light): CV green → AG blue → ML teal → SM emerald →
+  // ER amber. Darkened shades of the canonical ramp for text-on-light
+  // contrast. Amber (never red) is the floor; red is missing-only.
+  tierCV: '#16a34a',
+  tierCVbg: 'rgba(34,197,94,0.13)',
+  tierAG: '#2563eb',
+  tierAGbg: 'rgba(59,130,246,0.13)',
+  tierML: '#0d9488',
+  tierMLbg: 'rgba(20,184,166,0.13)',
+  tierSM: '#059669',
+  tierSMbg: 'rgba(16,185,129,0.13)',
+  tierER: '#d97706',
+  tierERbg: 'rgba(245,158,11,0.13)',
   cardGrad: 'linear-gradient(160deg,#fdfdfd,#eef0f4)',
   reticle: '#0a7d4f',
   mono: SYSTEM_MONO,
@@ -146,14 +156,18 @@ const ONYX_DARK: ThemeTokens = {
   ink4: 'rgba(244,244,245,0.16)',
   accent: '#00e07f',
   accentSoft: 'rgba(0,224,127,0.18)',
-  tierCV: '#34d399',
-  tierCVbg: 'rgba(52,211,153,0.16)',
+  // Confidence ramp (dark): brighter shades of the canonical CV→ER ramp for
+  // legibility on dark surfaces. ER is amber (informational), never red.
+  tierCV: '#4ade80',
+  tierCVbg: 'rgba(34,197,94,0.16)',
   tierAG: '#60a5fa',
-  tierAGbg: 'rgba(96,165,250,0.16)',
-  tierSM: '#fbbf24',
-  tierSMbg: 'rgba(251,191,36,0.16)',
-  tierER: 'rgba(244,244,245,0.4)',
-  tierERbg: 'rgba(244,244,245,0.06)',
+  tierAGbg: 'rgba(59,130,246,0.16)',
+  tierML: '#2dd4bf',
+  tierMLbg: 'rgba(20,184,166,0.16)',
+  tierSM: '#34d399',
+  tierSMbg: 'rgba(16,185,129,0.16)',
+  tierER: '#fbbf24',
+  tierERbg: 'rgba(245,158,11,0.16)',
   cardGrad: 'linear-gradient(160deg,#1c1f27,#0d0f14)',
   reticle: '#00e07f',
   mono: SYSTEM_MONO,
@@ -171,14 +185,19 @@ const VELLUM_LIGHT: ThemeTokens = {
   ink4: 'rgba(26,22,17,0.18)',
   accent: '#b5341c',
   accentSoft: 'rgba(181,52,28,0.14)',
-  tierCV: '#2f7d52',
-  tierCVbg: 'rgba(47,125,82,0.14)',
-  tierAG: '#2d5fa0',
-  tierAGbg: 'rgba(45,95,160,0.14)',
-  tierSM: '#a96400',
-  tierSMbg: 'rgba(169,100,0,0.14)',
-  tierER: 'rgba(26,22,17,0.45)',
-  tierERbg: 'rgba(26,22,17,0.06)',
+  // Confidence ramp (light) — same canonical CV→ER ramp as the other
+  // directions for cross-theme consistency; warm paper bg keeps the
+  // character. ER amber, never red.
+  tierCV: '#16a34a',
+  tierCVbg: 'rgba(34,197,94,0.14)',
+  tierAG: '#2563eb',
+  tierAGbg: 'rgba(59,130,246,0.14)',
+  tierML: '#0d9488',
+  tierMLbg: 'rgba(20,184,166,0.14)',
+  tierSM: '#059669',
+  tierSMbg: 'rgba(16,185,129,0.14)',
+  tierER: '#c2660a',
+  tierERbg: 'rgba(245,158,11,0.15)',
   cardGrad: 'linear-gradient(160deg,#fbf8f1,#ece4d0)',
   reticle: '#b5341c',
   mono: SYSTEM_MONO,
@@ -196,14 +215,18 @@ const VELLUM_DARK: ThemeTokens = {
   ink4: 'rgba(246,239,222,0.18)',
   accent: '#e87a4a',
   accentSoft: 'rgba(232,122,74,0.18)',
-  tierCV: '#7ab98a',
-  tierCVbg: 'rgba(122,185,138,0.16)',
+  // Confidence ramp (dark) — brighter canonical CV→ER ramp, legible on the
+  // warm-dark surface. ER amber, never red.
+  tierCV: '#4ade80',
+  tierCVbg: 'rgba(34,197,94,0.16)',
   tierAG: '#7da9e0',
-  tierAGbg: 'rgba(125,169,224,0.16)',
-  tierSM: '#e0a456',
-  tierSMbg: 'rgba(224,164,86,0.16)',
-  tierER: 'rgba(246,239,222,0.42)',
-  tierERbg: 'rgba(246,239,222,0.06)',
+  tierAGbg: 'rgba(59,130,246,0.16)',
+  tierML: '#2dd4bf',
+  tierMLbg: 'rgba(20,184,166,0.16)',
+  tierSM: '#34d399',
+  tierSMbg: 'rgba(16,185,129,0.16)',
+  tierER: '#e0a456',
+  tierERbg: 'rgba(245,158,11,0.16)',
   cardGrad: 'linear-gradient(160deg,#2d2820,#1a1712)',
   reticle: '#e87a4a',
   mono: SYSTEM_MONO,
@@ -221,14 +244,18 @@ const LUMEN_LIGHT: ThemeTokens = {
   ink4: 'rgba(10,10,20,0.18)',
   accent: '#6d3aff',
   accentSoft: 'rgba(109,58,255,0.16)',
-  tierCV: '#0d9469',
-  tierCVbg: 'rgba(13,148,105,0.14)',
-  tierAG: '#1d5fcc',
-  tierAGbg: 'rgba(29,95,204,0.14)',
-  tierSM: '#b06000',
-  tierSMbg: 'rgba(176,96,0,0.14)',
-  tierER: 'rgba(10,10,20,0.42)',
-  tierERbg: 'rgba(10,10,20,0.06)',
+  // Confidence ramp (light) — canonical CV→ER ramp on the translucent
+  // glass surface. ER amber, never red.
+  tierCV: '#16a34a',
+  tierCVbg: 'rgba(34,197,94,0.14)',
+  tierAG: '#2563eb',
+  tierAGbg: 'rgba(59,130,246,0.14)',
+  tierML: '#0d9488',
+  tierMLbg: 'rgba(20,184,166,0.14)',
+  tierSM: '#059669',
+  tierSMbg: 'rgba(16,185,129,0.14)',
+  tierER: '#d97706',
+  tierERbg: 'rgba(245,158,11,0.14)',
   cardGrad:
     'linear-gradient(135deg,rgba(183,148,255,0.5),rgba(110,167,255,0.35) 50%,rgba(110,231,183,0.4))',
   reticle: '#6d3aff',
@@ -247,14 +274,18 @@ const LUMEN_DARK: ThemeTokens = {
   ink4: 'rgba(250,250,254,0.2)',
   accent: '#b794ff',
   accentSoft: 'rgba(183,148,255,0.22)',
-  tierCV: '#6ee7b7',
-  tierCVbg: 'rgba(110,231,183,0.18)',
+  // Confidence ramp (dark) — brighter canonical CV→ER ramp, legible on the
+  // dark glass surface. ER amber, never red.
+  tierCV: '#4ade80',
+  tierCVbg: 'rgba(34,197,94,0.18)',
   tierAG: '#93c5fd',
-  tierAGbg: 'rgba(147,197,253,0.18)',
-  tierSM: '#fcd34d',
-  tierSMbg: 'rgba(252,211,77,0.16)',
-  tierER: 'rgba(250,250,254,0.4)',
-  tierERbg: 'rgba(250,250,254,0.06)',
+  tierAGbg: 'rgba(59,130,246,0.18)',
+  tierML: '#2dd4bf',
+  tierMLbg: 'rgba(20,184,166,0.18)',
+  tierSM: '#34d399',
+  tierSMbg: 'rgba(16,185,129,0.16)',
+  tierER: '#fcd34d',
+  tierERbg: 'rgba(245,158,11,0.16)',
   cardGrad:
     'linear-gradient(135deg,rgba(183,148,255,0.28),rgba(110,167,255,0.18) 50%,rgba(110,231,183,0.22))',
   reticle: '#b794ff',
@@ -276,6 +307,7 @@ export const TOKENS: Record<Direction, Record<ThemeMode, ThemeTokens>> = {
 export const TIER_LABEL: Record<ConfidenceTier, string> = {
   cross_validated: 'Cross-validated',
   all_gates_passed: 'Strict parse',
+  marker_located: 'Marker-located',
   shape_matched: 'Shape match',
   extracted_raw: 'Raw extract',
 };
@@ -289,8 +321,13 @@ export const TIER_LABEL: Record<ConfidenceTier, string> = {
 export const TIER_RANK: Record<ConfidenceTier, number> = {
   extracted_raw: 0,
   shape_matched: 1,
-  all_gates_passed: 2,
-  cross_validated: 3,
+  // marker_located outranks shape_matched: marker-anchoring a free-text value
+  // (name/street) is a stronger correctness signal than a regex shape match,
+  // and it must sit ABOVE the default minTier so these fields are never shown
+  // as "dropped".
+  marker_located: 2,
+  all_gates_passed: 3,
+  cross_validated: 4,
 };
 
 /**
@@ -306,6 +343,8 @@ export function tierColor(
       return [t.tierCV, t.tierCVbg];
     case 'all_gates_passed':
       return [t.tierAG, t.tierAGbg];
+    case 'marker_located':
+      return [t.tierML, t.tierMLbg];
     case 'shape_matched':
       return [t.tierSM, t.tierSMbg];
     case 'extracted_raw':

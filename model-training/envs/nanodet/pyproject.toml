@@ -1,0 +1,28 @@
+[project]
+name = "dlscan-nanodet"
+version = "0.0.0"
+# NanoDet (RangiLyu/nanodet) is a 2021-era PyTorch-Lightning project. Pin an
+# older Python + torch where its model code and ONNX export are known to work.
+# System Python is 3.14 (too new for the torch/lightning vintage NanoDet needs).
+requires-python = "==3.11.*"
+dependencies = [
+  "torch==2.2.2",
+  "torchvision==0.17.2",
+  "onnx>=1.16",
+  "onnxruntime>=1.17",
+  "onnxsim>=0.4.36",
+  "omegaconf>=2.3",
+  "pyyaml>=6",
+  "numpy<2",
+  "pycocotools>=2.0.7",
+  "Pillow>=10",
+  "opencv-python-headless>=4.9",
+  "tabulate>=0.9",
+  "termcolor>=2",
+  "tqdm>=4",
+]
+
+[tool.uv]
+# NanoDet is installed from a pinned commit (not on PyPI in a usable form).
+# Use the model definition + export path only for the Phase −1.2 feasibility
+# gate; the full Lightning trainer is exercised in Phase 0.

@@ -29,9 +29,10 @@ extern "C" {
 /// (owned by the C++ side). Never dereference from a non-C++ caller.
 typedef void* dlscan_voter_handle;
 
-/// Create a new voter with the given per-bucket FIFO size. Pass 0 to use
-/// the default (20). Returns nullptr on allocation failure.
-dlscan_voter_handle dlscan_voter_new(int maxVotes);
+/// Create a new voter with the given per-bucket FIFO size and per-bucket
+/// minimum winning vote count. Pass 0 to use defaults (20 max, 2 min).
+/// Returns nullptr on allocation failure.
+dlscan_voter_handle dlscan_voter_new(int maxVotes, int minVotes);
 
 /// Destroy a voter handle. Idempotent on nullptr; UB on use-after-free.
 void dlscan_voter_delete(dlscan_voter_handle handle);

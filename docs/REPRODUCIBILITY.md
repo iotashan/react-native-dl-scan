@@ -49,10 +49,11 @@ numerical differences.
 ### Hardware
 
 Minimum hardware for reasonable wall times:
-- **Apple M3 Ultra or equivalent**: 20–30 hrs doc detector, 15–25 hrs field detector
-- **NVIDIA GPU (≥24 GB VRAM)**: similar wall times with CUDA backend
+- **Apple M3 Ultra or equivalent**: NanoDet field detector ~1 day on MPS
+  (~5 h/epoch, early-stop when val mAP@0.5 saturates)
+- **NVIDIA GPU (≥24 GB VRAM)**: similar or faster wall times with CUDA backend
 - **Apple M2 Ultra or M1 Ultra**: ~2–4× longer training wall time
-- **CPU-only**: doc detector ~7–10 days; not recommended
+- **CPU-only**: many days; not recommended
 
 Disk space required:
 - IDNet ZIPs: ~388 GB
@@ -184,10 +185,15 @@ bash model-training/run_full_pipeline.sh
 
 The pipeline runs stages in this order:
 1. IDNet ZIP extraction (stratified ~525K samples, fraud variants included)
-2. YOLO field detector dataset preparation (rectified 640×640 crops)
-3. Field detector training (YOLOv8n, ~15–25 hrs)
-4. Export: Core ML int8 (~5 min) + TFLite int8 (~25–35 min) for field detector
-5. Quantization regression validation
+2. Field detector dataset preparation (rectified crops; YOLO-fields labels
+   converted to COCO via `model-training/nanodet/yolo_to_coco.py` →
+   95,490 train / 12,055 val)
+3. Field detector training (NanoDet-Plus-m via RangiLyu/nanodet on MPS, ~1 day;
+   early-stop when val mAP@0.5 saturates)
+4. Export: PyTorch → LiteRT/TFLite via litert-torch
+   (`model-training/nanodet/export_tflite/export_internal.py`) →
+   `models/nanodet_field_416.tflite`
+5. Parity check vs PyTorch (`export_tflite/parity_check.py`)
 
 Note: a Keras OCR-disambiguation model was attempted in earlier iterations
 and removed. See
@@ -210,11 +216,15 @@ Expected outputs after a successful run:
 
 ```
 models/
-  DlScanFieldDetector.mlpackage/   # Core ML field detector (weight-only int8)
-  DlScanFieldDetector.mlmodelc/    # Compiled for on-device deployment
-  dl_scan_field_detector.tflite    # Android field detector (full int8)
-  version.json                     # Measured mAP, export timestamps, quantization strategy
+  nanodet_field_416.tflite         # NanoDet field detector (LiteRT/TFLite, fp32, ~4.99 MB)
+  version.json                     # Measured mAP, export metadata, model facts
 ```
+
+The single `.tflite` is loaded in JS via react-native-fast-tflite on both
+platforms; there is no per-platform Core ML / native-TFLite split anymore. A
+3×-smaller dynamic-int8 variant is produced under
+`model-training/nanodet/export_tflite/` but is not shipped (validate on-device
+first).
 
 Note: no self-trained `DlScanDocDetector.mlmodelc` or
 `dl_scan_doc_detector.tflite` is produced by this pipeline. At runtime, iOS
@@ -280,8 +290,8 @@ For reference, all fixed seeds used in the pipeline:
 |---|---|
 | Stratified subset extraction | 42 |
 | Train/val/test split | 42 |
-| YOLO field detector training | 0 (via Ultralytics `seed=0`) |
-| TFLite calibration sampling | 42 |
+| YOLO-fields → COCO conversion | 42 (split inherited from `prepare_yolo_fields.py`) |
+| NanoDet field detector training | per `configs/dlscan-nanodet-plus-m_416.yml` |
 
 ---
 
@@ -289,13 +299,16 @@ For reference, all fixed seeds used in the pipeline:
 
 To reproduce on a CUDA GPU, make the following changes:
 
-1. In `model-training/envs/train/pyproject.toml`, replace the `torch` pin
-   with the appropriate CUDA wheel index for your driver.
-2. Change `--device mps` to `--device cuda` (or `--device 0`) in all training
-   scripts, or pass `device='cuda'` to Ultralytics.
-3. The smoke test (`smoke_test_obb.py`) is MPS-specific and not needed on CUDA.
-   If you want to also train a doc detector on CUDA (using `train_doc_detector.py`),
-   CUDA is the correct backend — the MPS-OBB correctness bug does not affect CUDA.
+1. In the NanoDet training env (`model-training/envs/nanodet/`), replace the
+   `torch` pin with the appropriate CUDA wheel index for your driver. (The
+   NanoDet torch-2 MPS patches in `model-training/nanodet/PATCHES.md` — the
+   `torch._six` shim and the DFL `Integral` matmul→multiply-sum rewrite — are
+   MPS workarounds and are not needed on CUDA.)
+2. Set the NanoDet config's `device.gpu_ids` to your CUDA device and run
+   `model-training/nanodet/train_nanodet.py` with the 416 config.
+3. If you also want to train the (dropped) OBB doc detector on CUDA, the
+   `smoke_test_obb.py` MPS smoke test is not needed — the MPS-OBB correctness
+   bug does not affect CUDA.
 
 **Expected outcome:** functionally equivalent field detector with ~1–2% mAP
 variance due to CUDA vs. MPS numerical differences.

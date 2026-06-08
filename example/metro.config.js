@@ -53,6 +53,12 @@ const singletons = {
     projectRoot,
     'node_modules/react-native-nitro-image'
   ),
+  // fast-tflite is a Nitro HybridObject with native interpreter state — it
+  // must resolve to a single physical copy, same as the families above.
+  'react-native-fast-tflite': path.resolve(
+    projectRoot,
+    'node_modules/react-native-fast-tflite'
+  ),
   // Phase A — dl-scan example app rebuild (task #71). Same "single physical
   // copy" requirement as the families above. Reanimated relies on a global
   // UI worklet context; svg installs a global component registry; blur and
@@ -108,5 +114,11 @@ config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
 ];
+
+// react-native-fast-tflite loads models bundled as assets via require(); metro
+// must treat .tflite as an asset, not a source module.
+if (!config.resolver.assetExts.includes('tflite')) {
+  config.resolver.assetExts.push('tflite');
+}
 
 module.exports = config;

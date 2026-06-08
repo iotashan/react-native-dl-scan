@@ -18,6 +18,11 @@ add_library(DlScan SHARED
   ../cpp/mrz/mrz_parser.cpp
   ../cpp/yolo/yolo_postprocess.cpp
   ../cpp/yolo/field_classes.cpp
+  ../cpp/detect/nanodet_decode.cpp
+  ../cpp/detect/preprocess.cpp
+  ../cpp/detect/doc_aligner.cpp
+  ../cpp/detect/field_detector.cpp
+  ../cpp/detect/detect_c.cpp
   ../cpp/errors/error_codes.cpp
   ../cpp/voter.cpp
   ../cpp/voter_c.cpp
@@ -30,6 +35,7 @@ target_include_directories(DlScan PUBLIC
   ../cpp/ocr
   ../cpp/mrz
   ../cpp/yolo
+  ../cpp/detect
   ../cpp/errors
 )
 

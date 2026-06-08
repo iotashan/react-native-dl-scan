@@ -2,16 +2,21 @@ package com.dlscan
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.margelo.nitro.core.NullType
+import com.margelo.nitro.core.ArrayBuffer
 import com.margelo.nitro.dlscan.HybridDlScanAndroid
 import com.margelo.nitro.dlscan.LicenseDataSpec
 import com.margelo.nitro.dlscan.Sex
 import com.margelo.nitro.dlscan.Variant_NullType_LicenseDataSpec
+import android.graphics.Bitmap
+import android.graphics.Color
+import org.junit.Assert.assertArrayEquals
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.nio.ByteOrder
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -19,6 +24,42 @@ import java.util.concurrent.TimeUnit
 class HybridDlScanAndroidTest {
 
     private val instance = HybridDlScanAndroid()
+
+    private fun invokeArrayBufferToBytes(buffer: ArrayBuffer): ByteArray {
+        val method = HybridDlScanAndroid::class.java.getDeclaredMethod(
+            "arrayBufferToBytes",
+            ArrayBuffer::class.java
+        )
+        method.isAccessible = true
+        return method.invoke(instance, buffer) as ByteArray
+    }
+
+    private fun invokeArrayBufferToFloats(buffer: ArrayBuffer): FloatArray {
+        val method = HybridDlScanAndroid::class.java.getDeclaredMethod(
+            "arrayBufferToFloats",
+            ArrayBuffer::class.java
+        )
+        method.isAccessible = true
+        return method.invoke(instance, buffer) as FloatArray
+    }
+
+    private fun invokeFloatsToArrayBuffer(floats: FloatArray): ArrayBuffer {
+        val method = HybridDlScanAndroid::class.java.getDeclaredMethod(
+            "floatsToArrayBuffer",
+            FloatArray::class.java
+        )
+        method.isAccessible = true
+        return method.invoke(instance, floats) as ArrayBuffer
+    }
+
+    private fun invokeBitmapToRGB8(bitmap: Bitmap): ArrayBuffer {
+        val method = HybridDlScanAndroid::class.java.getDeclaredMethod(
+            "bitmapToRGB8",
+            Bitmap::class.java
+        )
+        method.isAccessible = true
+        return method.invoke(instance, bitmap) as ArrayBuffer
+    }
 
     // -------------------------------------------------------------------------
     // Helper: block on a Nitro Promise via CountDownLatch so we don't need
@@ -128,5 +169,42 @@ class HybridDlScanAndroidTest {
         assertNotNull("Variant must not be null itself", variant)
         assertNull("Expected NullType variant (no license data)", variant.asSecondOrNull())
         assertNotNull("Expected First(NullType)", variant.asFirstOrNull())
+    }
+
+    @Test
+    fun arrayBufferToBytes_readsFullSizeWhenBackingByteBufferPositionIsAtLimit() {
+        val buffer = ArrayBuffer.allocate(3)
+        buffer.getBuffer(false).put(byteArrayOf(1, 2, 3))
+
+        assertArrayEquals(byteArrayOf(1, 2, 3), invokeArrayBufferToBytes(buffer))
+    }
+
+    @Test
+    fun arrayBufferToFloats_readsFullSizeWhenBackingByteBufferPositionIsAtLimit() {
+        val buffer = ArrayBuffer.allocate(8)
+        val bytes = buffer.getBuffer(false).order(ByteOrder.nativeOrder())
+        bytes.asFloatBuffer().put(floatArrayOf(1.25f, 2.5f))
+        bytes.position(bytes.limit())
+
+        assertArrayEquals(floatArrayOf(1.25f, 2.5f), invokeArrayBufferToFloats(buffer), 0.0f)
+    }
+
+    @Test
+    fun bitmapToRGB8_returnsArrayBufferWithReadableCursorAtStart() {
+        val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        bitmap.setPixel(0, 0, Color.rgb(10, 20, 30))
+
+        val rgb = invokeBitmapToRGB8(bitmap)
+
+        assertEquals(0, rgb.getBuffer(false).position())
+        assertArrayEquals(byteArrayOf(10, 20, 30), invokeArrayBufferToBytes(rgb))
+    }
+
+    @Test
+    fun floatsToArrayBuffer_returnsArrayBufferWithReadableCursorAtStart() {
+        val buffer = invokeFloatsToArrayBuffer(floatArrayOf(3.5f, 4.5f))
+
+        assertEquals(0, buffer.getBuffer(false).position())
+        assertArrayEquals(floatArrayOf(3.5f, 4.5f), invokeArrayBufferToFloats(buffer), 0.0f)
     }
 }

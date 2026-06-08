@@ -182,17 +182,27 @@ Request the permission at runtime using `useCameraPermission()` from `react-nati
 
 ## API
 
-### `useLicenseScanner(mode?: ScanMode)`
+### `useLicenseScanner(mode?, ocrModelSources?, completion?)`
+
+```ts
+useLicenseScanner(
+  mode?: ScanMode,                  // 'barcode' (default) | 'ocr'
+  ocrModelSources?: OcrModelSources, // REQUIRED in 'ocr' mode (the NanoDet .tflite)
+  completion?: ScanCompletionPolicy  // OCR multi-frame stop policy (see below)
+)
+```
 
 React hook for camera-based scanning. Returns:
 
 | Property | Type | Description |
 |---|---|---|
-| `licenseData` | `LicenseData \| null` | Parsed license fields once a scan succeeds |
+| `licenseData` | `LicenseData \| null` | Parsed license fields. In OCR mode this is the **accumulated** result across passes — a field is kept once read and only replaced by a higher-confidence read, so values don't flicker out as later frames vary. |
 | `error` | `string \| null` | Error message if a scan attempt fails |
 | `isScanning` | `boolean` | `true` while actively scanning |
+| `progress` | `number` | `0..1`. In OCR mode, the fraction of `requiredFields` read so far (`1` when finished). |
+| `scanStatus` | `ScanStatus` | Live, UI-observable snapshot of the multi-frame scan (pass number, which required fields are in vs. pending, validation phase, per-field confidence). See [Scan completion](#scan-completion-ocr-mode). |
 | `output` | `CameraOutput` | Pass to `<Camera outputs={[output]} />`. Internally resolved per mode and per platform — barcode mode uses AVFoundation `useObjectOutput` on iOS and `react-native-vision-camera-barcode-scanner` on Android; OCR mode is a worklet frame processor on both. |
-| `reset` | `() => void` | Clear `licenseData` / `error` and restart scanning |
+| `reset` | `() => void` | Clear `licenseData` / `error` / accumulated result and restart scanning |
 
 ### `NativeDlScan.parseBarcodeData(rawAamvaString: string): Promise<LicenseData | null>`
 
@@ -225,9 +235,12 @@ export interface LicenseData {
   state: string | null;
   postalCode: string | null;
   country: string | null;
-  sex: 'M' | 'F' | 'X' | null;
-  eyeColor: string | null;
-  hairColor: string | null;
+  // Typed value sets (AAMVA D20). Either a recognized `{ code }` or
+  // `{ code: 'other', raw }` preserving the original card value. Null when
+  // the scanner read nothing. See "Typed value sets" below.
+  sex: SexValue | null;             // { code: 'M' | 'F' | 'X' } | { code: 'other', raw }
+  eyeColor: EyeColorValue | null;   // { code: EyeColorCode } | { code: 'other', raw }
+  hairColor: HairColorValue | null; // { code: HairColorCode } | { code: 'other', raw }
   height: string | null;            // e.g. "5'04\"" (canonical) or "5'-04" (VisionKit-raw)
   weight: string | null;            // e.g. "160" or "160 lb"
   vehicleClass: string | null;
@@ -246,12 +259,79 @@ export interface ConfidenceEntry {
   score: number;                    // 0..1, derived from tier (see Confidence Tiers below)
   tier: 'cross_validated' | 'all_gates_passed' | 'shape_matched' | 'extracted_raw';
 }
+
+// Typed value sets (AAMVA D20) — see "Typed value sets" below.
+export type SexCode = 'M' | 'F' | 'X';
+export type EyeColorCode =
+  | 'BLK' | 'BLU' | 'BRO' | 'GRY' | 'GRN'
+  | 'HAZ' | 'MAR' | 'PNK' | 'DIC' | 'UNK';
+export type HairColorCode =
+  | 'BAL' | 'BLK' | 'BLN' | 'BRO' | 'GRY'
+  | 'RED' | 'SDY' | 'WHI' | 'UNK';
+export type TypedValue<C extends string> =
+  | { code: C }
+  | { code: 'other'; raw: string };
+export type SexValue = TypedValue<SexCode>;
+export type EyeColorValue = TypedValue<EyeColorCode>;
+export type HairColorValue = TypedValue<HairColorCode>;
 ```
 
 ### `ScanMode`
 
 ```ts
 type ScanMode = 'barcode' | 'ocr';
+```
+
+### Typed value sets
+
+`sex`, `eyeColor`, and `hairColor` are AAMVA D20-coded enumerations on the card. Rather than hand back a bare string, the library normalizes each into a small **discriminated union** so you can branch on a known code *or* explicitly handle anything off-spec:
+
+```ts
+export type TypedValue<C extends string> =
+  | { code: C }                       // a recognized code from the field's set
+  | { code: 'other'; raw: string };   // off-spec — `raw` is the original (trimmed) card value
+```
+
+A field is `null` when the scanner read nothing; `{ code: 'other' }` is **never** fabricated from emptiness. The `'other'` branch always preserves the original (trimmed, case-preserved) value, which is what lets you map an unrecognized value to whatever a downstream system expects.
+
+**Known code sets** (AAMVA D20). The frozen arrays `SEX_CODES`, `EYE_COLOR_CODES`, and `HAIR_COLOR_CODES` are exported so you can reuse them (e.g. to populate a dropdown). Matching against them is case-insensitive and whitespace-trimmed:
+
+| Field | Type | Known codes |
+|---|---|---|
+| `sex` | `SexValue` | `M`, `F`, `X` |
+| `eyeColor` | `EyeColorValue` | `BLK`, `BLU`, `BRO`, `GRY`, `GRN`, `HAZ`, `MAR`, `PNK`, `DIC`, `UNK` |
+| `hairColor` | `HairColorValue` | `BAL`, `BLK`, `BLN`, `BRO`, `GRY`, `RED`, `SDY`, `WHI`, `UNK` |
+
+`formatTypedValue(v)` is a tiny exported helper that renders a field for display — the bare code for a recognized value (`"M"`, `"BRO"`), the preserved `raw` string for an `'other'` value, and `null` for an absent field:
+
+```ts
+import { formatTypedValue } from 'react-native-dl-scan';
+
+<Text>Sex: {formatTypedValue(licenseData.sex) ?? '—'}</Text>
+```
+
+**Consumer mapping example.** Suppose a legacy system only models two genders. Because every value carries either a known `code` or the raw card string, you can map deterministically and decide your own fallback for everything else:
+
+```ts
+import type { SexValue } from 'react-native-dl-scan';
+
+// Map the typed sex value down to a legacy two-gender field.
+function toLegacyGender(sex: SexValue | null): 'M' | 'F' | 'U' {
+  if (sex == null) return 'U';            // nothing read
+  switch (sex.code) {
+    case 'M':
+      return 'M';
+    case 'F':
+      return 'F';
+    case 'X':
+      return 'U';                          // non-binary → "unspecified" in the legacy schema
+    case 'other':
+      // An off-spec raw value the card presented (e.g. a numeric "1"/"2" a
+      // jurisdiction emitted that wasn't normalized upstream). Inspect `sex.raw`
+      // and apply whatever your downstream system requires.
+      return sex.raw === '1' ? 'M' : sex.raw === '2' ? 'F' : 'U';
+  }
+}
 ```
 
 ## Scan Modes
@@ -262,7 +342,7 @@ Reads the PDF417 barcode on the back of the license. iOS uses Vision Camera v5's
 
 ### `'ocr'`
 
-Reads text from the front of the license. Uses VisionKit on iOS and ML Kit Text Recognition on Android, with rate-limiting to approximately 3.3 fps internally (300 ms cooldown between OCR jobs). The platform layer collects OCR observations and YOLO bbox detections, then hands typed `FieldCandidate` records over Nitro to the C++ extractor — the same `extract_fields_from_candidates` runs on both iOS and Android. Multi-frame voting (8 frames by default with adaptive consensus exit on 2 consecutive identical results) converges on the per-(FieldId, FieldSource) consensus value before structured normalization. Accuracy varies by jurisdiction; covered jurisdictions are listed in [docs/MODEL_CARD.md](docs/MODEL_CARD.md).
+Reads text from the front of the license. Uses VisionKit on iOS and ML Kit Text Recognition on Android, with rate-limiting to approximately 3.3 fps internally (300 ms cooldown between OCR jobs). The platform layer collects OCR observations and YOLO bbox detections, then hands typed `FieldCandidate` records over Nitro to the C++ extractor — the same `extract_fields_from_candidates` runs on both iOS and Android. Multi-frame voting (a ≥2-vote floor per field) converges on the per-(FieldId, FieldSource) consensus value before structured normalization, and the hook **accumulates** confirmed fields across passes so a field that converged early isn't lost to later OCR variance. When the scan stops is governed by the [completion policy](#scan-completion-ocr-mode) (`requiredFields` / `maxFrames` / `validationPass`). Accuracy varies by jurisdiction; covered jurisdictions are listed in [docs/MODEL_CARD.md](docs/MODEL_CARD.md).
 
 OCR runs **asynchronously** inside the Nitro hybrid: the worklet returns the most recently cached result immediately and queues a fresh OCR job in the background. New results surface on subsequent frames with no frame-processor stall.
 
@@ -271,6 +351,81 @@ OCR runs **asynchronously** inside the Nitro hybrid: the worklet returns the mos
 - **scanForClass text-pool** — when OCR misreads `4d` as `46` (a real WI/IL OCR pattern) and the lexer never emits a `9 CLASS X` token, every observation is searched for `(CLASS|CLAS|GLASS) X` and the matched code feeds `vehicleClass`.
 
 These fallbacks fire only when the strict parser fails for a given field, so a clean read still flows through the normal `(FieldId, FieldSource)` typed-candidate path.
+
+## Scan completion (OCR mode)
+
+OCR mode reads the front of the card across multiple camera passes, **accumulating** a "presumed result" as fields converge (a field is kept once read and only replaced by a higher-confidence read). **You control when it stops** via the optional `completion` argument:
+
+```ts
+import { useLicenseScanner, DEFAULT_REQUIRED_FIELDS } from 'react-native-dl-scan';
+
+const scanner = useLicenseScanner('ocr', OCR_MODELS, {
+  // Keep scanning until ALL of these are read, then stop.
+  requiredFields: ['firstName', 'lastName', 'street', 'city', 'state', 'postalCode'],
+  maxFrames: 30,        // hard cap on passes; finalize best-effort if reached
+  validationPass: true, // one extra confirming pass before finishing
+});
+```
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `requiredFields` | `(keyof LicenseData)[]` | `DEFAULT_REQUIRED_FIELDS` (name, street, city/state/ZIP, DOB, license #, sex) | The scan accumulates passes until every one of these is populated. Need only name + address? Pass a short list and finish in 1–2 passes. Need height/class? It scans longer. |
+| `maxFrames` | `number` | `30` | Hard cap on consensus passes. If the required set isn't complete by then, the scan finalizes best-effort with whatever was captured (`phase: 'incomplete'`). |
+| `validationPass` | `boolean` | `true` | After the required set is first met, require one more pass that re-confirms it before finalizing — guards against a single lucky-but-wrong read. |
+| `tta` | `{ enabled?: boolean; modes?: TtaMode[] }` | **on** (`{ enabled: true, modes: ['original', 'blueChannel', 'contrastStretch'] }`) | Best-crop re-parse at finalization. On **every** finalize the library re-OCRs the single best captured card crop once under each augmentation with a fresh `minVotes: 1` voter and merges anything new. Additive — it can only fill an absent field or upgrade on strictly-higher confidence, never clobber a confirmed value. Disable with `tta: { enabled: false }`. See [TTA verification](#tta-verification-ocr-mode). |
+
+In one sentence: **scan until the required fields are satisfied, capped by `maxFrames`, with an optional final validation pass**, and on every finalize re-parse the best crop once to recover any field the multi-frame vote dropped.
+
+### `ScanStatus`
+
+`scanner.scanStatus` updates on every pass so your UI can show the scan's inner state — pass number, which required fields are in vs. pending, the validation phase, and per-field confidence:
+
+```ts
+export interface ScanStatus {
+  phase: 'scanning' | 'validating' | 'complete' | 'incomplete';
+  passNumber: number;                       // passes processed so far
+  maxFrames: number;
+  requiredFields: (keyof LicenseData)[];
+  acceptedRequired: (keyof LicenseData)[];  // required fields read so far
+  pendingRequired: (keyof LicenseData)[];   // required fields still missing
+  acceptedOptional: (keyof LicenseData)[];  // bonus (non-required) fields also captured
+  requiredComplete: boolean;
+  fractionComplete: number;                 // acceptedRequired / requiredFields, 0..1
+  validation: { active: boolean; confirmed: boolean };
+  fieldConfidence: LicenseData['dataConfidence'];
+}
+```
+
+## TTA verification (OCR mode)
+
+The live scan votes each field across ~30 frames with a `minVotes: 2` floor, so a value that OCRs cleanly in only **one** frame (a `sex` read garbled in all the others, a single-character vehicle class) never reaches two votes and is dropped — even though the best retained crop contains it plainly. **Best-crop re-parse** (a test-time-augmentation, "TTA", step) fixes this: on **every** finalization the library re-OCRs the single best captured card crop **once** with a fresh `minVotes: 1` voter and merges anything new into the result. It does not replace `validationPass` — it composes with it.
+
+This runs **by default** (on both finalize paths: the required set being satisfied, and `maxFrames` being hit with `phase: 'incomplete'`). You only touch the `tta` field to tune the augmentations or turn it off:
+
+```ts
+const scanner = useLicenseScanner('ocr', OCR_MODELS, {
+  validationPass: true,
+  // tta is ON by default; this block is only needed to customize or disable it.
+  tta: {
+    enabled: true, // default; set false to skip the best-crop re-parse entirely
+    modes: ['original', 'blueChannel', 'contrastStretch'], // optional; this is the default
+  },
+});
+```
+
+```ts
+type TtaMode = 'original' | 'blueChannel' | 'contrastStretch';
+```
+
+| Mode | What it does |
+|---|---|
+| `original` | **Unfiltered passthrough** — the clean retained crop is re-parsed as-is. This is the default first mode and the heart of the step: with `minVotes: 1` it recovers fields (e.g. `sex`) the multi-frame `minVotes: 2` vote dropped. The color/contrast filters below can *degrade* an already-legible read, so `original` runs first and is the safe baseline. |
+| `blueChannel` | Grayscale built from the **blue channel only**. On blue document stock (e.g. the Wisconsin license) dark glyphs have maximal contrast in blue, which can recover small characters single-pass OCR drops. |
+| `contrastStretch` | Per-channel 2% / 98% percentile linear stretch — a color-agnostic hedge for flat or low-contrast captures. |
+
+**Mechanism.** At finalize the JS hook calls the native `runTtaVerification(modes)` once. Native re-OCRs the consensus rectified card crop the pipeline already retained (the same buffer it saved as `cardImagePath`) under each requested augmentation, votes those re-parsed "frames" with a fresh `minVotes: 1` voter, and returns a consensus `LicenseData`. The hook folds that into the accumulated result with the **same strictly-higher-confidence rule** used across normal frames — already-confirmed fields are kept; a field is only overwritten by a strictly stronger read, so a recovered glyph can fill a gap but never clobber a good value. The pass is best-effort: if native has no retained crop, finds no consensus, or the call throws, the scan finalizes with the data it already had. The re-parse does not mutate the live scan voter and does not re-save the card/headshot images.
+
+> **Status:** the `original` (identity) pass is the designed fix for the real Wisconsin scan that reached 8/9 required fields + all extras with only `sex` dropped — the best crop's OCR plainly contains the sex row, and the shared C++ parser extracts it, but the multi-frame `minVotes: 2` vote dropped the single clean read. `blueChannel` is offline-validated for `vehicleClass` recovery (offline sweep lifted a Wisconsin card crop from 6/10 to 10/10 fields). On-device confirmation of the full default-on flow is pending; treat this section as the documented API surface, not a finished on-device benchmark.
 
 ## Confidence Tiers
 

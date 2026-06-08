@@ -124,6 +124,47 @@ TEST(ShapeGate_Name, AcceptsHyphenatedAndApostrophe) {
     }
 }
 
+TEST(ShapeGate_LicenseNumber, RejectsNameShapedIndexedLeak) {
+    FieldCandidateVector v{
+        cand(FieldId::List1, "DELGADO"),
+        cand(FieldId::List4d, "2 MARCUS ANTOINE"),
+    };
+    auto r = extract_fields_from_candidates(v);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_FALSE(r->licenseNumber.has_value());
+}
+
+TEST(ShapeGate_LicenseNumber, AcceptsNumericOnlyLicenseNumber) {
+    FieldCandidateVector v{
+        cand(FieldId::List1, "DELGADO"),
+        cand(FieldId::List4d, "26798765"),
+    };
+    auto r = extract_fields_from_candidates(v);
+    ASSERT_TRUE(r.has_value());
+    ASSERT_TRUE(r->licenseNumber.has_value());
+    EXPECT_EQ(*r->licenseNumber, "26798765");
+}
+
+TEST(ShapeGate_Country, RejectsIndexedHeightWeightLeak) {
+    FieldCandidateVector v{
+        cand(FieldId::List1, "DELGADO"),
+        cand(FieldId::Country, "18 HGT 5-0417 wGT160 b"),
+    };
+    auto r = extract_fields_from_candidates(v);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_FALSE(r->country.has_value());
+}
+
+TEST(ShapeGate_Endorsements, RejectsIndexedHairColorLeak) {
+    FieldCandidateVector v{
+        cand(FieldId::List1, "DELGADO"),
+        cand(FieldId::List9a, "19 HAIR BLK"),
+    };
+    auto r = extract_fields_from_candidates(v);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_FALSE(r->endorsements.has_value());
+}
+
 // ─── street gate + CSZ stripping ──────────────────────────────────────────
 
 TEST(ShapeGate_Street, AcceptsHouseNumberStart) {
@@ -200,15 +241,15 @@ TEST(TextPoolFallback, DobIssueExpireDates) {
     // because indexToFieldId didn't include 3/4a/4b.
     FieldCandidateVector v{
         cand(FieldId::List1, "DOEFORD"),
-        cand(FieldId::List3,  "DOB 08/12/1980",    FieldSource::StrictTextPool),
-        cand(FieldId::List4a, "ISS 06/07/2023",    FieldSource::StrictTextPool),
-        cand(FieldId::List4b, "EXP 08/12/2031",    FieldSource::StrictTextPool),
+        cand(FieldId::List3,  "DOB 03/27/1976",    FieldSource::StrictTextPool),
+        cand(FieldId::List4a, "ISS 05/15/2024",    FieldSource::StrictTextPool),
+        cand(FieldId::List4b, "EXP 03/27/2034",    FieldSource::StrictTextPool),
     };
     auto r = extract_fields_from_candidates(v);
     ASSERT_TRUE(r.has_value());
-    EXPECT_EQ(r->dateOfBirth.value_or(""),    "1980-08-12");
-    EXPECT_EQ(r->issueDate.value_or(""),      "2023-06-07");
-    EXPECT_EQ(r->expirationDate.value_or(""), "2031-08-12");
+    EXPECT_EQ(r->dateOfBirth.value_or(""),    "1976-03-27");
+    EXPECT_EQ(r->issueDate.value_or(""),      "2024-05-15");
+    EXPECT_EQ(r->expirationDate.value_or(""), "2034-03-27");
 }
 
 TEST(TextPoolFallback, Endorsements_List9a) {

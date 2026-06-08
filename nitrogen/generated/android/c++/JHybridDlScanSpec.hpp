@@ -57,8 +57,14 @@ namespace margelo::nitro::dlscan {
   public:
     // Methods
     std::shared_ptr<Promise<std::variant<nitro::NullType, LicenseDataSpec>>> parseBarcodeData(const std::string& barcodeData) override;
-    std::variant<nitro::NullType, LicenseDataSpec> recognizeLicenseFields(const std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>& frame) override;
     void resetLicenseFieldRecognition() override;
+    std::shared_ptr<ArrayBuffer> preprocessFieldInput(const std::shared_ptr<ArrayBuffer>& rgb, double width, double height) override;
+    std::vector<FieldDetectionSpec> decodeFieldOutput(const std::shared_ptr<ArrayBuffer>& output, double scaleX, double scaleY) override;
+    std::shared_ptr<ArrayBuffer> preprocessDocAlignerInput(const std::shared_ptr<ArrayBuffer>& rgb, double width, double height) override;
+    std::vector<double> decodeCorners(const std::shared_ptr<ArrayBuffer>& output) override;
+    std::variant<nitro::NullType, RectifiedFrameSpec> rectifyFrame(const std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>& frame) override;
+    std::variant<nitro::NullType, LicenseDataSpec> ocrExtractFields(double token, const std::vector<FieldDetectionSpec>& detections) override;
+    std::variant<nitro::NullType, LicenseDataSpec> runTtaVerification(const std::vector<double>& modes) override;
 
   private:
     jni::global_ref<JHybridDlScanSpec::JavaPart> _javaPart;

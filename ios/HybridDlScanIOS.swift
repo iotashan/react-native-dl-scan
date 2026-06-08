@@ -2,7 +2,6 @@ import Foundation
 import NitroModules
 import CxxStdlib
 import Vision
-import CoreML
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import VisionCamera
@@ -15,29 +14,25 @@ import UIKit
 ///      directly to the C++ core (dlscan::parse_aamva). 66 GoogleTest cases
 ///      cover this same C++ code on CI.
 ///
-///   2. recognizeLicenseFields — front-of-card OCR pipeline. Per-frame
-///      pipeline (rate-limited to ~3.3 fps internally):
-///        a. VNDetectDocumentSegmentationRequest → rectified card image
-///        b. VNCoreMLRequest with the bundled DlScanFieldDetector
-///           (YOLOv8n, 30 classes) → raw output tensor
-///        c. dlscan::yolo::decode_and_nms → per-field bboxes (shared C++)
-///        d. VNRecognizeTextRequest on the rectified image → text + bboxes
-///        e. IoU match observations to YOLO bboxes → field_id → text map
-///        f. dlscan::extract_fields_from_candidates → LicenseDataSpec
+///   2. Front-of-card OCR — JS-orchestrated (react-native-fast-tflite). JS
+///      drives a two-call pipeline per frame:
+///        a. rectifyFrame — VNDetectDocumentSegmentationRequest →
+///           perspective-corrected card image, returned to JS as RGB8 + token
+///        b. JS runs the NanoDet field detector via react-native-fast-tflite
+///           (preprocessFieldInput/decodeFieldOutput bridge the shared C++)
+///        c. ocrExtractFields(token, detections) — per-region
+///           VNRecognizeTextRequest → demographic parse → voter →
+///           dlscan::extract_fields_from_candidates → LicenseDataSpec
 ///
-/// The full pipeline runs on a serial background queue; the worklet thread
-/// returns the latest cached result immediately. Async errors are logged
-/// (via os_log / NSLog) and cached as nil — Phase 5 may add a structured
-/// error channel; v1 surfaces failures as null `licenseData` to JS.
+/// The legacy native field-detection path (a bundled YOLOv8n Core ML model
+/// run inside recognizeLicenseFields) was removed in favour of the
+/// JS-orchestrated NanoDet path above.
 ///
 /// Registration is handled automatically by the auto-generated
 /// DlScanAutolinking.mm. Host apps do NOT call any registration function.
 class HybridDlScanIOS: HybridDlScanSpec {
 
-  // MARK: - OCR state (guarded by ocrLock)
-
-  private let ocrLock = NSLock()
-  private var cachedOcrResult: LicenseDataSpec? = nil
+  // MARK: - OCR / scan-session state
 
   /// Per-field multi-frame voter (round-8 design — task #33).
   /// Multi-frame field voter — the implementation lives in C++
@@ -51,7 +46,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
   /// deinit via dlscan_voter_delete. The voter holds a std::mutex
   /// internally, so we can't store it as a value-type member; the C ABI's
   /// opaque handle pointer is the canonical workaround per round-2.
-  private let voter = FieldVoter(maxVotes: 20)
+  private let voter = FieldVoter(maxVotes: 20, minVotes: 2)
 
   /// Typed field candidate (v2 Sequence G — task #54). Mirrors
   /// `dlscan::FieldCandidate`. Replaces the legacy `[String: String]`
@@ -78,11 +73,12 @@ class HybridDlScanIOS: HybridDlScanSpec {
   final class FieldVoter {
     private let handle: OpaquePointer
 
-    init(maxVotes: Int = 20) {
+    init(maxVotes: Int = 20, minVotes: Int = 2) {
       // dlscan_voter_new returns nullptr on allocation failure; cast as
       // OpaquePointer? for Swift safety, force-unwrap because the heap
       // allocation is essentially infallible at this scale.
-      self.handle = OpaquePointer(dlscan_voter_new(Int32(maxVotes)))!
+      self.handle = OpaquePointer(
+        dlscan_voter_new(Int32(maxVotes), Int32(minVotes)))!
     }
 
     deinit {
@@ -179,16 +175,29 @@ class HybridDlScanIOS: HybridDlScanSpec {
       dlscan_voter_reset(UnsafeMutableRawPointer(handle))
     }
   }
-  private var ocrInFlight = false
-  private var lastOcrTime: CFAbsoluteTime = 0
-  /// Generation counter — incremented by resetLicenseFieldRecognition() to
-  /// invalidate in-flight detection jobs. The async job in ocrQueue snapshots
-  /// the generation at dispatch time and only writes its result back to
-  /// cachedOcrResult if the generation hasn't changed since. Without this,
-  /// a job that started before reset() could overwrite the cleared cache
-  /// with the previous card's data.
-  private var ocrGeneration: UInt64 = 0
   private var cardCapturedThisSession = false
+
+  // MARK: - JS-orchestration rectify cache (guarded by rectifyLock)
+  // rectifyFrame() exposes the rectified RGB to JS for fast-tflite NanoDet
+  // detection; ocrExtractFields() consumes the JS detections against the cached
+  // buffers (source + rectified) keyed by token. Replaces the native runYOLO.
+  private let rectifyLock = NSLock()
+  private var lastRectifyTime: CFAbsoluteTime = 0
+  private var nextRectifyToken: Double = 1
+  private var rectifiedCache:
+    [Double: (source: CVPixelBuffer, orientation: CGImagePropertyOrientation, rectified: CVPixelBuffer)] = [:]
+
+  // MARK: - TTA-as-verification retained crop (guarded by rectifyLock)
+  // The BEST captured card crop — the consensus rectified RGB buffer kept on the
+  // frame that saved cardImagePath. runTtaVerification() re-OCRs augmented copies
+  // of this to recover small glyphs a single OCR pass misses. Retained as RGB8
+  // bytes (row-major, 3 B/px) so the shared C++ dlscan_augment_rgb can augment it
+  // and rgb8ToPixelBuffer() can rebuild a buffer for the whole-card OCR stage.
+  // Replaced on each new consensus crop; cleared in resetLicenseFieldRecognition.
+  private var ttaRetainedRGB: [UInt8]? = nil
+  private var ttaRetainedWidth: Int = 0
+  private var ttaRetainedHeight: Int = 0
+
   private var _scanProgress: Double = 0.0
   var scanProgress: Double { _scanProgress }
 
@@ -197,28 +206,6 @@ class HybridDlScanIOS: HybridDlScanSpec {
 
   private var _detectedCardCorners: [Double] = []
   var detectedCardCorners: [Double] { _detectedCardCorners }
-
-  /// Per-pipeline-result generation — bumped each time runDetectionPipeline
-  /// actually completes with a non-nil result. Distinct from ocrGeneration
-  /// (reset-driven). Matches HybridDlScanAndroid.ocrResultGeneration; lets
-  /// the JS voting loop count UNIQUE pipeline runs rather than duplicate
-  /// returns of the same cached spec across the camera's ~30 fps polling.
-  private var ocrResultGeneration: UInt64 = 0
-  private var lastReadOcrResultGeneration: Int64 = -1
-
-  private let ocrQueue = DispatchQueue(label: "com.dlscan.ocr", qos: .userInitiated)
-
-  // MARK: - Field detector state (lazy-loaded once per hybrid instance)
-
-  /// Cached VNCoreMLRequest holding the loaded VNCoreMLModel. Built on first
-  /// successful load; nil until then OR if the model asset can't be located /
-  /// loaded. Access guarded by modelLock.
-  private let modelLock = NSLock()
-  private var cachedYoloRequest: VNCoreMLRequest? = nil
-  /// Set true after the first load attempt to suppress repeat-load attempts
-  /// when the model is missing — avoids retrying VNCoreMLModel load on every
-  /// frame for a hybrid instance that's been in a degraded state since boot.
-  private var modelLoadAttempted = false
 
   /// Cached CIContext for perspective-correction rendering. Created lazily.
   private let renderContext = CIContext()
@@ -240,269 +227,325 @@ class HybridDlScanIOS: HybridDlScanSpec {
     }
   }
 
-  /// Synchronously called from a frame-processor worklet. Returns the latest
-  /// cached OCR result, or null if no result is available yet.
-  ///
-  /// Each call checks whether a new pipeline run should be submitted (rate-
-  /// limited to ~3.3 fps internally via a 0.3s cooldown). The first non-null
-  /// result becomes available a few frames after the first call. The cache
-  /// is NOT auto-cleared — the caller is responsible for stopping calls
-  /// once a non-null result is consumed (e.g., via a Synchronizable guard).
-  ///
-  /// Frame pixel buffer access happens synchronously within this method;
-  /// the pipeline runs asynchronously on ocrQueue but holds a CVPixelBuffer
-  /// reference acquired here. CMSampleBuffer validity is checked before
-  /// any work begins.
-  func recognizeLicenseFields(frame: any HybridFrameSpec) throws -> Variant_NullType_LicenseDataSpec {
-    Self.diagBumpCounter("recognize_called")
-    let now = CFAbsoluteTimeGetCurrent()
-
-    // Snapshot OCR state under lock — do NOT set ocrInFlight yet.
-    // Keep the lock window minimal — no allocations inside.
-    ocrLock.lock()
-    let cached = cachedOcrResult
-    let cachedGen = ocrResultGeneration
-    let inFlight = ocrInFlight
-    let elapsed = now - lastOcrTime
-    let shouldStartNewJob = !inFlight && elapsed >= 0.3  // ~3.3 fps rate limit (matches Android, experiment B)
-    ocrLock.unlock()
-
-    // Dedupe: return cached spec only when its generation has advanced
-    // since the previous JS read, so each unique pipeline run lands once
-    // in JS-side voting. Matches HybridDlScanAndroid logic.
-    let freshSpec: LicenseDataSpec?
-    if let cached, Int64(cachedGen) != lastReadOcrResultGeneration {
-      lastReadOcrResultGeneration = Int64(cachedGen)
-      freshSpec = cached
-    } else {
-      freshSpec = nil
-    }
-
-    // Return the fresh-or-nil spec immediately if no new job should be started.
-    guard shouldStartNewJob else {
-      if let result = freshSpec {
-        return Variant_NullType_LicenseDataSpec.second(result)
-      }
-      return Variant_NullType_LicenseDataSpec.first(.null)
-    }
-
-    // Extract the pixel buffer now, on the worklet thread, while the Frame is
-    // still valid. Cast to the public NativeFrame protocol (not the internal
-    // HybridFrame class) to access the sampleBuffer. If the cast fails or the
-    // buffer is unavailable, skip the job without updating lastOcrTime.
-    guard let nativeFrame = frame as? any NativeFrame,
-          let sampleBuffer = nativeFrame.sampleBuffer,
-          let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-      // Cast/extraction failed — do NOT update lastOcrTime or set ocrInFlight.
-      if let result = freshSpec {
-        return Variant_NullType_LicenseDataSpec.second(result)
-      }
-      return Variant_NullType_LicenseDataSpec.first(.null)
-    }
-
-    // Compute CGImagePropertyOrientation for Vision directly from
-    // UIDevice.current.orientation. VC v5's frame.orientation is a relative
-    // value (sensor.relativeTo(outputOrientation)) and depends on the
-    // Camera component's orientationSource prop being wired through to the
-    // output's enablePhysicalBufferRotation, which we observed not actually
-    // rotating the AVCaptureConnection on iPadOS 26.5. The buffer bytes
-    // are always in the camera sensor's native orientation (back camera =
-    // landscape-right). To tell Vision which way is "up" in this buffer,
-    // we map UIDeviceOrientation → CGImagePropertyOrientation directly:
-    //
-    //   Device portrait (camera at top):       sensor rotated 90° CW   → .right
-    //   Device portraitUpsideDown (camera bot): sensor rotated 90° CCW → .left
-    //   Device landscapeLeft (home on right):   sensor matches buffer  → .up
-    //   Device landscapeRight (home on left):   sensor 180° flipped    → .down
-    //
-    // The Swift `UIDevice.current.orientation` lookup is reliable as long
-    // as someone has called beginGeneratingDeviceOrientationNotifications,
-    // which VC's HybridInterfaceOrientationManager already does.
-    let frameOrientation: CGImagePropertyOrientation
-    switch UIDevice.current.orientation {
-    case .portrait:           frameOrientation = .right
-    case .portraitUpsideDown: frameOrientation = .left
-    case .landscapeLeft:      frameOrientation = .up
-    case .landscapeRight:     frameOrientation = .down
-    default:                  frameOrientation = .right
-    }
-
-    // Commit to a new job: set ocrInFlight + lastOcrTime + snapshot
-    // generation atomically. The job's result will only be written to
-    // cachedOcrResult if the generation hasn't been incremented (by
-    // resetLicenseFieldRecognition) by the time the job completes.
-    let jobGeneration: UInt64
-    ocrLock.lock()
-    ocrInFlight = true
-    lastOcrTime = now
-    jobGeneration = ocrGeneration
-    ocrLock.unlock()
-
-    // Retain the pixel buffer so it survives past this method call.
-    let retainedBuffer = pixelBuffer
-
-    ocrQueue.async { [weak self] in
-      guard let self else { return }
-      let result = self.runDetectionPipeline(buffer: retainedBuffer,
-                                             orientation: frameOrientation)
-      self.ocrLock.lock()
-      // Only commit the result if no reset() has happened since this job
-      // started. Stale results are dropped silently — the caller (JS) will
-      // see null until a fresh job lands.
-      if self.ocrGeneration == jobGeneration {
-        self.cachedOcrResult = result
-        // Bump pipeline-result generation so the next read sees a fresh
-        // spec, not a duplicate of the previous one. Only on non-nil.
-        if result != nil {
-          self.ocrResultGeneration &+= 1
-        }
-      }
-      self.ocrInFlight = false
-      self.ocrLock.unlock()
-    }
-
-    // Return the dedupe-checked fresh spec (may be nil on first few frames
-    // or on duplicate reads of the same pipeline-run generation).
-    if let result = freshSpec {
-      return Variant_NullType_LicenseDataSpec.second(result)
-    }
-    return Variant_NullType_LicenseDataSpec.first(.null)
-  }
-
-  /// Invalidate the OCR cache and any in-flight detection job. Called by JS
-  /// when the consumer's scan session ends — without this, a job that
-  /// started right before `useLicenseScanner.reset()` could land after the
-  /// reset and re-populate the cache with stale data from the previous card.
-  ///
-  /// Implementation: bump the generation counter (the in-flight job snapshots
-  /// it at dispatch and discards its result on landing if it doesn't match),
-  /// clear the cached result, and reset the rate-limit clock so the next
-  /// scan can start immediately.
+  /// Reset all scan-session state for the JS-orchestrated OCR path. Called by
+  /// JS when the consumer's scan session ends (or on hook mount) so the next
+  /// scan starts fresh — without this, a stale rectified buffer, a half-filled
+  /// voter, or last session's progress/corners could bleed into the new scan.
   func resetLicenseFieldRecognition() throws {
-    ocrLock.lock()
-    ocrGeneration &+= 1   // wraparound-safe
-    cachedOcrResult = nil
-    lastOcrTime = 0
     cardCapturedThisSession = false
     _scanProgress = 0.0
     _pipelineStage = 0.0
     _detectedCardCorners = []
-    // Reset the dedupe marker so the next scan's first fresh result lands.
-    lastReadOcrResultGeneration = -1
-    ocrLock.unlock()
     // Clear the multi-frame voter so the next scan starts fresh.
     voter.reset()
+    // Clear the JS-orchestration rectify cache so stale source/rectified buffers
+    // don't survive a scan-session boundary; reset the throttle clock too.
+    rectifyLock.lock()
+    rectifiedCache.removeAll()
+    lastRectifyTime = 0
+    // Drop the retained TTA crop so a stale card from the previous session
+    // can't be re-OCR'd into the next scan's result.
+    ttaRetainedRGB = nil
+    ttaRetainedWidth = 0
+    ttaRetainedHeight = 0
+    rectifyLock.unlock()
   }
 
-  // MARK: - Detection pipeline
+  // MARK: - Unified TFLite runtime (react-native-fast-tflite), JS-orchestrated
 
-  /// Run the full doc-seg → YOLO → OCR → IoU-match → C++ extract pipeline.
-  /// Returns nil on any stage failure (logged for diagnostics; v1 has no
-  /// structured error channel — Phase 5 may add one).
-  private func runDetectionPipeline(
-    buffer: CVPixelBuffer,
-    orientation: CGImagePropertyOrientation
-  ) -> LicenseDataSpec? {
-    Self.diagBumpCounter("frames_entered_pipeline")
-    Self.diagLog("pipeline frame received orientation=\(orientation.rawValue)")
+  // JS loads the models (loadTensorflowModel) and calls model.runSync; these
+  // bridge the shared, tested C++ pre/post via the detect_c C-ABI. No
+  // fast-tflite type is referenced here — a 5-cycle iOS build proved the
+  // c++-only TfliteModel cannot be passed into a Swift HybridObject (fails at
+  // both the <NitroTflite/...> C++ include and the Swift `any
+  // HybridTfliteModelSpec` type). See docs/.../2026-05-30-ios-build-findings.md.
+  //
+  // UNVALIDATED against a device build: the ArrayBuffer `.data`/`.size` access
+  // and the C-ABI pointer binding below are best-effort against the detect_c.hpp
+  // signatures and must be confirmed/adjusted on the first example compile.
 
-    // 1. Document segmentation — rectify the card to a perspective-corrected image.
-    guard let rectified = runDocSeg(buffer: buffer, orientation: orientation) else {
-      NSLog("[DlScan] doc segmentation failed — no card detected")
-      Self.diagBumpCounter("docseg_failed")
+  func preprocessFieldInput(rgb: ArrayBuffer, width: Double, height: Double) throws -> ArrayBuffer {
+    let floats = 3 * 416 * 416
+    let out = ArrayBuffer.allocate(size: floats * MemoryLayout<Float>.stride)
+    var sx: Float = 0, sy: Float = 0
+    _ = dlscan_preprocess_field(
+      rgb.data,
+      rgb.size,
+      Int32(width), Int32(height), 416,
+      UnsafeMutableRawPointer(out.data).assumingMemoryBound(to: Float.self), floats, &sx, &sy)
+    return out
+  }
+
+  func decodeFieldOutput(
+    output: ArrayBuffer, scaleX: Double, scaleY: Double
+  ) throws -> [FieldDetectionSpec] {
+    let cap = 100
+    var cls = [Int32](repeating: 0, count: cap)
+    var conf = [Float](repeating: 0, count: cap)
+    var x1 = [Float](repeating: 0, count: cap), y1 = [Float](repeating: 0, count: cap)
+    var x2 = [Float](repeating: 0, count: cap), y2 = [Float](repeating: 0, count: cap)
+    let n = dlscan_decode_field(
+      UnsafeMutableRawPointer(output.data).assumingMemoryBound(to: Float.self),
+      output.size / MemoryLayout<Float>.stride,
+      Float(scaleX), Float(scaleY),
+      &cls, &conf, &x1, &y1, &x2, &y2, cap)
+    var out: [FieldDetectionSpec] = []
+    for i in 0..<min(Int(n), cap) {
+      out.append(FieldDetectionSpec(
+        classId: Double(cls[i]), confidence: Double(conf[i]),
+        x1: Double(x1[i]), y1: Double(y1[i]), x2: Double(x2[i]), y2: Double(y2[i])))
+    }
+    return out
+  }
+
+  func preprocessDocAlignerInput(rgb: ArrayBuffer, width: Double, height: Double) throws -> ArrayBuffer {
+    let floats = 3 * 256 * 256
+    let out = ArrayBuffer.allocate(size: floats * MemoryLayout<Float>.stride)
+    _ = dlscan_preprocess_docaligner(
+      rgb.data,
+      rgb.size,
+      Int32(width), Int32(height), 256,
+      UnsafeMutableRawPointer(out.data).assumingMemoryBound(to: Float.self), floats)
+    return out
+  }
+
+  func decodeCorners(output: ArrayBuffer) throws -> [Double] {
+    var xs = [Float](repeating: 0, count: 4), ys = [Float](repeating: 0, count: 4)
+    let ok = dlscan_decode_corners(
+      UnsafeMutableRawPointer(output.data).assumingMemoryBound(to: Float.self),
+      output.size / MemoryLayout<Float>.stride, &xs, &ys)
+    if ok == 0 { return [] }
+    var out: [Double] = []
+    for i in 0..<4 { out.append(Double(xs[i])); out.append(Double(ys[i])) }
+    return out
+  }
+
+  // MARK: - JS-orchestration: rectify + ocr-with-detections
+
+  /// Convert a 32BGRA CVPixelBuffer into a row-major RGB8 ArrayBuffer (3 B/px).
+  private func pixelBufferToRGB8(_ buffer: CVPixelBuffer) -> (rgb: ArrayBuffer, width: Int, height: Int)? {
+    CVPixelBufferLockBaseAddress(buffer, .readOnly)
+    defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+    guard let base = CVPixelBufferGetBaseAddress(buffer) else { return nil }
+    let w = CVPixelBufferGetWidth(buffer)
+    let h = CVPixelBufferGetHeight(buffer)
+    let stride = CVPixelBufferGetBytesPerRow(buffer)
+    let src = base.assumingMemoryBound(to: UInt8.self)
+    let out = ArrayBuffer.allocate(size: w * h * 3)
+    let dst = out.data
+    var di = 0
+    for y in 0..<h {
+      let row = src + y * stride
+      var xi = 0
+      for _ in 0..<w {
+        dst[di] = row[xi + 2]      // R (source is BGRA)
+        dst[di + 1] = row[xi + 1]  // G
+        dst[di + 2] = row[xi]      // B
+        di += 3
+        xi += 4
+      }
+    }
+    return (out, w, h)
+  }
+
+  /// Convert a 32BGRA CVPixelBuffer into a row-major RGB8 `[UInt8]` (3 B/px).
+  /// Same packing as pixelBufferToRGB8 but into a Swift array the TTA path can
+  /// retain across calls and feed to dlscan_augment_rgb. nil on lock failure.
+  private func pixelBufferToRGB8Bytes(_ buffer: CVPixelBuffer) -> (rgb: [UInt8], width: Int, height: Int)? {
+    CVPixelBufferLockBaseAddress(buffer, .readOnly)
+    defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+    guard let base = CVPixelBufferGetBaseAddress(buffer) else { return nil }
+    let w = CVPixelBufferGetWidth(buffer)
+    let h = CVPixelBufferGetHeight(buffer)
+    let stride = CVPixelBufferGetBytesPerRow(buffer)
+    let src = base.assumingMemoryBound(to: UInt8.self)
+    var out = [UInt8](repeating: 0, count: w * h * 3)
+    var di = 0
+    for y in 0..<h {
+      let row = src + y * stride
+      var xi = 0
+      for _ in 0..<w {
+        out[di] = row[xi + 2]      // R (source is BGRA)
+        out[di + 1] = row[xi + 1]  // G
+        out[di + 2] = row[xi]      // B
+        di += 3
+        xi += 4
+      }
+    }
+    return (out, w, h)
+  }
+
+  /// Build a 32BGRA CVPixelBuffer from row-major RGB8 bytes (3 B/px). The TTA
+  /// pass augments the retained RGB then needs a CVPixelBuffer to hand to
+  /// VisionKit OCR. Inverse of pixelBufferToRGB8Bytes. nil on allocation /
+  /// lock failure or short input.
+  private func rgb8ToPixelBuffer(_ rgb: [UInt8], width w: Int, height h: Int) -> CVPixelBuffer? {
+    guard w > 0, h > 0, rgb.count >= w * h * 3 else { return nil }
+    let attrs: [String: Any] = [
+      kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+    ]
+    var bufferOut: CVPixelBuffer?
+    let status = CVPixelBufferCreate(kCFAllocatorDefault, w, h,
+                                     kCVPixelFormatType_32BGRA,
+                                     attrs as CFDictionary, &bufferOut)
+    guard status == kCVReturnSuccess, let buffer = bufferOut else { return nil }
+    CVPixelBufferLockBaseAddress(buffer, [])
+    defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+    guard let base = CVPixelBufferGetBaseAddress(buffer) else { return nil }
+    let stride = CVPixelBufferGetBytesPerRow(buffer)
+    let dst = base.assumingMemoryBound(to: UInt8.self)
+    rgb.withUnsafeBufferPointer { srcBuf in
+      guard let src = srcBuf.baseAddress else { return }
+      var si = 0
+      for y in 0..<h {
+        let row = dst + y * stride
+        var xi = 0
+        for _ in 0..<w {
+          row[xi]     = src[si + 2]  // B
+          row[xi + 1] = src[si + 1]  // G
+          row[xi + 2] = src[si]      // R
+          row[xi + 3] = 255          // A
+          si += 3
+          xi += 4
+        }
+      }
+    }
+    return buffer
+  }
+
+  /// UIDevice orientation -> CGImagePropertyOrientation for the back-camera
+  /// sensor buffer (mirrors recognizeLicenseFields).
+  private func currentFrameOrientation() -> CGImagePropertyOrientation {
+    switch UIDevice.current.orientation {
+    case .portrait:           return .right
+    case .portraitUpsideDown: return .left
+    case .landscapeLeft:      return .up
+    case .landscapeRight:     return .down
+    default:                  return .right
+    }
+  }
+
+  func rectifyFrame(frame: any HybridFrameSpec) throws -> Variant_NullType_RectifiedFrameSpec {
+    let now = CFAbsoluteTimeGetCurrent()
+    rectifyLock.lock()
+    let throttled = (now - lastRectifyTime) < 0.3
+    rectifyLock.unlock()
+    if throttled { return .first(.null) }
+
+    guard let nativeFrame = frame as? any NativeFrame,
+          let sampleBuffer = nativeFrame.sampleBuffer,
+          let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+      return .first(.null)
+    }
+    let orientation = currentFrameOrientation()
+    guard let rectified = runDocSeg(buffer: pixelBuffer, orientation: orientation) else {
       _scanProgress = max(_scanProgress, 0.02)
-      return nil
+      return .first(.null)
     }
-    Self.diagBumpCounter("docseg_ok")
+    guard let conv = pixelBufferToRGB8(rectified) else { return .first(.null) }
+
+    rectifyLock.lock()
+    lastRectifyTime = now
+    let token = nextRectifyToken
+    nextRectifyToken += 1
+    rectifiedCache[token] = (source: pixelBuffer, orientation: orientation, rectified: rectified)
+    if rectifiedCache.count > 4, let oldest = rectifiedCache.keys.min() {
+      rectifiedCache.removeValue(forKey: oldest)
+    }
+    rectifyLock.unlock()
     _scanProgress = max(_scanProgress, 0.05)
-    // Diagnostic: dump rectified buffer ONCE per app launch so we can pull
-    // it via xcrun devicectl device copy from and visually verify what
-    // YOLO is being fed. Task #56.
-    Self.dumpRectifiedOnce(buffer: rectified)
+    return .second(RectifiedFrameSpec(rgb: conv.rgb,
+                                      width: Double(conv.width),
+                                      height: Double(conv.height),
+                                      token: token))
+  }
 
-    // 2. YOLO field detector — locate per-field bboxes on the rectified card.
-    let detections = runYOLO(buffer: rectified)
-    if detections.isEmpty {
-      NSLog("[DlScan] field detector returned 0 detections")
-      Self.diagBumpCounter("yolo_empty")
-      _scanProgress = max(_scanProgress, 0.05)
-      return nil
+  func ocrExtractFields(token: Double,
+                        detections: [FieldDetectionSpec]) throws -> Variant_NullType_LicenseDataSpec {
+    rectifyLock.lock()
+    let entry = rectifiedCache.removeValue(forKey: token)
+    rectifyLock.unlock()
+    guard let entry else { return .first(.null) }
+    let rectified = entry.rectified
+
+    // Map JS NanoDet detections (classId + source-pixel bbox) into the internal
+    // (name, bbox, conf) tuples the OCR stages consume.
+    var dets: [(name: String, bbox: CGRect, conf: Float)] = []
+    dets.reserveCapacity(detections.count)
+    for d in detections {
+      let name = String(cString: dlscan.yolo.class_name_or_empty(Int32(d.classId)))
+      if name.isEmpty { continue }
+      dets.append((name: name,
+                   bbox: CGRect(x: CGFloat(d.x1), y: CGFloat(d.y1),
+                                width: CGFloat(max(0, d.x2 - d.x1)),
+                                height: CGFloat(max(0, d.y2 - d.y1))),
+                   conf: Float(d.confidence)))
     }
-    Self.diagBumpCounter("yolo_ok")
-    Self.diagLog("yolo returned \(detections.count) detections")
+    if dets.isEmpty { return .first(.null) }
 
-    // 3. OCR the rectified card once; we get text + bbox per observation.
+    // Steps 3..5 of the former runDetectionPipeline, detections now JS-provided.
     let observations = runVisionKitWithBboxes(on: rectified, orientation: .up)
-    if observations.isEmpty {
-      NSLog("[DlScan] OCR returned 0 observations")
-      Self.diagBumpCounter("ocr_empty")
-      return nil
-    }
-    Self.diagBumpCounter("ocr_ok")
-    Self.diagLog("vision OCR returned \(observations.count) observations")
-
-    // 4. Pre-split observations containing multiple AAMVA D-20 field
-    //    indices (e.g. "15 SEX M 16 HGT 5'-04\" 17 WGT 160 lb") into
-    //    per-field sub-observations using proportional horizontal slicing.
-    //    Mirrors HybridDlScanAndroid.splitObservationByAamvaIndices —
-    //    round-4 plan. Apple Vision rarely produces multi-index lines
-    //    in this form but the platform-parity contract requires it.
+    if observations.isEmpty { return .first(.null) }
+    // Feed the shared C++ marker parser the RAW whole-card observations (it does
+    // its own marker tokenization, fused-row extraction, and 1-step look-ahead
+    // linkage internally — exactly like Android, which passes observations.map {
+    // it.text }). Pre-splitting here broke fused-row sex (marker 15) and dob
+    // (marker 3) on iOS only — the iOS/Android drift that made the shared C++
+    // test pass while the device failed. See cpp/tests/aamva_demographic_test.
+    let demographicCandidates = Self.parseAamvaDemographicFields(observations)
     let splitObservations = Self.splitObservationsByAamvaIndices(observations)
-    Self.diagLog("split observations: " + String(observations.count) + " -> " + String(splitObservations.count))
-
-    // 4a. Demographic text-pool parse — typed FieldCandidates StrictTextPool.
-    let demographicCandidates = Self.parseAamvaDemographicFields(splitObservations)
-    Self.diagLog("demographic candidates: " + String(demographicCandidates.count))
-    if !demographicCandidates.isEmpty { Self.diagBumpCounter("demographic_nonempty") }
-
-    // 4b. D-lite (iter-10): per-YOLO-bbox Vision regionOfInterest OCR,
-    //     replaces the old bbox-IoU matching against whole-card observations.
-    //     CLI eval (commit 6a96d66): REGION pipeline lifts state-level
-    //     accuracy 17-30% over the matched-IoU pipeline on a 200-image
-    //     held-out IDNet batch. Names: 40% -> 98.7%; license #: 46.7% -> 100%.
-    //
-    //     The detected state (used for per-state list_4d shape regex) is
-    //     derived from the whole-card observation pool above.
     let detectedState = Self.detectState(observations: splitObservations)
-    let bboxCandidates = runVisionKitPerRegion(
-      on: rectified,
-      detections: detections,
-      orientation: .up,
-      detectedState: detectedState)
-    Self.diagLog("region candidates: " + String(bboxCandidates.count))
-    if !bboxCandidates.isEmpty { Self.diagBumpCounter("region_nonempty") }
-    if !observations.isEmpty {
-      let sample = observations.prefix(3).map { "[" + $0.text + "]" }.joined(separator: " ")
-      Self.diagLog("OCR sample: " + sample)
-    }
-    let detNames = detections.prefix(5).map { $0.name }.joined(separator: ",")
-    Self.diagLog("YOLO classes: " + detNames)
-
+    let bboxCandidates = runVisionKitPerRegion(on: rectified,
+                                               detections: dets,
+                                               orientation: .up,
+                                               detectedState: detectedState)
     let frameCandidates = bboxCandidates + demographicCandidates
-    Self.diagLog("frame candidates total: " + String(frameCandidates.count))
-    if !frameCandidates.isEmpty { Self.diagBumpCounter("frame_candidates_nonempty") }
-
     voter.accept(frameCandidates)
     let consensus = voter.consensus()
-    Self.diagLog("voter consensus size: " + String(consensus.count))
     let totalExpected: Double = 14
     let stabilized = Double(Set(consensus.map { $0.fieldId }).count)
     _scanProgress = min(max(_scanProgress, 0.10 + (stabilized / totalExpected) * 0.85), 1.0)
-    if consensus.isEmpty {
-      Self.diagBumpCounter("consensus_empty")
-      return nil
-    }
+    if consensus.isEmpty { return .first(.null) }
 
-    Self.diagBumpCounter("voter_consensus_ok")
-    Self.diagLog("voter consensus produced \(consensus.count) candidates")
-
-    // 5b. C++ structured extraction on the typed consensus. Build a
-    //     dlscan::FieldCandidateVector via Cxx interop and call
-    //     extract_fields_from_candidates. Single public extractor path
-    //     since v2 Sequence G.
     _pipelineStage = 1
+    guard let cppData = Self.extractFromCandidates(consensus) else { return .first(.null) }
+    _pipelineStage = 2
+
+    var cardPath: String? = nil
+    var headshotPath: String? = nil
+    if !cardCapturedThisSession {
+      cardCapturedThisSession = true
+      _pipelineStage = 3
+      cardPath = Self.saveRectifiedCard(sourceBuffer: entry.source, orientation: entry.orientation)
+      _pipelineStage = 4
+      headshotPath = Self.extractHeadshot(from: rectified, yoloDetections: dets, cardImagePath: cardPath)
+      _pipelineStage = 5
+      // Retain THIS consensus crop (the rectified RGB) as the best card for the
+      // optional TTA verification pass. Convert once to RGB8 bytes so
+      // dlscan_augment_rgb + rgb8ToPixelBuffer can drive the augmented re-OCR
+      // without holding a CVPixelBuffer alive across the bridge.
+      if let conv = pixelBufferToRGB8Bytes(rectified) {
+        rectifyLock.lock()
+        ttaRetainedRGB = conv.rgb
+        ttaRetainedWidth = conv.width
+        ttaRetainedHeight = conv.height
+        rectifyLock.unlock()
+      }
+    }
+    let spec = Self.toLicenseDataSpec(cppData, cardImagePath: cardPath, headshotImagePath: headshotPath)
+    return .second(spec)
+  }
+
+  /// Shared C++ field extraction from a typed FieldCandidate consensus. Builds
+  /// the C++ FieldCandidateVector and runs `extract_fields_from_candidates`.
+  /// Factored out of `ocrExtractFields` so the TTA verification pass reuses the
+  /// exact same vote->extract sequence. Returns nil when the extractor yields
+  /// no LicenseData.
+  private static func extractFromCandidates(
+    _ candidates: [FieldCandidate]
+  ) -> dlscan.LicenseData? {
     var cppVec = dlscan.FieldCandidateVector()
-    for c in consensus {
+    for c in candidates {
       var cppC = dlscan.FieldCandidate()
       cppC.id = dlscan.FieldId(rawValue: c.fieldId) ?? dlscan.FieldId.Unknown
       cppC.source = dlscan.FieldSource(rawValue: c.source) ?? dlscan.FieldSource.Unknown
@@ -510,31 +553,66 @@ class HybridDlScanIOS: HybridDlScanSpec {
       cppVec.push_back(cppC)
     }
     let cppResult = dlscan.extract_fields_from_candidates(cppVec)
-    guard let cppData = Optional(fromCxx: cppResult) else {
-      NSLog("[DlScan] C++ extract_fields_from_candidates returned nullopt")
-      return nil
-    }
-    _pipelineStage = 2
-    // Capture the rectified card image + headshot on the consensus frame.
-    // Capture card image + headshot ONCE per scan session.
-    var cardPath: String? = nil
-    var headshotPath: String? = nil
-    if !cardCapturedThisSession {
-      cardCapturedThisSession = true
-      _pipelineStage = 3
-      cardPath = Self.saveRectifiedCard(
-        sourceBuffer: buffer, orientation: orientation)
-      _pipelineStage = 4
-      headshotPath = Self.extractHeadshot(
-        from: rectified,
-        yoloDetections: detections,
-        cardImagePath: cardPath)
-      _pipelineStage = 5
+    return Optional(fromCxx: cppResult)
+  }
+
+  /// Whole-card strict-pool candidates for a rectified buffer: VisionKit OCR,
+  /// AAMVA-index split, then the demographic strict parse (which internally also
+  /// scans for class + city/state/zip). This is the field-detector-free subset
+  /// of `ocrExtractFields`'s candidate sourcing — the only path the TTA
+  /// verification pass needs, since the augmented crop has no detections.
+  private func wholeCardStrictCandidates(on buffer: CVPixelBuffer) -> [FieldCandidate] {
+    let observations = runVisionKitWithBboxes(on: buffer, orientation: .up)
+    if observations.isEmpty { return [] }
+    let split = Self.splitObservationsByAamvaIndices(observations)
+    return Self.parseAamvaDemographicFields(split)
+  }
+
+  /// TTA-as-verification pass. ADDITIVE + opt-in (JS calls this only when the
+  /// consumer enables `completion.tta`, after the normal scan completes).
+  /// Re-OCRs the retained best card crop under each requested augmentation
+  /// (dlscan_augment_rgb), votes the augmented frames with a FRESH voter, and
+  /// returns the voted LicenseDataSpec. Returns nil when no crop is retained or
+  /// the augmented frames produce no consensus. Does NOT touch the live scan
+  /// voter or re-save card/headshot images.
+  func runTtaVerification(modes: [Double]) throws -> Variant_NullType_LicenseDataSpec {
+    rectifyLock.lock()
+    let retained = ttaRetainedRGB
+    let w = ttaRetainedWidth
+    let h = ttaRetainedHeight
+    rectifyLock.unlock()
+    guard let retained, w > 0, h > 0, retained.count >= w * h * 3 else {
+      return .first(.null)
     }
 
-    let spec = Self.toLicenseDataSpec(cppData, cardImagePath: cardPath, headshotImagePath: headshotPath)
-    return spec
+    let ttaVoter = FieldVoter(maxVotes: 20, minVotes: 1)
+    var out = [UInt8](repeating: 0, count: w * h * 3)
+    var anyFrame = false
+    for modeD in modes {
+      let mode = Int32(modeD)
+      let written: Int = retained.withUnsafeBufferPointer { inBuf in
+        out.withUnsafeMutableBufferPointer { outBuf in
+          dlscan_augment_rgb(inBuf.baseAddress, inBuf.count,
+                             Int32(w), Int32(h), mode,
+                             outBuf.baseAddress, outBuf.count)
+        }
+      }
+      if written != w * h * 3 { continue }  // unknown mode / bad dims — skip
+      guard let augBuffer = rgb8ToPixelBuffer(out, width: w, height: h) else { continue }
+      let candidates = wholeCardStrictCandidates(on: augBuffer)
+      if candidates.isEmpty { continue }
+      ttaVoter.accept(candidates)
+      anyFrame = true
+    }
+    if !anyFrame { return .first(.null) }
+    let consensus = ttaVoter.consensus()
+    if consensus.isEmpty { return .first(.null) }
+    guard let cppData = Self.extractFromCandidates(consensus) else { return .first(.null) }
+    // No card/headshot re-capture — verification reuses the already-saved crop.
+    return .second(Self.toLicenseDataSpec(cppData))
   }
+
+  // MARK: - Detection pipeline
 
   /// Stage 1: document segmentation. Runs VNDetectDocumentSegmentationRequest,
   /// then perspective-corrects the source pixel buffer using the four detected
@@ -691,195 +769,6 @@ class HybridDlScanIOS: HybridDlScanSpec {
     return outBuf
   }
 
-  /// Stage 2: YOLO field detector. Runs VNCoreMLRequest against the bundled
-  /// DlScanFieldDetector model, then calls into shared C++ to decode the
-  /// raw output tensor + run NMS. Returns the surviving field detections in
-  /// the rectified-image coordinate space. Empty on any failure (model load,
-  /// inference, tensor shape mismatch).
-  ///
-  /// Returns: array of (className, bbox in image-space, confidence) tuples.
-  private func runYOLO(buffer: CVPixelBuffer)
-      -> [(name: String, bbox: CGRect, conf: Float)] {
-
-    guard let request = ensureYoloRequest() else {
-      Self.diagBumpCounter("yolo_request_nil")
-      return []
-    }
-    Self.diagBumpCounter("yolo_request_ok")
-
-    // Anisotropic stretch to 640x640. The upstream rectified buffer is a
-    // fixed 1280x806 (ID-1 aspect 1.586:1) so the squish is deterministic
-    // and we reverse it exactly when unprojecting bboxes below. Set
-    // explicitly — per Apple's VNImageCropAndScaleOption docs, .scaleFill
-    // is a pure per-axis stretch (no aspect preservation, no pad, no crop),
-    // equivalent to Android's Bitmap.createScaledBitmap(640, 640, filter=true).
-    request.imageCropAndScaleOption = .scaleFill
-
-    let handler = VNImageRequestHandler(cvPixelBuffer: buffer, options: [:])
-    do {
-      try handler.perform([request])
-    } catch {
-      NSLog("[DlScan] VNCoreMLRequest threw: \(error)")
-      Self.diagBumpCounter("yolo_handler_threw")
-      Self.diagLog("yolo handler threw: \(error)")
-      return []
-    }
-    Self.diagBumpCounter("yolo_handler_ok")
-
-    guard let obs = request.results?.first as? VNCoreMLFeatureValueObservation,
-          let multiArray = obs.featureValue.multiArrayValue,
-          multiArray.dataType == .float32 else {
-      NSLog("[DlScan] YOLO output not a float32 MLMultiArray")
-      Self.diagBumpCounter("yolo_obs_bad")
-      Self.diagLog("yolo obs missing or wrong type; results count: \(request.results?.count ?? -1)")
-      return []
-    }
-    Self.diagBumpCounter("yolo_obs_ok")
-    Self.diagLog("yolo multiArray shape: \(multiArray.shape.map { $0.intValue })")
-
-    // Expected shape: (1, 4 + num_classes, num_anchors) = (1, 34, 8400).
-    // Some Core ML versions surface shapes as MLMultiArrayShape (NSNumber);
-    // we only need (channels, anchors) — the leading 1 is just a batch dim.
-    let shape = multiArray.shape.map { $0.intValue }
-    let totalChannels: Int
-    let numAnchors: Int
-    if shape.count == 3 {
-      totalChannels = shape[1]
-      numAnchors    = shape[2]
-    } else if shape.count == 2 {
-      totalChannels = shape[0]
-      numAnchors    = shape[1]
-    } else {
-      NSLog("[DlScan] unexpected MLMultiArray shape: \(shape)")
-      return []
-    }
-    guard totalChannels >= 5, numAnchors > 0 else { return [] }
-    let numClasses = totalChannels - 4
-
-    // Get a contiguous float pointer. MLMultiArray strides should be unit-
-    // strided for float32 outputs of this shape, but we don't currently verify
-    // that — a future hardening pass could fall back to a manual copy if
-    // strides indicate non-contiguous layout.
-    let floatPtr = multiArray.dataPointer.assumingMemoryBound(to: Float.self)
-    // Diagnostic: log strides + first 16 floats to confirm the tensor is
-    // unit-strided ChannelMajor (and that values are sigmoid'd to [0,1]).
-    let stridesArr = multiArray.strides.map { $0.intValue }
-    let firstFloats: [Float] = (0..<min(16, multiArray.count)).map { floatPtr[$0] }
-    Self.diagLog("yolo strides: " + stridesArr.map(String.init).joined(separator: ",")
-      + " | first16: " + firstFloats.map { String(format: "%.3f", $0) }.joined(separator: ","))
-    // Also sample max class score across all anchors (channels 4..33)
-    // so we know whether the model is producing low confidence or zero
-    // confidence everywhere.
-    var maxClassScore: Float = 0
-    let nClasses = totalChannels - 4
-    for ch in 4..<totalChannels {
-      let base = ch * numAnchors
-      for a in 0..<numAnchors {
-        let v = floatPtr[base + a]
-        if v > maxClassScore { maxClassScore = v }
-      }
-    }
-    Self.diagLog("yolo maxClassScore across all anchors: " + String(format: "%.6f", maxClassScore)
-      + " | classes=" + String(nClasses) + " anchors=" + String(numAnchors))
-
-    // Anisotropic .scaleFill stretches the rectified 1280x806 buffer to
-    // 640x640 (per-axis scale factors). C++ NMS returns coords in that
-    // 640x640 model space. We reverse the stretch per-axis (no pad math)
-    // to land back in rectified-image-space (1280x806). This matches the
-    // Android pipeline (Bitmap.createScaledBitmap → toYoloSpace inverse).
-    let imageW = CGFloat(CVPixelBufferGetWidth(buffer))
-    let imageH = CGFloat(CVPixelBufferGetHeight(buffer))
-    let scaleX = 640.0 / imageW
-    let scaleY = 640.0 / imageH
-
-    var config = dlscan.yolo.NmsConfig()
-    // Match HybridDlScanAndroid's CONF_THRESHOLD = 0.01 exactly. The
-    // Ultralytics-default 0.25 was rejecting valid detections on iPad -
-    // the bundled DlScanFieldDetector model surfaces lots of per-field
-    // bboxes at sub-25% confidence that NMS then collapses to a single
-    // high-confidence pick per class. Filtering at 0.01 lets NMS pick
-    // the winner; filtering at 0.25 drops everything. Task #56.
-    config.conf_threshold = 0.01
-    config.iou_threshold  = 0.45
-    config.max_detections = 100
-
-    let cppDets = dlscan.yolo.decode_and_nms(
-      floatPtr,
-      numClasses,
-      numAnchors,
-      config
-    )
-    Self.diagLog("yolo decode_and_nms returned " + String(cppDets.size()) + " raw dets")
-
-    var results: [(name: String, bbox: CGRect, conf: Float)] = []
-    results.reserveCapacity(Int(cppDets.size()))
-    for d in cppDets {
-      // Reverse anisotropic .scaleFill: divide by per-axis scale.
-      let x1 = CGFloat(d.x1) / scaleX
-      let y1 = CGFloat(d.y1) / scaleY
-      let x2 = CGFloat(d.x2) / scaleX
-      let y2 = CGFloat(d.y2) / scaleY
-      let bbox = CGRect(x: x1,
-                        y: y1,
-                        width: max(0, x2 - x1),
-                        height: max(0, y2 - y1))
-      let name = String(cString: dlscan.yolo.class_name_or_empty(d.class_id))
-      if !name.isEmpty {
-        results.append((name: name, bbox: bbox, conf: d.confidence))
-      }
-    }
-    return results
-  }
-
-  /// Lazy-init the VNCoreMLRequest holding the loaded field-detector model.
-  /// Returns nil if the model asset isn't bundled or fails to load — the
-  /// pipeline degrades to "no result" rather than throwing.
-  private func ensureYoloRequest() -> VNCoreMLRequest? {
-    modelLock.lock()
-    defer { modelLock.unlock() }
-
-    if let req = cachedYoloRequest { return req }
-    if modelLoadAttempted { return nil }  // already failed once; don't retry
-    modelLoadAttempted = true
-
-    guard let modelURL = Self.bundledModelURL(name: "DlScanFieldDetector",
-                                               ext: "mlmodelc") else {
-      NSLog("[DlScan] DlScanFieldDetector.mlmodelc not found in bundle")
-      return nil
-    }
-    do {
-      let mlModel = try MLModel(contentsOf: modelURL)
-      let vnModel = try VNCoreMLModel(for: mlModel)
-      let request = VNCoreMLRequest(model: vnModel)
-      cachedYoloRequest = request
-      return request
-    } catch {
-      NSLog("[DlScan] Failed to load field detector model: \(error)")
-      return nil
-    }
-  }
-
-  /// Locate a resource bundled with the framework. Works in both SPM and
-  /// CocoaPods builds:
-  ///   - SPM: Bundle.module exposes the package's resource bundle directly.
-  ///   - CocoaPods: the podspec uses s.resource_bundles { 'DlScan' => ... }
-  ///     which produces a `DlScan.bundle` inside the framework bundle.
-  private static func bundledModelURL(name: String, ext: String) -> URL? {
-    #if SWIFT_PACKAGE
-    return Bundle.module.url(forResource: name, withExtension: ext)
-    #else
-    let frameworkBundle = Bundle(for: HybridDlScanIOS.self)
-    if let resourceBundleURL = frameworkBundle.url(forResource: "DlScan",
-                                                    withExtension: "bundle"),
-       let resourceBundle = Bundle(url: resourceBundleURL),
-       let url = resourceBundle.url(forResource: name, withExtension: ext) {
-      return url
-    }
-    // Fallback: same bundle as the class (handles pod-without-resource_bundles).
-    return frameworkBundle.url(forResource: name, withExtension: ext)
-    #endif
-  }
-
   /// Stage 3: VisionKit text recognition with bbox preserved.
   /// Returns text + bbox-in-image-pixel-space per observation.
   /// The caller passes the rectified buffer; the bbox space is the rectified
@@ -957,6 +846,10 @@ class HybridDlScanIOS: HybridDlScanSpec {
     ]
     var out: [FieldCandidate] = []
     out.reserveCapacity(detections.count)
+    // Tight ROI crop — a wider crop over-captures neighbouring rows/columns
+    // (observed: city="100 EXP ...", class="ASS" from "CLASS"). Edge-clipped
+    // names/DLN are recovered via the whole-card STRICT AAMVA-index parse
+    // (list_1_strict/list_2_strict/list_4d_strict), not by padding here.
     let pad: CGFloat = 0.005
     for det in detections {
       if kNonOcrClasses.contains(det.name) { continue }
@@ -1167,6 +1060,9 @@ class HybridDlScanIOS: HybridDlScanSpec {
   /// Map from YOLO class to expected AAMVA D-20 index token. Mirrors
   /// `HybridDlScanAndroid.expectedAamvaIndex`.
   private static let expectedAamvaIndex: [String: String] = [
+    "surname":      "1",   // international class over the AAMVA family-name row
+    "given_name":   "2",   // international class over the AAMVA given-name row
+    "personal_num": "4d",  // international class over the AAMVA DLN row
     "list_1":  "1",
     "list_2":  "2",
     "list_3":  "3",
@@ -1193,7 +1089,10 @@ class HybridDlScanIOS: HybridDlScanSpec {
   /// "return unchanged" behavior so legitimate cases like "12 MAIN ST"
   /// accidentally matched to list_8s aren't erased.
   private static let dropOnIndexMismatch: Set<String> = [
-    "list_9", "list_15", "list_16", "list_17", "list_18", "list_19"
+    "surname", "given_name", "personal_num", "country",
+    "list_1", "list_2", "list_3", "list_4a", "list_4b", "list_4d",
+    "list_8f", "list_8s", "list_9", "list_9a", "list_12",
+    "list_15", "list_16", "list_17", "list_18", "list_19",
   ]
 
   /// Vision-specific AAMVA index misreads. VisionKit fuses the small "d"
@@ -1654,13 +1553,48 @@ class HybridDlScanIOS: HybridDlScanSpec {
     return out
   }
 
-  /// Demographic text-pool parser. Mirrors
-  /// HybridDlScanAndroid.parseAamvaDemographicFields. Four-gate strict scan:
-  /// (a) AAMVA index ∈ {9,15,16,17,18,19}; (b) lexer-recognised label
-  /// compatible with the index; (c) value matches expectedDomain regex;
-  /// (d) unique candidate across the observation pool. Returns a map of
-  /// (yolo-class → value) assignments that bypass YOLO bbox matching.
+  /// Demographic text-pool parser. Thin Swift adapter over the shared C++
+  /// `dlscan::parse_aamva_demographic_fields` — the marker-anchored 4-gate
+  /// strict scan now lives in ONE place (cpp/ocr/ocr_field_extractor.cpp) so
+  /// iOS and Android share identical behaviour and a single host-unit-test
+  /// regression (cpp/tests/aamva_demographic_test.cpp). This adapter only
+  /// extracts the observation texts (bbox geometry isn't needed for the
+  /// text-only marker parse) and bridges the typed FieldCandidate vector
+  /// back into Swift's mirror struct.
+  ///
+  /// The C++ parser owns: the 1-step look-ahead that links a bare "4d"
+  /// marker to its value on the NEXT observation, the fused-row marker
+  /// extraction (sex single-[MFX] out of "15 SEX M 18 HOT ..."), the
+  /// name-marker-2 trailing-junk strip ("MARCUS ANTOINE ON PA" ->
+  /// "MARCUS ANTOINE"), and the scanForClass / scanForCityStateZip
+  /// fallbacks. All previously duplicated here in Swift.
   static func parseAamvaDemographicFields(
+    _ observations: [(text: String, bbox: CGRect)]
+  ) -> [FieldCandidate] {
+    var cppObs = dlscan.ObservationVector()
+    for obs in observations {
+      cppObs.push_back(std.string(obs.text))
+    }
+    let cppCands = dlscan.parse_aamva_demographic_fields(cppObs)
+    let count = Int(cppCands.size())
+    var out: [FieldCandidate] = []
+    out.reserveCapacity(count)
+    for i in 0..<count {
+      let c = cppCands[i]
+      out.append(FieldCandidate(
+        fieldId: c.id.rawValue,
+        source: c.source.rawValue,
+        text: String(c.text)))
+    }
+    return out
+  }
+
+  /// Legacy Swift-native marker parser — retained ONLY as dead reference
+  /// during the C++ migration; no longer called. The active path is the
+  /// adapter above. Kept compiling so the per-index emit rationale stays
+  /// reviewable next to the C++ port; safe to delete once the device
+  /// verification of the shared C++ parser lands.
+  static func parseAamvaDemographicFieldsLegacy(
     _ observations: [(text: String, bbox: CGRect)]
   ) -> [FieldCandidate] {
     // v2 Sequence G — typed return. Provenance moves from the legacy
@@ -1670,9 +1604,12 @@ class HybridDlScanIOS: HybridDlScanSpec {
     // bbox candidates converge — that's the input to the multi-source
     // tier upgrade (round-1 lock — concat, do not collapse).
     let indexToFieldId: [String: Int32] = [
+      "1":  1,    // FieldId::List1   (last name)
+      "2":  2,    // FieldId::List2   (first + middle name)
       "3":  3,    // FieldId::List3   (DOB)
       "4a": 41,   // FieldId::List4a  (issue date)
       "4b": 42,   // FieldId::List4b  (expiration date)
+      "4d": 43,   // FieldId::List4d  (license number)
       "9":  9,    // FieldId::List9   (vehicle class)
       "12": 12,   // FieldId::List12  (restrictions)
       "15": 15,   // FieldId::List15  (sex)
@@ -1681,7 +1618,13 @@ class HybridDlScanIOS: HybridDlScanSpec {
       "18": 18,   // FieldId::List18  (eye color)
       "19": 19,   // FieldId::List19  (hair color)
     ]
-    var candidatesByIndex: [String: [AamvaToken]] = [:]
+    // Carry BOTH the raw lexer token and its shape-extracted value. The
+    // gate (c) runs against the CLEANED value (so a fused row like
+    // "4d H200-...-07 CLASS D" or "15 SEX M 16 HGT" passes the anchored
+    // domain regex), but per-index emit may prefer the raw value — e.g.
+    // 4d emits the full row WITH its trailing "CLASS X" so the shared
+    // C++ class-suffix peel in ocr_field_extractor recovers vehicleClass.
+    var candidatesByIndex: [String: [(tok: AamvaToken, cleaned: String)]] = [:]
     for obs in observations {
       for token in AamvaLexer.findAllAamvaTokens(in: obs.text) {
         guard indexToFieldId[token.index] != nil else { continue }                       // (a)
@@ -1689,26 +1632,46 @@ class HybridDlScanIOS: HybridDlScanSpec {
         // Vision frequently mis-OCRs labels (HGT→HOT, WGT→VWGT). The
         // idx+domain combo is sufficient to accept the candidate.
         _ = AamvaLexer.isCompatibleLabel(canonicalIndex: token.index, label: token.label)
-        let cleaned = token.value
+        var cleaned = token.value
           .trimmingCharacters(in: .whitespaces)
           .trimmingCharacters(in: CharacterSet(charactersIn: ".,;"))
+        // round-6 follow-on: per-index value pre-extraction. OCR commonly
+        // concatenates adjacent fields onto one observation; the lexer's
+        // value span then includes trailing junk and the anchored dom
+        // regex rejects it. Pull JUST the field-shape portion so
+        // valueMatchesDomain sees a clean value. Mirrors
+        // HybridDlScanAndroid.extractFieldShape.
+        cleaned = Self.extractFieldShape(index: token.index, value: cleaned)
         guard AamvaLexer.valueMatchesDomain(cleaned, domainKey: token.index) else { continue } // (c)
-        candidatesByIndex[token.index, default: []].append(token)
+        candidatesByIndex[token.index, default: []].append((tok: token, cleaned: cleaned))
       }
     }
     var out: [FieldCandidate] = []
-    for (idx, toks) in candidatesByIndex {
-      guard toks.count == 1, let fieldId = indexToFieldId[idx] else { continue }         // (d)
+    for (idx, entries) in candidatesByIndex {
+      guard entries.count == 1, let fieldId = indexToFieldId[idx] else { continue }      // (d)
       // Emit JUST the lexer-bounded value (round-6 follow-on).
       // See HybridDlScanAndroid for rationale; in short: the C++
       // normalize functions need clean values, and label prefixes
       // become poison when the OCR-noise label isn't in the C++
       // strip-target list.
-      let tok = toks[0]
+      let entry = entries[0]
       let v: String
       switch idx {
-      case "15": v = tok.value.uppercased().trimmingCharacters(in: .whitespaces)
-      default:   v = tok.value.trimmingCharacters(in: .whitespaces)
+      case "15":
+        // Sex — emit the extracted single [MFX] (uppercased). The gate
+        // already reduced a fused "15 SEX M 16 HGT" to "M".
+        v = entry.cleaned.uppercased().trimmingCharacters(in: .whitespaces)
+      case "4d":
+        // License number — emit the FULL raw row, NOT the shape-extracted
+        // DLN. The cleaned value passed the domain gate, but a fused
+        // "J415-2208-5573-28 CLASS D" must reach C++ intact so its
+        // class-suffix peel recovers vehicleClass=D before canonicalizing
+        // the DLN. The C++ license shape gate strips the suffix itself.
+        v = entry.tok.value.trimmingCharacters(in: .whitespaces)
+      default:
+        // Preserve the prior iOS emit (raw lexer value) for fields whose
+        // C++ normalizer still strips its own canonical label.
+        v = entry.tok.value.trimmingCharacters(in: .whitespaces)
       }
       if !v.isEmpty {
         out.append(FieldCandidate(
@@ -1717,7 +1680,195 @@ class HybridDlScanIOS: HybridDlScanSpec {
           text: v))
       }
     }
+
+    // round-6 / task #82: text-pool fallback for vehicle class.
+    // The WI DL prints `4d <DLN> CLASS <X>` on one row. When Vision fuses
+    // ONLY "CLASS D" onto the DLN row and no standalone "9" index token is
+    // produced, class never enters the candidate pool via the strict loop
+    // above. The C++ peel recovers it from the 4d value when that value
+    // survives, but if the 4d row itself is dropped (or the class lands on
+    // a different observation) we still need a last resort. Scan every
+    // observation for a `CLASS X` pattern; emit as StrictTextPool(List9).
+    // Mirrors HybridDlScanAndroid.scanForClass.
+    let emittedFieldIds = Set(out.map { $0.fieldId })
+    if !emittedFieldIds.contains(9) {  // FieldId::List9
+      if let cls = Self.scanForClass(observations) {
+        out.append(FieldCandidate(
+          fieldId: 9,
+          source: FieldSource.strictTextPool,
+          text: cls))
+      }
+    }
+
+    // City / state / ZIP — the AAMVA "8" index is NOT printed in an
+    // index-label form the demographic loop can bind (the visible card
+    // shows a bare "CITY STATE ZIP" address line). Scan every observation
+    // for that shape and emit it as a StrictTextPool candidate routed to
+    // List8s (fieldId 82). The shared C++ extractor reads `list_8s_strict`
+    // FIRST (preferred), falling back to the bbox-IoU `list_8s` crop, then
+    // runs parse_city_state_zip to fill state + postalCode + city.
+    if !emittedFieldIds.contains(82) {  // FieldId::List8s
+      if let csz = Self.scanForCityStateZip(observations) {
+        out.append(FieldCandidate(
+          fieldId: 82,
+          source: FieldSource.strictTextPool,
+          text: csz))
+      }
+    }
     return out
+  }
+
+  /// Per-AAMVA-index value pre-extractor. OCR commonly concatenates
+  /// adjacent fields onto one observation (WI: "16 HGT 5'-04 17 WGT 160
+  /// lb", "15 SEX M 16 HGT", "4d H200-...-07 CLASS D"); the lexer's value
+  /// span includes the trailing junk and the anchored dom regex rejects
+  /// it. This extracts JUST the field-shape portion so the dom gate sees a
+  /// clean value. Mirrors HybridDlScanAndroid.extractFieldShape (round-6
+  /// design). Returns the original value unchanged when no shape applies.
+  static func extractFieldShape(index: String, value: String) -> String {
+    switch index {
+    case "3", "4a", "4b":
+      // Dates — first MM/DD/YYYY or MM-DD-YYYY.
+      return Self.firstMatch(
+        in: value,
+        pattern: #"(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})"#) ?? value
+    case "16":
+      // Height — first 5'-04" / 5'04" / 5-04 / \d{3}.
+      return Self.firstMatch(
+        in: value,
+        pattern: #"(\d{1,2}'-?\s*\d{1,2}["]?|\d{1,2}-\d{1,2}|\d{3})"#) ?? value
+    case "17":
+      // Weight — \d{2,3} with optional unit, preferring a match that
+      // carries "lb"/"lbs"/"kg".
+      if let withUnit = Self.firstMatch(
+        in: value,
+        pattern: #"(\d{2,3})\s*(?:lbs?|kg)"#,
+        caseInsensitive: true) {
+        return withUnit
+      }
+      return Self.firstMatch(in: value, pattern: #"\b(\d{2,3})\b"#) ?? value
+    case "15":
+      // Sex — a single [MFX] (bounded pre-domain extraction). The fused
+      // "15 SEX M 16 HGT" row reduces to "M". Prefer a token-isolated
+      // letter so "M" in "MALE" or a stray height char doesn't win.
+      return Self.firstMatch(
+        in: value.uppercased(),
+        pattern: #"\b([MFX])\b"#) ?? value
+    case "12":
+      // Restrictions — NONE / N/A or a single short code.
+      if let none = Self.firstMatch(
+        in: value,
+        pattern: #"\b(NONE|N/A)\b"#,
+        caseInsensitive: true) {
+        return none.uppercased()
+      }
+      return Self.firstMatch(in: value, pattern: #"\b([A-Z]{1,3})\b"#) ?? value
+    case "4d":
+      // License number — the compact alnum/hyphen DLN core. NOTE: this is
+      // used for the DOMAIN GATE only; the demographic emit for 4d sends
+      // the FULL raw value so the C++ class-suffix peel keeps working.
+      return Self.firstMatch(
+        in: value,
+        pattern: #"[A-Za-z0-9][A-Za-z0-9-]{3,}"#) ?? value
+    default:
+      return value
+    }
+  }
+
+  /// Scan every OCR observation for a `(?:CLASS|CLAS|GLASS) X` pattern and
+  /// return the matched class code uppercased — or nil if nothing
+  /// realistic is found. WI Pixel/Vision OCR fuses CLASS onto the DLN row
+  /// and may misread the index "4d", so neither the lexer nor the
+  /// bbox-IoU path produces a List9 candidate. This is the fallback.
+  /// Mirrors HybridDlScanAndroid.scanForClass / scanForClassText.
+  static func scanForClass(_ observations: [(text: String, bbox: CGRect)]) -> String? {
+    let denylist: Set<String> = [
+      "ST", "RD", "DR", "AVE", "BLVD", "LN", "CT", "CIR",
+      "HWY", "PKWY", "NONE", "N/A"
+    ]
+    for obs in observations {
+      guard let code = Self.firstCaptureGroup(
+        in: obs.text,
+        pattern: #"\b(?:CLASS|CLAS|GLASS)[\s:]+([A-Z][A-Z0-9]{0,2})\b"#,
+        caseInsensitive: true) else { continue }
+      let upper = code.uppercased()
+      if denylist.contains(upper) { continue }
+      return upper
+    }
+    return nil
+  }
+
+  /// Scan every OCR observation for a "CITY STATE ZIP" address line and
+  /// return the first match verbatim (e.g. "FAIRBROOK WI 54016"), so the
+  /// shared C++ parse_city_state_zip can split it into city/state/postal.
+  /// The C++ regex accepts both comma- and space-separated forms, so the
+  /// raw observation text is passed through unchanged. Emits a List8s
+  /// strict candidate; the AAMVA "8" index has no index-label form on the
+  /// card so the demographic loop can't bind it. Bounded to lines that
+  /// look like a 2-letter state code followed by a US ZIP / Canadian
+  /// postal so a street row ("123 WISCONSIN AVE") can't false-match.
+  static func scanForCityStateZip(
+    _ observations: [(text: String, bbox: CGRect)]
+  ) -> String? {
+    // <city words> <2-letter STATE> <5-digit ZIP[+4] | Canadian ANA NAN>.
+    // Anchored loosely (search, not match) but the trailing state+ZIP
+    // shape is the discriminator. Comma between city and state optional.
+    let pattern =
+      #"[A-Za-z][A-Za-z .'\-]*[, ]\s*[A-Za-z]{2}\s+(?:\d{5}(?:-\d{4})?|[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d)"#
+    for obs in observations {
+      let text = obs.text.trimmingCharacters(in: .whitespaces)
+      if let m = Self.firstMatch(in: text, pattern: pattern) {
+        return m.trimmingCharacters(in: .whitespaces)
+      }
+    }
+    return nil
+  }
+
+  /// Return the substring matched by the first occurrence of `pattern` in
+  /// `text`, or nil if there is no match. Thin NSRegularExpression wrapper
+  /// used by the demographic shape extractors. A malformed pattern (should
+  /// never happen with the compile-time literals here) yields nil.
+  private static func firstMatch(
+    in text: String,
+    pattern: String,
+    caseInsensitive: Bool = false
+  ) -> String? {
+    let opts: NSRegularExpression.Options =
+      caseInsensitive ? [.caseInsensitive] : []
+    guard let re = try? NSRegularExpression(pattern: pattern, options: opts) else {
+      return nil
+    }
+    let ns = text as NSString
+    let range = NSRange(location: 0, length: ns.length)
+    guard let match = re.firstMatch(in: text, options: [], range: range),
+          match.range.location != NSNotFound else {
+      return nil
+    }
+    return ns.substring(with: match.range)
+  }
+
+  /// Like firstMatch but returns capture group 1 instead of the whole
+  /// match. Returns nil if there's no match or the group didn't
+  /// participate. Used by scanForClass for the `CLASS (X)` capture.
+  private static func firstCaptureGroup(
+    in text: String,
+    pattern: String,
+    caseInsensitive: Bool = false
+  ) -> String? {
+    let opts: NSRegularExpression.Options =
+      caseInsensitive ? [.caseInsensitive] : []
+    guard let re = try? NSRegularExpression(pattern: pattern, options: opts) else {
+      return nil
+    }
+    let ns = text as NSString
+    let range = NSRange(location: 0, length: ns.length)
+    guard let match = re.firstMatch(in: text, options: [], range: range),
+          match.numberOfRanges > 1 else {
+      return nil
+    }
+    let g = match.range(at: 1)
+    guard g.location != NSNotFound else { return nil }
+    return ns.substring(with: g)
   }
 
   /// Axis-aligned IoU. Mirrors the C++ dlscan::yolo::iou but operates on
@@ -2052,32 +2203,6 @@ class HybridDlScanIOS: HybridDlScanSpec {
     let sorted = diagCountersInMemory.sorted { $0.key < $1.key }
     let text = sorted.map { "\($0.key)\t\($0.value)" }.joined(separator: "\n") + "\n"
     try? text.write(to: url, atomically: true, encoding: .utf8)
-  }
-
-  private static var rectifiedDumped = false
-
-  static func dumpRectifiedOnce(buffer: CVPixelBuffer) {
-    diagQueue.async {
-      if rectifiedDumped { return }
-      rectifiedDumped = true
-      guard let dir = diagDocumentsURL() else { return }
-      let url = dir.appendingPathComponent("dlscan-diag-rectified.jpg")
-      let w = CVPixelBufferGetWidth(buffer)
-      let h = CVPixelBufferGetHeight(buffer)
-      let ci = CIImage(cvPixelBuffer: buffer)
-      let ctx = CIContext(options: nil)
-      guard let cg = ctx.createCGImage(ci, from: CGRect(x: 0, y: 0, width: w, height: h)) else {
-        diagLog("dumpRectified: createCGImage failed (" + String(w) + "x" + String(h) + ")")
-        return
-      }
-      let ui = UIImage(cgImage: cg)
-      if let data = ui.jpegData(compressionQuality: 0.7) {
-        try? data.write(to: url)
-        diagLog("dumpRectified: wrote " + String(data.count) + " bytes (" + String(w) + "x" + String(h) + ")")
-      } else {
-        diagLog("dumpRectified: jpegData(nil)")
-      }
-    }
   }
 
   private static func writeTailFile() {

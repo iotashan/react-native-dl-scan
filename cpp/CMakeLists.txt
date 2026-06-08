@@ -31,6 +31,11 @@ add_library(dlscan_core STATIC
     mrz/mrz_parser.cpp
     yolo/yolo_postprocess.cpp
     yolo/field_classes.cpp
+    detect/nanodet_decode.cpp
+    detect/preprocess.cpp
+    detect/field_detector.cpp
+    detect/doc_aligner.cpp
+    detect/detect_c.cpp
     errors/error_codes.cpp
     voter.cpp
     voter_c.cpp
@@ -60,5 +65,24 @@ target_link_libraries(parser_eval
     PRIVATE dlscan_core
 )
 target_include_directories(parser_eval PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# Cross-jurisdiction generalization harness — parser_eval_vision feeds OUR
+# macOS Vision OCR (the SAME engine the iOS scanner uses, pre-generated to a
+# JSONL) through the device's field-detector-free path
+# (parse_aamva_demographic_fields -> extract_fields_from_candidates) and scores
+# the result against IDNet ground truth per (state, field) across 10 US states.
+# It guards against WI-overfit parser heuristics: a change that helps WI but
+# hurts another jurisdiction shows up as a regression here. Standalone
+# executable; not part of `ctest`. Run with
+# `IDNET_DATA_ROOT=... ./parser_eval_vision --obs <ocr_observations.jsonl>`.
+add_executable(parser_eval_vision
+    eval/parser_eval_vision.cpp
+)
+target_link_libraries(parser_eval_vision
+    PRIVATE dlscan_core
+)
+target_include_directories(parser_eval_vision PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )

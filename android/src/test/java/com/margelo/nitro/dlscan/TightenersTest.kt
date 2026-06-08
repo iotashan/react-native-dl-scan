@@ -500,30 +500,30 @@ class TightenersTest {
     @Test fun scanForDates_handlesSlashSeparator() {
         // WI canonical print form.
         val dates = HybridDlScanAndroid.scanForDatesText(listOf(
-            "3 DOB 08/12/1980",
-            "4a ISS 06/07/2023",
-            "4b 08/12/2031",
+            "3 DOB 03/27/1976",
+            "4a ISS 05/15/2024",
+            "4b 03/27/2034",
         ))
-        assertEquals(listOf("08/12/1980", "06/07/2023", "08/12/2031"), dates)
+        assertEquals(listOf("03/27/1976", "05/15/2024", "03/27/2034"), dates)
     }
 
     @Test fun scanForDates_handlesDashSeparator() {
-        val dates = HybridDlScanAndroid.scanForDatesText(listOf("DOB 08-12-1980"))
-        assertEquals(listOf("08/12/1980"), dates)
+        val dates = HybridDlScanAndroid.scanForDatesText(listOf("DOB 03-27-1976"))
+        assertEquals(listOf("03/27/1976"), dates)
     }
 
     @Test fun scanForDates_sortsChronologically() {
         // Dates given in random order — output must be oldest first.
         val dates = HybridDlScanAndroid.scanForDatesText(listOf(
-            "2031-08-12 EXP",  // 2031
-            "1980-08-12 DOB",  // 1980 (but in this format won't parse)
-            "08/12/1980",
-            "06/07/2023",
-            "08/12/2031",
+            "2034-03-27 EXP",  // 2031
+            "1976-03-27 DOB",  // 1980 (but in this format won't parse)
+            "03/27/1976",
+            "05/15/2024",
+            "03/27/2034",
         ))
-        // Only MM/DD/YYYY-style tokens are extracted; 2031-08-12 is
+        // Only MM/DD/YYYY-style tokens are extracted; 2034-03-27 is
         // YYYY-MM-DD which the regex doesn't match.
-        assertEquals(listOf("08/12/1980", "06/07/2023", "08/12/2031"), dates)
+        assertEquals(listOf("03/27/1976", "05/15/2024", "03/27/2034"), dates)
     }
 
     @Test fun scanForDates_dropsImpossibleValues() {
@@ -538,23 +538,23 @@ class TightenersTest {
 
     @Test fun scanForDates_uniqueByValue() {
         // Same date appearing multiple times across different obs
-        // (label-only "DOB" + value-only "08/12/1980" + the fused
-        // "3 DOB 08/12/1980") should produce ONE entry.
+        // (label-only "DOB" + value-only "03/27/1976" + the fused
+        // "3 DOB 03/27/1976") should produce ONE entry.
         val dates = HybridDlScanAndroid.scanForDatesText(listOf(
-            "08/12/1980",
-            "DOB 08/12/1980",
-            "DOB. 08/12/1980 .",
+            "03/27/1976",
+            "DOB 03/27/1976",
+            "DOB. 03/27/1976 .",
         ))
-        assertEquals(listOf("08/12/1980"), dates)
+        assertEquals(listOf("03/27/1976"), dates)
     }
 
     // ─── extractFieldShape (round-6 follow-on) ──────────────────────
 
     @Test fun extractFieldShape_dateStripsTrailingJunk() {
-        // "3 DOB 08/12/1980 ENB NONE" — lexer extracts everything after
+        // "3 DOB 03/27/1976 ENB NONE" — lexer extracts everything after
         // "DOB", we need just the date.
-        assertEquals("08/12/1980",
-            HybridDlScanAndroid.extractFieldShape("3", "08/12/1980 ea ENb NONE"))
+        assertEquals("03/27/1976",
+            HybridDlScanAndroid.extractFieldShape("3", "03/27/1976 ea ENb NONE"))
     }
 
     @Test fun extractFieldShape_heightStripsConcatenatedWeight() {

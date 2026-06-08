@@ -25,9 +25,11 @@ struct CHandle {
     // outTexts[] pointers returned by dlscan_voter_consensus until the
     // next consensus/reset/delete call.
     std::vector<FieldCandidate> lastConsensus;
-    explicit CHandle(int maxVotes)
+    explicit CHandle(int maxVotes, int minVotes)
         : voter(maxVotes > 0 ? static_cast<std::size_t>(maxVotes)
-                              : FieldVoter::DEFAULT_MAX_VOTES) {}
+                              : FieldVoter::DEFAULT_MAX_VOTES,
+                 minVotes > 0 ? static_cast<std::size_t>(minVotes)
+                              : FieldVoter::DEFAULT_MIN_VOTES) {}
 };
 
 inline CHandle* as_handle(dlscan_voter_handle h) {
@@ -48,9 +50,9 @@ inline bool is_sentinel(int i) { return i == SENTINEL_INT; }
 
 extern "C" {
 
-dlscan_voter_handle dlscan_voter_new(int maxVotes) {
+dlscan_voter_handle dlscan_voter_new(int maxVotes, int minVotes) {
     try {
-        return new CHandle(maxVotes);
+        return new CHandle(maxVotes, minVotes);
     } catch (const std::bad_alloc&) {
         return nullptr;
     }

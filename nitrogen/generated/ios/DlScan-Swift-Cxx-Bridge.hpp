@@ -8,8 +8,12 @@
 #pragma once
 
 // Forward declarations of C++ defined types
+// Forward declaration of `ArrayBufferHolder` to properly resolve imports.
+namespace NitroModules { class ArrayBufferHolder; }
 // Forward declaration of `DocumentType` to properly resolve imports.
 namespace margelo::nitro::dlscan { enum class DocumentType; }
+// Forward declaration of `FieldDetectionSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct FieldDetectionSpec; }
 // Forward declaration of `HybridDlScanSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { class HybridDlScanSpec; }
 // Forward declaration of `HybridFrameSpec` to properly resolve imports.
@@ -20,6 +24,8 @@ namespace margelo::nitro::dlscan { struct LicenseDataSpec; }
 namespace margelo::nitro::dlscan { struct MRZDataSpec; }
 // Forward declaration of `MRZTypeSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { enum class MRZTypeSpec; }
+// Forward declaration of `RectifiedFrameSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct RectifiedFrameSpec; }
 // Forward declaration of `Sex` to properly resolve imports.
 namespace margelo::nitro::dlscan { enum class Sex; }
 
@@ -31,11 +37,15 @@ namespace VisionCamera { class HybridFrameSpec_cxx; }
 
 // Include C++ defined types
 #include "DocumentType.hpp"
+#include "FieldDetectionSpec.hpp"
 #include "HybridDlScanSpec.hpp"
 #include "LicenseDataSpec.hpp"
 #include "MRZDataSpec.hpp"
 #include "MRZTypeSpec.hpp"
+#include "RectifiedFrameSpec.hpp"
 #include "Sex.hpp"
+#include <NitroModules/ArrayBuffer.hpp>
+#include <NitroModules/ArrayBufferHolder.hpp>
 #include <NitroModules/Null.hpp>
 #include <NitroModules/Promise.hpp>
 #include <NitroModules/PromiseHolder.hpp>
@@ -226,6 +236,46 @@ namespace margelo::nitro::dlscan::bridge::swift {
     return Func_void_std__exception_ptr_Wrapper(std::move(value));
   }
   
+  // pragma MARK: std::vector<FieldDetectionSpec>
+  /**
+   * Specialized version of `std::vector<FieldDetectionSpec>`.
+   */
+  using std__vector_FieldDetectionSpec_ = std::vector<FieldDetectionSpec>;
+  inline std::vector<FieldDetectionSpec> create_std__vector_FieldDetectionSpec_(size_t size) noexcept {
+    std::vector<FieldDetectionSpec> vector;
+    vector.reserve(size);
+    return vector;
+  }
+  
+  // pragma MARK: std::variant<nitro::NullType, RectifiedFrameSpec>
+  /**
+   * Wrapper struct for `std::variant<nitro::NullType, RectifiedFrameSpec>`.
+   * std::variant cannot be used in Swift because of a Swift bug.
+   * Not even specializing it works. So we create a wrapper struct.
+   */
+  struct std__variant_nitro__NullType__RectifiedFrameSpec_ final {
+    std::variant<nitro::NullType, RectifiedFrameSpec> variant;
+    std__variant_nitro__NullType__RectifiedFrameSpec_(std::variant<nitro::NullType, RectifiedFrameSpec> variant): variant(variant) { }
+    operator std::variant<nitro::NullType, RectifiedFrameSpec>() const noexcept {
+      return variant;
+    }
+    inline size_t index() const noexcept {
+      return variant.index();
+    }
+    inline nitro::NullType get_0() const noexcept {
+      return std::get<0>(variant);
+    }
+    inline RectifiedFrameSpec get_1() const noexcept {
+      return std::get<1>(variant);
+    }
+  };
+  inline std__variant_nitro__NullType__RectifiedFrameSpec_ create_std__variant_nitro__NullType__RectifiedFrameSpec_(nitro::NullType value) noexcept {
+    return std__variant_nitro__NullType__RectifiedFrameSpec_(value);
+  }
+  inline std__variant_nitro__NullType__RectifiedFrameSpec_ create_std__variant_nitro__NullType__RectifiedFrameSpec_(const RectifiedFrameSpec& value) noexcept {
+    return std__variant_nitro__NullType__RectifiedFrameSpec_(value);
+  }
+  
   // pragma MARK: std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>
   /**
    * Specialized version of `std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>`.
@@ -259,15 +309,6 @@ namespace margelo::nitro::dlscan::bridge::swift {
     return Result<std::shared_ptr<Promise<std::variant<nitro::NullType, LicenseDataSpec>>>>::withError(error);
   }
   
-  // pragma MARK: Result<std::variant<nitro::NullType, LicenseDataSpec>>
-  using Result_std__variant_nitro__NullType__LicenseDataSpec__ = Result<std::variant<nitro::NullType, LicenseDataSpec>>;
-  inline Result_std__variant_nitro__NullType__LicenseDataSpec__ create_Result_std__variant_nitro__NullType__LicenseDataSpec__(const std::variant<nitro::NullType, LicenseDataSpec>& value) noexcept {
-    return Result<std::variant<nitro::NullType, LicenseDataSpec>>::withValue(value);
-  }
-  inline Result_std__variant_nitro__NullType__LicenseDataSpec__ create_Result_std__variant_nitro__NullType__LicenseDataSpec__(const std::exception_ptr& error) noexcept {
-    return Result<std::variant<nitro::NullType, LicenseDataSpec>>::withError(error);
-  }
-  
   // pragma MARK: Result<void>
   using Result_void_ = Result<void>;
   inline Result_void_ create_Result_void_() noexcept {
@@ -275,6 +316,51 @@ namespace margelo::nitro::dlscan::bridge::swift {
   }
   inline Result_void_ create_Result_void_(const std::exception_ptr& error) noexcept {
     return Result<void>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::shared_ptr<ArrayBuffer>>
+  using Result_std__shared_ptr_ArrayBuffer__ = Result<std::shared_ptr<ArrayBuffer>>;
+  inline Result_std__shared_ptr_ArrayBuffer__ create_Result_std__shared_ptr_ArrayBuffer__(const std::shared_ptr<ArrayBuffer>& value) noexcept {
+    return Result<std::shared_ptr<ArrayBuffer>>::withValue(value);
+  }
+  inline Result_std__shared_ptr_ArrayBuffer__ create_Result_std__shared_ptr_ArrayBuffer__(const std::exception_ptr& error) noexcept {
+    return Result<std::shared_ptr<ArrayBuffer>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::vector<FieldDetectionSpec>>
+  using Result_std__vector_FieldDetectionSpec__ = Result<std::vector<FieldDetectionSpec>>;
+  inline Result_std__vector_FieldDetectionSpec__ create_Result_std__vector_FieldDetectionSpec__(const std::vector<FieldDetectionSpec>& value) noexcept {
+    return Result<std::vector<FieldDetectionSpec>>::withValue(value);
+  }
+  inline Result_std__vector_FieldDetectionSpec__ create_Result_std__vector_FieldDetectionSpec__(const std::exception_ptr& error) noexcept {
+    return Result<std::vector<FieldDetectionSpec>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::vector<double>>
+  using Result_std__vector_double__ = Result<std::vector<double>>;
+  inline Result_std__vector_double__ create_Result_std__vector_double__(const std::vector<double>& value) noexcept {
+    return Result<std::vector<double>>::withValue(value);
+  }
+  inline Result_std__vector_double__ create_Result_std__vector_double__(const std::exception_ptr& error) noexcept {
+    return Result<std::vector<double>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::variant<nitro::NullType, RectifiedFrameSpec>>
+  using Result_std__variant_nitro__NullType__RectifiedFrameSpec__ = Result<std::variant<nitro::NullType, RectifiedFrameSpec>>;
+  inline Result_std__variant_nitro__NullType__RectifiedFrameSpec__ create_Result_std__variant_nitro__NullType__RectifiedFrameSpec__(const std::variant<nitro::NullType, RectifiedFrameSpec>& value) noexcept {
+    return Result<std::variant<nitro::NullType, RectifiedFrameSpec>>::withValue(value);
+  }
+  inline Result_std__variant_nitro__NullType__RectifiedFrameSpec__ create_Result_std__variant_nitro__NullType__RectifiedFrameSpec__(const std::exception_ptr& error) noexcept {
+    return Result<std::variant<nitro::NullType, RectifiedFrameSpec>>::withError(error);
+  }
+  
+  // pragma MARK: Result<std::variant<nitro::NullType, LicenseDataSpec>>
+  using Result_std__variant_nitro__NullType__LicenseDataSpec__ = Result<std::variant<nitro::NullType, LicenseDataSpec>>;
+  inline Result_std__variant_nitro__NullType__LicenseDataSpec__ create_Result_std__variant_nitro__NullType__LicenseDataSpec__(const std::variant<nitro::NullType, LicenseDataSpec>& value) noexcept {
+    return Result<std::variant<nitro::NullType, LicenseDataSpec>>::withValue(value);
+  }
+  inline Result_std__variant_nitro__NullType__LicenseDataSpec__ create_Result_std__variant_nitro__NullType__LicenseDataSpec__(const std::exception_ptr& error) noexcept {
+    return Result<std::variant<nitro::NullType, LicenseDataSpec>>::withError(error);
   }
 
 } // namespace margelo::nitro::dlscan::bridge::swift

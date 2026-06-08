@@ -205,6 +205,20 @@ TEST(StructuredExtractor, HappyPathAamvaUsLicense) {
     EXPECT_EQ(sval(r->endorsements),   "NONE");
 }
 
+TEST(StructuredExtractor, List2SplitsFirstAndMiddleNames) {
+    const auto __cands = make_candidates({
+        {"list_1",  "DELGADO"},
+        {"list_2",  "MARCUS ANTOINE"},
+        {"list_4d", "J415-2208-5573-28"},
+    });
+    auto r = extract_fields_from_candidates(__cands);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_EQ(sval(r->lastName),      "DELGADO");
+    EXPECT_EQ(sval(r->firstName),     "MARCUS");
+    EXPECT_EQ(sval(r->middleName),    "ANTOINE");
+    EXPECT_EQ(sval(r->licenseNumber), "J415-2208-5573-28");
+}
+
 TEST(StructuredExtractor, InternationalIdFields) {
     const auto __cands = make_candidates({
         {"surname",      "GARCIA"},
@@ -355,16 +369,52 @@ TEST(StructuredExtractor, CityStateZipParsedFromList8s) {
     EXPECT_EQ(sval(r->postalCode), "85001-1234");
 }
 
-TEST(StructuredExtractor, UnparseableList8sStoredAsCity) {
-    // If the city/state/zip pattern can't be parsed, the whole string
-    // is preserved in city as a best-effort fallback for the JS layer.
+TEST(StructuredExtractor, CityStateZipPrefersList8sStrictOverBbox) {
+    // Strict-first read mirrors the names path (list_1_strict over the
+    // bbox class). The platform city/state/ZIP scanner emits its reading
+    // as a StrictTextPool candidate (-> "list_8s_strict"); a drifted
+    // bbox-IoU crop under "list_8s" must lose to it. Here the strict
+    // value parses to the WI ground truth while the bbox value would
+    // resolve to a different state — proving the strict key is read first.
+    const auto __cands = make_candidates({
+        {"list_2",         "JOHN"},
+        {"list_8s",        "PHOENIX AZ 85001"},          // drifted bbox crop
+        {"list_8s_strict", "FAIRBROOK WI 54016"},       // 4-gate scanner
+    });
+    auto r = extract_fields_from_candidates(__cands);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_EQ(sval(r->city),       "FAIRBROOK");
+    EXPECT_EQ(sval(r->state),      "WI");
+    EXPECT_EQ(sval(r->postalCode), "54016");
+}
+
+TEST(StructuredExtractor, CityStateZipFallsBackToList8sBbox) {
+    // When only the bbox-IoU crop is present (no strict scanner hit),
+    // the fallback path still resolves city/state/postal — the strict
+    // change is additive and must not regress the bbox-only flow.
+    const auto __cands = make_candidates({
+        {"list_2",  "JOHN"},
+        {"list_8s", "FAIRBROOK WI 54016"},
+    });
+    auto r = extract_fields_from_candidates(__cands);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_EQ(sval(r->city),       "FAIRBROOK");
+    EXPECT_EQ(sval(r->state),      "WI");
+    EXPECT_EQ(sval(r->postalCode), "54016");
+}
+
+TEST(StructuredExtractor, UnparseableList8sLeavesCityEmpty) {
+    // If the city/state/zip pattern can't be parsed, NONE of city / state /
+    // postalCode is populated. The previous behavior dumped the whole unsplit
+    // string into city as a "best effort" — but that fabricated a wrong field
+    // (city="NO STRUCTURED DATA HERE"), which is worse than an honest empty.
     const auto __cands = make_candidates({
         {"list_2",  "JOHN"},
         {"list_8s", "NO STRUCTURED DATA HERE"},
     });
     auto r = extract_fields_from_candidates(__cands);
     ASSERT_TRUE(r.has_value());
-    EXPECT_EQ(sval(r->city), "NO STRUCTURED DATA HERE");
+    EXPECT_FALSE(r->city.has_value());
     EXPECT_FALSE(r->state.has_value());
     EXPECT_FALSE(r->postalCode.has_value());
 }
@@ -633,6 +683,96 @@ TEST(StructuredExtractor, StrictKeyWinsOverBboxKey) {
 }
 
 // ============================================================================
+// Free-text provenance-aware confidence (firstName/middleName/lastName/street)
+//
+// Free-text fields can't be content-shape-verified, but a value located by its
+// authoritative AAMVA marker (the strict text-pool / "<key>_strict" path) earns
+// MarkerLocated (0.88), agreement with a regular path earns AllGatesPassed
+// (0.95), and an unanchored fallback crop stays ExtractedRaw (0.50). The old
+// behavior stamped a bare 0.50 even for a marker-anchored name.
+// ============================================================================
+
+TEST(StructuredExtractor, FreeTextStrictMarkerStampsMarkerLocated) {
+    // Names + street arriving ONLY via their strict AAMVA-marker keys
+    // (list_1_strict / list_2_strict / list_8f_strict) — no regular/bbox
+    // candidate present. Each must be MarkerLocated (0.88), NOT 0.50.
+    const auto __cands = make_candidates({
+        {"list_1_strict",  "DELGADO"},
+        {"list_2_strict",  "MARCUS ANTOINE"},  // splits first + middle
+        {"list_8f_strict", "4827 LAKERIDGE DR"},
+    });
+    auto r = extract_fields_from_candidates(__cands);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_EQ(sval(r->lastName),   "DELGADO");
+    EXPECT_EQ(sval(r->firstName),  "MARCUS");
+    EXPECT_EQ(sval(r->middleName), "ANTOINE");
+    EXPECT_EQ(sval(r->street),     "4827 LAKERIDGE DR");
+    EXPECT_FLOAT_EQ(conf(*r, "lastName"),   0.88f);
+    EXPECT_FLOAT_EQ(conf(*r, "firstName"),  0.88f);
+    EXPECT_FLOAT_EQ(conf(*r, "middleName"), 0.88f) << "middle shares the given-name marker tier";
+    EXPECT_FLOAT_EQ(conf(*r, "street"),     0.88f);
+}
+
+TEST(StructuredExtractor, FreeTextUnanchoredFallbackStaysExtractedRaw) {
+    // Names + street arriving ONLY via regular/bbox keys (no strict marker):
+    //   - lastName via bbox list_1
+    //   - firstName/middleName via international given_name key
+    //   - street via bbox list_8f
+    // None are anchored to their authoritative marker → ExtractedRaw (0.50).
+    const auto __cands = make_candidates({
+        {"list_1",     "DOE"},
+        {"given_name", "JANE SUE"},
+        {"list_8f",    "12 OAK ST"},
+    });
+    auto r = extract_fields_from_candidates(__cands);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_EQ(sval(r->lastName),   "DOE");
+    EXPECT_EQ(sval(r->firstName),  "JANE");
+    EXPECT_EQ(sval(r->middleName), "SUE");
+    EXPECT_EQ(sval(r->street),     "12 OAK ST");
+    EXPECT_FLOAT_EQ(conf(*r, "lastName"),   0.50f);
+    EXPECT_FLOAT_EQ(conf(*r, "firstName"),  0.50f);
+    EXPECT_FLOAT_EQ(conf(*r, "middleName"), 0.50f);
+    EXPECT_FLOAT_EQ(conf(*r, "street"),     0.50f);
+}
+
+TEST(StructuredExtractor, FreeTextStrictAndRegularAgreeUpgradesToAllGatesPassed) {
+    // The strict marker value AND a regular path converged on the same free-text
+    // value → AllGatesPassed (0.95). Capped below the 1.00 CrossValidated tier:
+    // for free-text the strict and regular paths can share input (Android bbox
+    // reads the same whole-card OCR) and the content is unverifiable.
+    const auto __cands = make_candidates({
+        {"list_1",         "DELGADO"},
+        {"list_1_strict",  "DELGADO"},
+        {"list_2",         "MARCUS ANTOINE"},
+        {"list_2_strict",  "MARCUS ANTOINE"},
+        {"list_8f",        "4827 LAKERIDGE DR"},
+        {"list_8f_strict", "4827 LAKERIDGE DR"},
+    });
+    auto r = extract_fields_from_candidates(__cands);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_FLOAT_EQ(conf(*r, "lastName"),   0.95f);
+    EXPECT_FLOAT_EQ(conf(*r, "firstName"),  0.95f);
+    EXPECT_FLOAT_EQ(conf(*r, "middleName"), 0.95f);
+    EXPECT_FLOAT_EQ(conf(*r, "street"),     0.95f);
+}
+
+TEST(StructuredExtractor, FreeTextStrictWinsValueButMarkerLocatedOnDisagreement) {
+    // Strict marker present AND a regular candidate present but DISAGREEING:
+    // read_first_field still returns the STRICT value (priority order), and the
+    // provenance verdict is StrictOnly → MarkerLocated (0.88) — NOT
+    // CrossValidated (the two paths didn't converge).
+    const auto __cands = make_candidates({
+        {"list_1",        "SMYTHE"},     // bbox crop (drifted)
+        {"list_1_strict", "SMITH"},      // authoritative marker
+    });
+    auto r = extract_fields_from_candidates(__cands);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_EQ(sval(r->lastName), "SMITH") << "strict marker wins the value";
+    EXPECT_FLOAT_EQ(conf(*r, "lastName"), 0.88f) << "disagreement → MarkerLocated, not CrossValidated";
+}
+
+// ============================================================================
 // Shape-gating on demographic normalizers (task #27)
 // ============================================================================
 
@@ -869,6 +1009,7 @@ TEST(ConfidenceJson, EmitsScoreAndTierObjects) {
     ld.firstName = "JOHN";
     ld.fieldConfidence["firstName"]    = 1.00f;  // cross_validated
     ld.fieldConfidence["height"]       = 0.95f;  // all_gates_passed
+    ld.fieldConfidence["middleName"]   = 0.88f;  // marker_located
     ld.fieldConfidence["dateOfBirth"]  = 0.85f;  // shape_matched
     ld.fieldConfidence["lastName"]     = 0.50f;  // extracted_raw
     auto json = confidence_json(ld);
@@ -876,9 +1017,30 @@ TEST(ConfidenceJson, EmitsScoreAndTierObjects) {
               std::string::npos) << json;
     EXPECT_NE(json.find("\"tier\":\"all_gates_passed\""),
               std::string::npos) << json;
+    // 0.88 must serialize to the new marker_located tier (band sits between
+    // all_gates_passed 0.95 and shape_matched 0.85).
+    EXPECT_NE(json.find("\"middleName\":{\"score\":0.88,\"tier\":\"marker_located\"}"),
+              std::string::npos) << json;
     EXPECT_NE(json.find("\"tier\":\"shape_matched\""),
               std::string::npos) << json;
     EXPECT_NE(json.find("\"tier\":\"extracted_raw\""),
+              std::string::npos) << json;
+}
+
+// Boundary check: tier_name_for_score's >= cascade. 0.88 → marker_located,
+// 0.85 stays shape_matched, 0.95 stays all_gates_passed — inserting the new
+// band must not steal the adjacent tiers' exact-boundary scores.
+TEST(ConfidenceJson, MarkerLocatedBandBoundaries) {
+    LicenseData ld;
+    ld.fieldConfidence["a"] = to_score(ValidationTier::MarkerLocated);  // 0.88
+    ld.fieldConfidence["b"] = to_score(ValidationTier::ShapeMatched);   // 0.85
+    ld.fieldConfidence["c"] = to_score(ValidationTier::AllGatesPassed); // 0.95
+    auto json = confidence_json(ld);
+    EXPECT_NE(json.find("\"a\":{\"score\":0.88,\"tier\":\"marker_located\"}"),
+              std::string::npos) << json;
+    EXPECT_NE(json.find("\"b\":{\"score\":0.85,\"tier\":\"shape_matched\"}"),
+              std::string::npos) << json;
+    EXPECT_NE(json.find("\"c\":{\"score\":0.95,\"tier\":\"all_gates_passed\"}"),
               std::string::npos) << json;
 }
 

@@ -17,6 +17,10 @@ namespace margelo::nitro::dlscan { enum class DocumentType; }
 namespace margelo::nitro::dlscan { struct MRZDataSpec; }
 // Forward declaration of `MRZTypeSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { enum class MRZTypeSpec; }
+// Forward declaration of `FieldDetectionSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct FieldDetectionSpec; }
+// Forward declaration of `RectifiedFrameSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct RectifiedFrameSpec; }
 // Forward declaration of `HybridFrameSpec` to properly resolve imports.
 namespace margelo::nitro::camera { class HybridFrameSpec; }
 
@@ -39,6 +43,13 @@ namespace margelo::nitro::camera { class HybridFrameSpec; }
 #include "JMRZDataSpec.hpp"
 #include "MRZTypeSpec.hpp"
 #include "JMRZTypeSpec.hpp"
+#include <NitroModules/ArrayBuffer.hpp>
+#include <NitroModules/JArrayBuffer.hpp>
+#include "FieldDetectionSpec.hpp"
+#include "JFieldDetectionSpec.hpp"
+#include "RectifiedFrameSpec.hpp"
+#include "JVariant_NullType_RectifiedFrameSpec.hpp"
+#include "JRectifiedFrameSpec.hpp"
 #include <memory>
 #include <VisionCamera/HybridFrameSpec.hpp>
 #include <VisionCamera/JHybridFrameSpec.hpp>
@@ -111,14 +122,72 @@ namespace margelo::nitro::dlscan {
       return __promise;
     }();
   }
-  std::variant<nitro::NullType, LicenseDataSpec> JHybridDlScanSpec::recognizeLicenseFields(const std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>& frame) {
-    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JVariant_NullType_LicenseDataSpec>(jni::alias_ref<margelo::nitro::camera::JHybridFrameSpec::JavaPart> /* frame */)>("recognizeLicenseFields");
-    auto __result = method(_javaPart, std::dynamic_pointer_cast<margelo::nitro::camera::JHybridFrameSpec>(frame)->getJavaPart());
-    return __result->toCpp();
-  }
   void JHybridDlScanSpec::resetLicenseFieldRecognition() {
     static const auto method = _javaPart->javaClassStatic()->getMethod<void()>("resetLicenseFieldRecognition");
     method(_javaPart);
+  }
+  std::shared_ptr<ArrayBuffer> JHybridDlScanSpec::preprocessFieldInput(const std::shared_ptr<ArrayBuffer>& rgb, double width, double height) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JArrayBuffer::javaobject>(jni::alias_ref<JArrayBuffer::javaobject> /* rgb */, double /* width */, double /* height */)>("preprocessFieldInput");
+    auto __result = method(_javaPart, JArrayBuffer::wrap(rgb), width, height);
+    return __result->cthis()->getArrayBuffer();
+  }
+  std::vector<FieldDetectionSpec> JHybridDlScanSpec::decodeFieldOutput(const std::shared_ptr<ArrayBuffer>& output, double scaleX, double scaleY) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JArrayClass<JFieldDetectionSpec>>(jni::alias_ref<JArrayBuffer::javaobject> /* output */, double /* scaleX */, double /* scaleY */)>("decodeFieldOutput");
+    auto __result = method(_javaPart, JArrayBuffer::wrap(output), scaleX, scaleY);
+    return [&](auto&& __input) {
+      size_t __size = __input->size();
+      std::vector<FieldDetectionSpec> __vector;
+      __vector.reserve(__size);
+      for (size_t __i = 0; __i < __size; __i++) {
+        auto __element = __input->getElement(__i);
+        __vector.push_back(__element->toCpp());
+      }
+      return __vector;
+    }(__result);
+  }
+  std::shared_ptr<ArrayBuffer> JHybridDlScanSpec::preprocessDocAlignerInput(const std::shared_ptr<ArrayBuffer>& rgb, double width, double height) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JArrayBuffer::javaobject>(jni::alias_ref<JArrayBuffer::javaobject> /* rgb */, double /* width */, double /* height */)>("preprocessDocAlignerInput");
+    auto __result = method(_javaPart, JArrayBuffer::wrap(rgb), width, height);
+    return __result->cthis()->getArrayBuffer();
+  }
+  std::vector<double> JHybridDlScanSpec::decodeCorners(const std::shared_ptr<ArrayBuffer>& output) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<jni::JArrayDouble>(jni::alias_ref<JArrayBuffer::javaobject> /* output */)>("decodeCorners");
+    auto __result = method(_javaPart, JArrayBuffer::wrap(output));
+    return [&]() {
+      size_t __size = __result->size();
+      std::vector<double> __vector(__size);
+      __result->getRegion(0, __size, __vector.data());
+      return __vector;
+    }();
+  }
+  std::variant<nitro::NullType, RectifiedFrameSpec> JHybridDlScanSpec::rectifyFrame(const std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>& frame) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JVariant_NullType_RectifiedFrameSpec>(jni::alias_ref<margelo::nitro::camera::JHybridFrameSpec::JavaPart> /* frame */)>("rectifyFrame");
+    auto __result = method(_javaPart, std::dynamic_pointer_cast<margelo::nitro::camera::JHybridFrameSpec>(frame)->getJavaPart());
+    return __result->toCpp();
+  }
+  std::variant<nitro::NullType, LicenseDataSpec> JHybridDlScanSpec::ocrExtractFields(double token, const std::vector<FieldDetectionSpec>& detections) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JVariant_NullType_LicenseDataSpec>(double /* token */, jni::alias_ref<jni::JArrayClass<JFieldDetectionSpec>> /* detections */)>("ocrExtractFields");
+    auto __result = method(_javaPart, token, [&](auto&& __input) {
+      size_t __size = __input.size();
+      jni::local_ref<jni::JArrayClass<JFieldDetectionSpec>> __array = jni::JArrayClass<JFieldDetectionSpec>::newArray(__size);
+      for (size_t __i = 0; __i < __size; __i++) {
+        const auto& __element = __input[__i];
+        auto __elementJni = JFieldDetectionSpec::fromCpp(__element);
+        __array->setElement(__i, *__elementJni);
+      }
+      return __array;
+    }(detections));
+    return __result->toCpp();
+  }
+  std::variant<nitro::NullType, LicenseDataSpec> JHybridDlScanSpec::runTtaVerification(const std::vector<double>& modes) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JVariant_NullType_LicenseDataSpec>(jni::alias_ref<jni::JArrayDouble> /* modes */)>("runTtaVerification");
+    auto __result = method(_javaPart, [&]() {
+      size_t __size = modes.size();
+      jni::local_ref<jni::JArrayDouble> __array = jni::JArrayDouble::newArray(__size);
+      __array->setRegion(0, __size, modes.data());
+      return __array;
+    }());
+    return __result->toCpp();
   }
 
 } // namespace margelo::nitro::dlscan

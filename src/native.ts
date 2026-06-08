@@ -18,7 +18,12 @@ import type {
   DocumentType,
   ConfidenceEntry,
   ConfidenceTier,
+  SexValue,
+  EyeColorValue,
+  HairColorValue,
+  TypedValue,
 } from './types';
+import { SEX_CODES, EYE_COLOR_CODES, HAIR_COLOR_CODES } from './types';
 
 export type { LicenseDataSpec };
 
@@ -33,6 +38,84 @@ export const _hybrid = NitroModules.createHybridObject<DlScanSpec>('DlScan');
 export const undefinedToNull = <T>(v: T | undefined): T | null =>
   v === undefined ? null : v;
 
+// Collapse repeated identical lines in a multi-line field value. The address
+// (list_8f) bbox can be tall enough that per-region OCR / overlapping
+// observations capture the same street line several times, yielding e.g.
+// "4827 LAKERIDGE DR\n4827 LAKERIDGE DR\n4827 LAKERIDGE DR". This keeps
+// genuinely distinct lines (e.g. "APT 5" + a street) but removes exact repeats
+// (case-insensitive). The C++ `strip_duplicate_city_state_zip_suffix` handles a
+// different "double-up" (street ending in the city/state/zip); this covers
+// identical line repeats. Returns null if nothing survives.
+export const dedupeLines = (v: string | null): string | null => {
+  if (v == null) return v;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of v.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (line.length === 0) continue;
+    const key = line.toUpperCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(line);
+  }
+  return out.length > 0 ? out.join('\n') : null;
+};
+
+// Clean the street (address line 1): de-dupe repeated lines, then drop any
+// line that is actually the city/state/ZIP row (those are separate fields).
+// The address bbox often captures both rows, leaving the CSZ line glued onto
+// `street` (e.g. "4827 LAKERIDGE DR\nFAIRBROOK, WI 54016"). Drop a line if
+// it contains the parsed ZIP, or matches a "<CITY,> ST 12345" shape. Never
+// returns empty: if every line looked like a CSZ row, keep the de-duped value.
+export const cleanStreet = (
+  v: string | null,
+  postalCode: string | null
+): string | null => {
+  const deduped = dedupeLines(v);
+  if (deduped == null) return null;
+  const zip = postalCode != null ? postalCode.trim() : '';
+  // A city/state/ZIP row ends with "<2-letter state> <5-digit ZIP>". Only drop
+  // a line that actually matches that shape (or whose trailing token is the
+  // parsed ZIP) — NOT any line that merely contains the ZIP digits, so a real
+  // street like "12345 COUNTY ROAD 7" is preserved.
+  const cszShape = /[A-Za-z]{2}\s+\d{5}(?:-\d{4})?\s*$/;
+  const lines = deduped.split('\n');
+  const kept = lines.filter((l) => {
+    if (cszShape.test(l)) return false;
+    if (zip.length >= 5 && l.trim().endsWith(zip)) return false;
+    return true;
+  });
+  return (kept.length > 0 ? kept : lines).join('\n');
+};
+
+// Map a raw AAMVA-coded value (sex / eyeColor / hairColor) to the public typed
+// value-set union (task #52). The native layer still returns plain strings; the
+// enumeration happens here so it is fully unit-testable with no native rebuild.
+//
+//  - null/undefined/empty (after trim) → null. Never fabricate 'other' from
+//    emptiness: a blank field means the scanner read nothing.
+//  - matches a known code (case-insensitive, trimmed) → { code }.
+//  - anything else → { code: 'other', raw } where `raw` is the ORIGINAL value
+//    with only surrounding whitespace trimmed (case preserved) so a consumer
+//    can map it to whatever a downstream system expects.
+//
+// `knownSet` is the field's frozen code array (SEX_CODES / EYE_COLOR_CODES /
+// HAIR_COLOR_CODES). Codes are uppercase ASCII, so an uppercased comparison is
+// the canonical match.
+export const toTypedValue = <C extends string>(
+  raw: string | null | undefined,
+  knownSet: readonly C[]
+): TypedValue<C> | null => {
+  if (raw == null) return null;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return null;
+  const upper = trimmed.toUpperCase();
+  if ((knownSet as readonly string[]).includes(upper)) {
+    return { code: upper as C };
+  }
+  return { code: 'other', raw: trimmed };
+};
+
 // Normalize a LicenseDataSpec (Nitro raw shape) to the public LicenseData type.
 export function normalizeLicenseData(result: LicenseDataSpec): LicenseData {
   return {
@@ -43,14 +126,23 @@ export function normalizeLicenseData(result: LicenseDataSpec): LicenseData {
     expirationDate: undefinedToNull(result.expirationDate),
     issueDate: undefinedToNull(result.issueDate),
     licenseNumber: undefinedToNull(result.licenseNumber),
-    street: undefinedToNull(result.street),
+    street: cleanStreet(
+      undefinedToNull(result.street),
+      undefinedToNull(result.postalCode)
+    ),
     city: undefinedToNull(result.city),
     state: undefinedToNull(result.state),
     postalCode: undefinedToNull(result.postalCode),
     country: undefinedToNull(result.country),
-    sex: undefinedToNull(result.sex),
-    eyeColor: undefinedToNull(result.eyeColor),
-    hairColor: undefinedToNull(result.hairColor),
+    sex: toTypedValue(result.sex, SEX_CODES) as SexValue | null,
+    eyeColor: toTypedValue(
+      result.eyeColor,
+      EYE_COLOR_CODES
+    ) as EyeColorValue | null,
+    hairColor: toTypedValue(
+      result.hairColor,
+      HAIR_COLOR_CODES
+    ) as HairColorValue | null,
     height: undefinedToNull(result.height),
     weight: undefinedToNull(result.weight),
     vehicleClass: undefinedToNull(result.vehicleClass),
@@ -97,6 +189,7 @@ export function normalizeLicenseData(result: LicenseDataSpec): LicenseData {
 function tierForScore(score: number): ConfidenceTier {
   if (score >= 1.0) return 'cross_validated';
   if (score >= 0.95) return 'all_gates_passed';
+  if (score >= 0.88) return 'marker_located';
   if (score >= 0.85) return 'shape_matched';
   return 'extracted_raw';
 }
@@ -104,6 +197,7 @@ function tierForScore(score: number): ConfidenceTier {
 const VALID_TIERS: ReadonlySet<ConfidenceTier> = new Set<ConfidenceTier>([
   'cross_validated',
   'all_gates_passed',
+  'marker_located',
   'shape_matched',
   'extracted_raw',
 ]);

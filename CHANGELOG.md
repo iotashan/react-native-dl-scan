@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Field detector: YOLOv8n -> NanoDet-Plus-m.** The front-of-card field detector
+  was replaced with NanoDet-Plus-m (Apache-2.0), trained on IDNet
+  (mAP@0.5:0.95 0.967 / AP@0.5 0.9996). This removes the AGPL ambiguity that came
+  from training/exporting with Ultralytics; every model in the pipeline is now
+  Apache-2.0 (see [docs/THIRD_PARTY_MODELS.md](docs/THIRD_PARTY_MODELS.md)).
+- **Field-detector inference is now JS-orchestrated** via
+  [react-native-fast-tflite](https://github.com/mrousavy/react-native-fast-tflite),
+  replacing the native Core ML (iOS) + native TFLite (Android) detection paths.
+  The native side bridges the shared C++ preprocess+decode (the detect_c C-ABI:
+  rectifyFrame + ocrExtractFields); JS loads the model and runs inference. See
+  ADR 002 in [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md).
+- The field detector now ships at `models/nanodet_field_416.tflite`
+  (416x416 NHWC, `[1,3598,62]` output).
+
+### Removed
+
+- **BREAKING:** the native `recognizeLicenseFields` method and the legacy YOLO
+  detection path (Core ML `DlScanFieldDetector.mlmodelc` on iOS,
+  `dl_scan_field_detector.tflite` on Android). OCR mode now requires the
+  field-detector model via the new `useLicenseScanner` `ocrModelSources` option:
+  `useLicenseScanner('ocr', { field: require('react-native-dl-scan/models/nanodet_field_416.tflite') })`.
+
+### Added
+
+- `loadDetectorModels` / `loadFieldModel` / `runFieldDetection` / `runDocAligner`
+  and the `OcrModelSources` type for the JS-orchestrated detector path.
+
 ## [0.2.0] - 2026-05-28
 
 First public release on npm. This release represents a near-complete rewrite of

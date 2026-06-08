@@ -20,10 +20,10 @@ For the architectural decision that dropped the doc detector see [ARCHITECTURE_D
 | Model family | `react-native-dl-scan` v0.x |
 | Trained sub-models | DlScanFieldDetector; DocAligner (Android only) |
 | Doc segmentation | Apple Vision `VNDetectDocumentSegmentationRequest` on iOS (vendor); DocAligner `lcnet100` TFLite FP16 on Android (bundled — Android has no equivalent free Vision API for corner-based rectification, see [ADR 001](ARCHITECTURE_DECISIONS.md)) |
-| Training date | 2026-05-08 |
-| Model version | YOLOv8n field detector, Ultralytics 8.4.46 export 2026-05-08 |
-| Training framework | PyTorch 2.6+ / Ultralytics ≥8.3.0 (field detector) |
-| Export formats | Core ML (iOS, weight-only int8); TFLite (Android, full int8) |
+| Training date | 2026-05-30 |
+| Model version | NanoDet-Plus-m field detector (`nanodet_field_416.tflite`) |
+| Training framework | [RangiLyu/nanodet](https://github.com/RangiLyu/nanodet) (Apache-2.0), PyTorch on Apple M3 Ultra MPS (field detector) |
+| Export formats | LiteRT / TFLite via [litert-torch](https://github.com/google-ai-edge/ai-edge-torch) (fp32 default; a dynamic-int8 variant exists but is not shipped) |
 | License (code) | MIT |
 | License (model weights) | Apache 2.0 (see [License](#license) section) |
 | Contact | Shannon Hicks — https://github.com/iotashan/react-native-dl-scan |
@@ -32,7 +32,7 @@ For the architectural decision that dropped the doc detector see [ARCHITECTURE_D
 
 | Model | Architecture | Task | Input | Output |
 |---|---|---|---|---|
-| `DlScanFieldDetector` | YOLOv8n (axis-aligned) | Locate individual text fields on a rectified document crop | 640×640 RGB | Per-field bounding boxes |
+| `DlScanFieldDetector` (NanoDet) | NanoDet-Plus-m (ShuffleNetV2 1.0x + GhostPAN + GFL/DFL head, reg_max=7) | Locate individual text fields on a rectified document crop | 416×416 NHWC RGB8 | `[1, 3598, 62]` anchor-major (30 sigmoid class scores + 4×8 DFL logits) |
 
 ---
 
@@ -115,9 +115,10 @@ Additional out-of-scope uses:
 ## Training Data
 
 Training data is the IDNet dataset (Hugging Face `cactuslab/IDNet-2025`),
-a fully synthetic identity document corpus. All data is computer-generated;
-no real personally identifiable information is present anywhere in the
-training pipeline.
+a fully synthetic identity document corpus. The NanoDet field detector was
+trained in COCO format on 95,490 train / 12,055 val images. All data is
+computer-generated; no real personally identifiable information is present
+anywhere in the training pipeline.
 
 Full provenance, splits, license, and ethics statement: [DATA_CARD.md](DATA_CARD.md).
 
@@ -135,26 +136,28 @@ and quantization rationale: [TRAINING_DETAILS.md](TRAINING_DETAILS.md).
 
 ## Evaluation Results
 
-All models are evaluated on a held-out 10% test split stratified by document
-type, never seen during training or validation. Quantization regression testing
-verifies that int8 mAP is within 1% absolute of the FP32 baseline.
+The NanoDet field detector is evaluated on the IDNet validation split (12,055
+images), never seen during training. The shipped `nanodet_field_416.tflite` is
+fp32; a dynamic-int8 variant exists but is not shipped and requires on-device
+accuracy validation before use.
 
 Full methodology and per-jurisdiction breakdown: [EVALUATION.md](EVALUATION.md).
 
 ### Summary metrics
 
-Evaluated on the held-out synthetic test split (see [EVALUATION.md](EVALUATION.md)).
+Evaluated on the held-out synthetic validation split (see [EVALUATION.md](EVALUATION.md)).
 Source of record: [`models/version.json`](../models/version.json).
 
-| Model | Metric | FP32 (.pt) | Core ML int8 | TFLite int8 |
-|---|---|---|---|---|
-| DlScanFieldDetector | mAP@0.5 | 0.995 | 0.995 | 0.9554 |
-| DlScanFieldDetector | mAP@0.5:0.95 | 0.995 | 0.994 | 0.7338 |
-| Document segmentation | — | iOS: Apple Vision (vendor-evaluated) · Android: DocAligner (bundled) | — | — |
+| Model | Metric | Value (fp32 .tflite) |
+|---|---|---|
+| DlScanFieldDetector (NanoDet) | mAP@0.5:0.95 | 0.967 |
+| DlScanFieldDetector (NanoDet) | AP@0.5 | 0.9996 |
+| DlScanFieldDetector (NanoDet) | AP@0.75 | 0.994 |
+| Document segmentation | — | iOS: Apple Vision (vendor-evaluated) · Android: DocAligner (bundled) |
 
 Target thresholds based on IDNet paper baselines:
 
-- Field detector: ≥0.85 mAP@0.5 (FP32); ≥0.84 mAP@0.5 (int8)
+- Field detector: ≥0.85 mAP@0.5 — comfortably exceeded (AP@0.5 = 0.9996)
 - Document segmentation: vendor-evaluated; not benchmarked separately by this project
 
 ---
@@ -242,9 +245,17 @@ and this repository.
 
 **Code** (npm package, training scripts, C++ parser): MIT. See [LICENSE](../LICENSE).
 
-**Model weights** (`DlScanFieldDetector`): Apache 2.0.
+**Model weights** (`DlScanFieldDetector`, NanoDet-Plus-m): Apache 2.0.
 
 Rationale for Apache 2.0 for weights:
+- The field detector is **fully Apache-2.0**: the NanoDet-Plus-m architecture,
+  the [RangiLyu/nanodet](https://github.com/RangiLyu/nanodet) training code, and
+  the trained weights are all Apache/permissive.
+- This **eliminates the prior AGPL ambiguity**. The detector was previously
+  YOLOv8n trained and exported with Ultralytics, whose AGPL-3.0 license
+  arguably attached to the YOLO-derived weights. NanoDet shares none of that
+  lineage, so there is **no longer any AGPL-licensed dependency anywhere in the
+  field-detection path**.
 - Apache 2.0 is OSS-community-friendly and commercially permissive.
 - It is compatible with the CC-BY-4.0 license of the IDNet training data
   (attribution is provided in this model card and in [DATA_CARD.md](DATA_CARD.md)).

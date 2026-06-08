@@ -87,6 +87,12 @@ export function ScannerScreen({
     setPhase,
     onResult,
     showFixtureTweak: tweaks.showFixture,
+    completion: {
+      requiredFields: tweaks.requiredFields,
+      maxFrames: tweaks.maxPasses,
+      validationPass: tweaks.validationPass,
+      tta: { enabled: tweaks.ttaEnabled, modes: tweaks.ttaModes },
+    },
   });
 
   // captured → pipeline (if pipeline-animation on) → result transition.

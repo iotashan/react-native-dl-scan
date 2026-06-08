@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import type { LicenseData } from 'react-native-dl-scan';
+import { formatTypedValue } from 'react-native-dl-scan';
 
 interface FieldPosition {
   key: keyof LicenseData;
@@ -60,12 +61,17 @@ export function FieldOverlay({ data, viewCorners }: FieldOverlayProps) {
       {FIELD_POSITIONS.map((fp) => {
         const value = data[fp.key];
         if (value == null || value === '') return null;
-        const displayVal =
-          typeof value === 'string'
-            ? value.length > 20
-              ? value.slice(0, 20) + '…'
-              : value
+        // sex/eyeColor/hairColor are typed value-set unions ({ code } | { code:
+        // 'other', raw }); format them to their display text. Everything else
+        // is a plain string.
+        const text =
+          value != null && typeof value === 'object' && 'code' in value
+            ? (formatTypedValue(
+                value as Parameters<typeof formatTypedValue>[0]
+              ) ?? '')
             : String(value);
+        if (text === '') return null;
+        const displayVal = text.length > 20 ? text.slice(0, 20) + '…' : text;
 
         const pos = bilinear(fp.u, fp.v, viewCorners);
 

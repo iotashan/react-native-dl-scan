@@ -18,13 +18,15 @@ describe('NativeDlScan adapter (undefined → null normalization)', () => {
     expect(data.lastName).toBe('DOE');
     expect(data.licenseNumber).toBe('999888777');
     expect(data.dateOfBirth).toBe('1990-08-15');
-    expect(data.sex).toBe('M');
+    // sex is a typed value-set union (task #52): 'M' → { code: 'M' }.
+    expect(data.sex).toEqual({ code: 'M' });
     expect(data.aamvaVersion).toBe(9);
     // Critical assertion: undefined → null, not undefined
     expect(data.middleName).toBeNull();
     expect(data.middleName).not.toBeUndefined();
     expect(data.expirationDate).toBeNull();
     expect(data.country).toBeNull();
+    // eyeColor absent (undefined raw) → null, not { code: 'other' }.
     expect(data.eyeColor).toBeNull();
   });
 });

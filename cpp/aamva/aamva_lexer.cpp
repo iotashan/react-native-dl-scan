@@ -233,6 +233,18 @@ const std::unordered_map<std::string, DomainRegex>& expected_domain() {
                 m.emplace(key, DomainRegex{std::regex(), false});
             }
         };
+        // Name rows. AAMVA indices 1 and 2 carry family name and given names
+        // with no printed label, so the strict parser needs a value-domain
+        // gate here before it can route them into List1/List2 candidates.
+        add("1", R"(^[A-Za-z][A-Za-z .'\-]{0,59}$)",
+            std::regex::ECMAScript);
+        add("2", R"(^[A-Za-z][A-Za-z .'\-]{0,59}$)",
+            std::regex::ECMAScript);
+        // Driver license number. Keep this compact: spaces are handled by the
+        // extractor's value gate, while the lexer domain only accepts values
+        // that already look like the printed 4d payload.
+        add("4d", R"(^[A-Za-z0-9][A-Za-z0-9-]{3,31}$)",
+            std::regex::ECMAScript);
         // Vehicle class
         add("9",  R"(^[A-Z]{1,3}-?\d?$)",
             std::regex::ECMAScript);

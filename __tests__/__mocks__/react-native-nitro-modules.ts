@@ -33,7 +33,6 @@ export const NitroModules = {
           aamvaVersion: 9,
         };
       },
-      recognizeLicenseFields: () => null,
     } as T;
   },
 };

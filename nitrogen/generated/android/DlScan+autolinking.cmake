@@ -37,6 +37,7 @@ target_sources(
   # Android-specific Nitrogen C++ sources
   ../nitrogen/generated/android/c++/JHybridDlScanSpec.cpp
   ../nitrogen/generated/android/c++/JVariant_NullType_LicenseDataSpec.cpp
+  ../nitrogen/generated/android/c++/JVariant_NullType_RectifiedFrameSpec.cpp
 )
 
 # From node_modules/react-native/ReactAndroid/cmake-utils/folly-flags.cmake

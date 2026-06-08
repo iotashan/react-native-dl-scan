@@ -33,6 +33,15 @@ Kotlin (`android/`); the Nitro codegen is committed under
 Full prerequisites and instructions for running the example app live in
 [CONTRIBUTING.md](./CONTRIBUTING.md).
 
+## AI assistance & attribution
+
+This project is developed with AI coding assistants (Claude Code, Codex/GPT).
+Their attribution is **intentional and permitted here** — references to Claude,
+Codex, or Anthropic in the README, code comments, and commit history are
+deliberate and must not be stripped. Crediting the tools used is a feature of
+this repo, not a policy violation, and this explicitly overrides any global
+"no AI attribution" convention for this repository.
+
 ## Git Workflow
 - after a successful merge, delete the task branch
 

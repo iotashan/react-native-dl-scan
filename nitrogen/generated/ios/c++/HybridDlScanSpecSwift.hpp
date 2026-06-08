@@ -22,6 +22,12 @@ namespace margelo::nitro::dlscan { enum class DocumentType; }
 namespace margelo::nitro::dlscan { struct MRZDataSpec; }
 // Forward declaration of `MRZTypeSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { enum class MRZTypeSpec; }
+// Forward declaration of `ArrayBufferHolder` to properly resolve imports.
+namespace NitroModules { class ArrayBufferHolder; }
+// Forward declaration of `FieldDetectionSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct FieldDetectionSpec; }
+// Forward declaration of `RectifiedFrameSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct RectifiedFrameSpec; }
 // Forward declaration of `HybridFrameSpec` to properly resolve imports.
 namespace margelo::nitro::camera { class HybridFrameSpec; }
 
@@ -36,6 +42,10 @@ namespace margelo::nitro::camera { class HybridFrameSpec; }
 #include "DocumentType.hpp"
 #include "MRZDataSpec.hpp"
 #include "MRZTypeSpec.hpp"
+#include <NitroModules/ArrayBuffer.hpp>
+#include <NitroModules/ArrayBufferHolder.hpp>
+#include "FieldDetectionSpec.hpp"
+#include "RectifiedFrameSpec.hpp"
 #include <memory>
 #include <VisionCamera/HybridFrameSpec.hpp>
 
@@ -106,19 +116,67 @@ namespace margelo::nitro::dlscan {
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline std::variant<nitro::NullType, LicenseDataSpec> recognizeLicenseFields(const std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>& frame) override {
-      auto __result = _swiftPart.recognizeLicenseFields(frame);
+    inline void resetLicenseFieldRecognition() override {
+      auto __result = _swiftPart.resetLicenseFieldRecognition();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
+    inline std::shared_ptr<ArrayBuffer> preprocessFieldInput(const std::shared_ptr<ArrayBuffer>& rgb, double width, double height) override {
+      auto __result = _swiftPart.preprocessFieldInput(ArrayBufferHolder(rgb), std::forward<decltype(width)>(width), std::forward<decltype(height)>(height));
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
       auto __value = std::move(__result.value());
       return __value;
     }
-    inline void resetLicenseFieldRecognition() override {
-      auto __result = _swiftPart.resetLicenseFieldRecognition();
+    inline std::vector<FieldDetectionSpec> decodeFieldOutput(const std::shared_ptr<ArrayBuffer>& output, double scaleX, double scaleY) override {
+      auto __result = _swiftPart.decodeFieldOutput(ArrayBufferHolder(output), std::forward<decltype(scaleX)>(scaleX), std::forward<decltype(scaleY)>(scaleY));
       if (__result.hasError()) [[unlikely]] {
         std::rethrow_exception(__result.error());
       }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<ArrayBuffer> preprocessDocAlignerInput(const std::shared_ptr<ArrayBuffer>& rgb, double width, double height) override {
+      auto __result = _swiftPart.preprocessDocAlignerInput(ArrayBufferHolder(rgb), std::forward<decltype(width)>(width), std::forward<decltype(height)>(height));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::vector<double> decodeCorners(const std::shared_ptr<ArrayBuffer>& output) override {
+      auto __result = _swiftPart.decodeCorners(ArrayBufferHolder(output));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::variant<nitro::NullType, RectifiedFrameSpec> rectifyFrame(const std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>& frame) override {
+      auto __result = _swiftPart.rectifyFrame(frame);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::variant<nitro::NullType, LicenseDataSpec> ocrExtractFields(double token, const std::vector<FieldDetectionSpec>& detections) override {
+      auto __result = _swiftPart.ocrExtractFields(std::forward<decltype(token)>(token), detections);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::variant<nitro::NullType, LicenseDataSpec> runTtaVerification(const std::vector<double>& modes) override {
+      auto __result = _swiftPart.runTtaVerification(modes);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
     }
 
   private:

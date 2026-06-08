@@ -47,73 +47,74 @@ training configuration. All GPU operations run through PyTorch's MPS
 
 | Component | Version | Notes |
 |---|---|---|
-| Python | 3.12.13 (Homebrew / pyenv) | tensorflow-macos requires 3.11 or 3.12 |
-| PyTorch | ≥2.6.0 (MPS backend) | AMP FP16 only — BF16 not supported on MPS |
-| Ultralytics | ≥8.3.0 | YOLOv8 OBB training API; community fork of YOLOv8 |
-| coremltools | ≥9.0 | Core ML export + linear weight quantization |
-| numpy | ≥1.26.0, <2.0 | Upper bound required for TF-macos 2.16 compatibility |
+| Python | 3.11 (RangiLyu/nanodet env) | NanoDet torch-2 patches validated on 3.11 |
+| PyTorch | 2.2.2 (MPS backend) | NanoDet training; AMP FP16 only — BF16 not supported on MPS |
+| RangiLyu/nanodet | Apache-2.0 fork | NanoDet-Plus training framework (replaces Ultralytics/YOLOv8) |
+| litert-torch | (ai-edge-torch successor) | PyTorch → LiteRT/TFLite export of the field detector |
+| numpy | ≥1.26.0, <2.0 | Upper bound for compatibility |
 | Pillow | ≥10.0.0 | Image loading |
 | OpenCV | ≥4.10.0 (headless) | Document rectification |
-| PyYAML | ≥6.0.0 | YOLO data.yaml generation |
+| PyYAML | ≥6.0.0 | NanoDet config / COCO conversion |
 | scikit-learn | ≥1.4.0 | Stratified splitting, evaluation metrics |
 
 Full pinned dependency list: [`model-training/requirements.txt`](../model-training/requirements.txt).
 
 ### Verified working combination (training machine)
 
-Per-stage uv-locked envs under `model-training/envs/`. Currently shipped:
+The NanoDet field detector is trained in a dedicated env under
+`model-training/envs/nanodet/` (the [RangiLyu/nanodet](https://github.com/RangiLyu/nanodet)
+checkout + torch 2.2.2, with the torch-2 patches recorded in
+`model-training/nanodet/PATCHES.md`: a `torch._six` shim and a DFL `Integral`
+matmul→multiply-sum rewrite for the MPS path). Export to LiteRT/TFLite runs in
+a **separate, fresh** env with `litert-torch` (see
+`model-training/nanodet/export_tflite/export_internal.py`) — kept isolated from
+the training env because litert-torch pulls a different torch/tensorflow stack.
 
-```
-envs/train/         — torch 2.11 + ultralytics 8.4.46         (YOLO training, MPS)
-envs/export-ios/    — torch 2.11 + ultralytics + coremltools 9.0
-envs/export-android/— torch + ultralytics + tensorflow 2.18.1 + onnx2tf
-                      + ai-edge-litert 1.2.0                  (TFLite int8 export)
-```
-
-Each env is created by `uv sync --frozen` against a checked-in `uv.lock`.
-Launchers in `model-training/scripts/*.sh` set `YOLO_AUTOINSTALL=False` and
-print version assertions before running real work — Ultralytics' default
-`check_requirements()` AutoInstall is a footgun on Apple Silicon (it
-overwrites pinned wheels with generic ones), and the per-stage env layout
-plus the `YOLO_AUTOINSTALL=False` guard prevents that.
+The legacy per-stage uv-locked envs under `model-training/envs/` (`train`,
+`export-ios`, `export-android`) remain as scaffolding for the OBB doc-detector
+and the retired YOLOv8n field detector, but the shipped field detector is
+trained and exported with the NanoDet + litert-torch envs above.
 
 ---
 
-## Model 1: DlScanFieldDetector (YOLOv8n axis-aligned)
+## Model 1: DlScanFieldDetector (NanoDet-Plus-m)
 
 ### Architecture
 
-- Base: YOLOv8n pretrained weights (`yolov8n.pt`)
-- Task: Per-field axis-aligned bounding box detection on rectified 640×640
-  document crops
-- Output: class probabilities + bounding boxes (x_center y_center w h,
-  normalized 0–1)
+- Base: NanoDet-Plus-m — ShuffleNetV2 1.0x backbone + GhostPAN neck (out
+  channels 96) + NanoDetPlusHead (GFL/DFL, `reg_max=7`), strides 8/16/32/64,
+  ~4.2M params. Config: `model-training/nanodet/configs/dlscan-nanodet-plus-m_416.yml`.
+- Task: Per-field axis-aligned bounding box detection on rectified 416×416
+  document crops (30 classes).
+- Input: 416×416 NHWC RGB8; preprocess applies BGR ImageNet mean/std
+  (mean `[103.53, 116.28, 123.675]`, std `[57.375, 57.12, 58.395]`).
+- Output: single anchor-major tensor `[1, 3598, 62]` — per anchor, 30 sigmoid
+  class scores (sigmoid baked in at export) + 4×8 DFL logits. The shared C++
+  decode does center-prior + DFL integral + per-class NMS.
 
 ### Hyperparameters
 
+(from `configs/dlscan-nanodet-plus-m_416.yml`)
+
 | Parameter | Value | Notes |
 |---|---|---|
-| `imgsz` | 640 | Higher resolution required for small text field bboxes |
-| `batch` | 64 | Reduced from 128 due to larger image size |
-| `epochs` | 60 | Convergence faster than doc detector |
-| `optimizer` | AdamW | |
-| `lr0` | 1e-3 | |
-| `cos_lr` | True | |
-| `amp` | True | FP16 AMP |
-| `patience` | 10 | |
-| `device` | `mps` | Axis-aligned; no OBB correctness risk |
-| `seed` | 0 | |
-
-No MPS smoke test required for this model — axis-aligned NMS is well-supported
-on all current PyTorch MPS versions.
+| `input_size` | 416×416 | NanoDet-native; sufficient for region localization (OCR reads text at full res) |
+| `batchsize_per_gpu` | 8 (config) | the M3-Ultra full run used a larger effective batch; see config/STATUS |
+| `total_epochs` | 30 | early-stop when val mAP@0.5 saturates |
+| `optimizer` | AdamW (`lr` 1e-3, `weight_decay` 0.05) | cosine LR (`CosineAnnealingLR`, eta_min 5e-5), 500-step linear warmup |
+| `weight_averager` | EMA (decay 0.9998) | shipped weights are the EMA `model_best` |
+| `precision` | 32 | |
+| `device` | `mps` | trained on Apple M3 Ultra via MPS |
+| `flip` aug | 0.0 | disabled — field layout is orientation-specific |
 
 ### Training outputs
 
 ```
-model-training/runs/field_detector/run/weights/best.pt
-model-training/runs/field_detector/run/weights/last.pt
-model-training/runs/field_detector/run/results.csv
+model-training/nanodet/workspace/dlscan-nanodet-416/model_best/nanodet_model_best.pth
 ```
+
+This EMA checkpoint is exported to `models/nanodet_field_416.tflite` via
+`model-training/nanodet/export_tflite/export_internal.py` (litert-torch).
 
 ---
 
@@ -139,31 +140,27 @@ via regex and format normalization rather than via a trained model.
 
 ---
 
-## Quantization
+## Export and quantization
 
-### Core ML (iOS) — weight-only int8
+### LiteRT / TFLite (both platforms) — fp32 default
 
-Applied via `coremltools.optimize.coreml.linear_quantize_weights`.
+The field detector exports to a single LiteRT/TFLite model
+(`models/nanodet_field_416.tflite`) loaded in JS via `react-native-fast-tflite`
+on both iOS and Android — there is no longer a per-platform Core ML vs. TFLite
+split for this model.
 
-- Only weight tensors are quantized; activations remain float16/float32.
-- No calibration data required (distinguishes this from full int8).
-- Typical size reduction: ~4× vs float32.
-- Typical mAP drop: < 0.5% absolute.
-- Runs primarily on the Apple Neural Engine with some CPU float operations.
-- **mAP validation on macOS does not exercise the Neural Engine path.**
-  Post-export, validate Core ML models on a physical iPhone using the held-out
-  test set. See `validate_quantization.py` output notes.
-
-### TFLite (Android) — full int8
-
-Applied via TensorFlow Lite converter with `representative_dataset`.
-
-- Both weights AND activations are quantized to int8.
-- Calibration set: 300–500 stratified samples from the training distribution.
-- More aggressive compression than Core ML weight-only.
-- Validated automatically by `validate_quantization.py` via Ultralytics'
-  built-in TFLite inference path.
-- Regression threshold: mAP@0.5 delta < 1% absolute vs FP32.
+- Export path: PyTorch → LiteRT/TFLite via `litert-torch`
+  (`export_tflite/export_internal.py`). It wraps `forward()` to permute
+  NHWC→NCHW so the tflite input is NHWC `[1, 416, 416, 3]`, and bakes
+  `sigmoid` into the 30 class channels (the DFL logits stay raw; the decode
+  does the integral). `onnx2tf` does **not** work for this graph (shape-inference
+  bug in the NanoDet-Plus head) — litert-torch converts the torch model directly.
+- The **shipped** model is **fp32** (4.99 MB). Parity vs PyTorch is tight
+  (max abs diff ~1.07e-5, corr ~1.0; see `export_tflite/parity_check.py`).
+- A **dynamic-int8** variant (`export_tflite/nanodet_field_416_dynint8.tflite`,
+  ~1.6 MB, 3× smaller) exists via `export_tflite/quant_int8.py` but shows
+  cls-head deviation on OOD input. It is **not shipped** and must be validated
+  on-device before use.
 
 ### OBB non-maximum suppression
 
@@ -183,9 +180,8 @@ supports rotated NMS natively.
 | Stage | Seed | Location |
 |---|---|---|
 | Stratified subset extraction | 42 | `extract_subsets.py` (fixed) |
-| Train/val/test split | 42 | `prepare_yolo_fields.py` (fixed) |
-| YOLO field detector training | 0 | `train_field_detector.py` (`seed=0` in YOLO args) |
-| TFLite calibration sampling | 42 | `export_field_detector.py` |
+| Train/val/test split | 42 | `prepare_yolo_fields.py` (fixed); converted to COCO by `nanodet/yolo_to_coco.py` |
+| NanoDet field detector training | per NanoDet config | `nanodet/train_nanodet.py` with `configs/dlscan-nanodet-plus-m_416.yml` |
 
 ---
 
@@ -231,11 +227,10 @@ abandoned after the MPS smoke test failure described above.
 | Stage | Estimated wall time |
 |---|---|
 | IDNet extraction (~358K images) | ~2 hours |
-| YOLO fields dataset preparation | ~1 hour |
-| Field detector training (60 epochs, MPS) | ~15–25 hours (early-stop typical at 11–20 hrs) |
-| Core ML int8 export + validation | ~5 minutes |
-| TFLite int8 export + validation | ~25–35 minutes |
-| **Total** | **~20–28 hours** |
+| YOLO-fields → COCO dataset preparation | ~1 hour |
+| NanoDet field detector training (MPS, ~5 h/epoch; early-stop when val mAP@0.5 saturates) | ~1 day |
+| LiteRT/TFLite export (litert-torch) + parity check | ~10 minutes |
+| **Total** | **~1 day + a few hours of data prep** |
 
 ---
 

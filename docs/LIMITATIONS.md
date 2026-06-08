@@ -169,6 +169,54 @@ for international documents with non-Latin character sets. Non-Latin field
 values (Cyrillic, Greek) in the Russian, Serbian, and Greek templates may
 fail to OCR cleanly on either platform-vendor OCR engine.
 
+### Front-OCR field extraction: layout coverage and remaining variance
+
+The `'ocr'` mode's field parser anchors primarily on the **numeric AAMVA D20
+visible-field markers** most US licenses print beside each field (`1` last name,
+`2` first/middle, `4d` license number, `8` address, `15` sex, `16` height, …),
+with an **alphabetic-label fallback** for layouts that label fields with letters
+instead (California-style `DL` / `LN` / `FN` / `DOB` / `EXP` / `HGT`). Both
+layout families are exercised by our test corpus.
+
+**Scope of the cross-jurisdiction guardrail — what is and isn't validated.** The
+guardrail (`cpp/eval/parser_eval_vision`) runs our own Vision OCR + parser over
+IDNet images for **10 of the 51 US DL jurisdictions** — AZ, CA, NV, NC, PA, SD,
+UT, WV, WI, DC — in a **single OCR reading order** (the reading order macOS
+Vision produced for those synthetic images). Within that set, every state
+returns a result, and the guardrail runs on every parser change to prevent any
+state's accuracy from being improved at another's expense. It does **not**
+establish US-wide generalization: the **other 41 jurisdictions are unvalidated**,
+and the parser has only been exercised against one reading order per card. Real
+devices, alternate OCR engines (Android ML Kit), and unusual layouts can produce
+field orderings the 10-state corpus never showed.
+
+> **Known limitation — multi-column OCR ordering.** The marker-anchored parser
+> uses a one-step look-ahead that assumes a field's value follows its label in
+> reading order. When the OCR engine instead groups left-column field *labels*
+> into one block and the *values* into another
+> (`[1.FAMILY NAME][2.GIVEN NAMES][GARCIA][EMMA]`), the look-ahead can bind the
+> wrong value into a slot — e.g. a surname into the first-name field. A
+> positional / block-matching fix (pairing labels to values by column geometry
+> rather than reading order) is tracked but **not yet implemented**.
+
+Per-field accuracy still varies by jurisdiction; the honest current limits:
+
+- **License number** is the most variable field. Hyphenated, bare all-digit, and
+  alpha-prefixed formats all parse, but where the platform OCR drops or misreads
+  a character (e.g. a leading `I` read as `1`, or omitted), the value is emitted
+  **as read** — we do not fabricate the missing character — so it scores
+  edit-distance-1 rather than exact. Bare 4-digit values that collide with an
+  adjacent date year are rejected rather than mis-emitted.
+- **Heavy-OCR-noise layouts** (dense rows, decorative fonts, or — in the
+  synthetic IDNet corpus — non-Latin glyph rendering) still lose individual
+  fields. Where a name or license number can't be anchored, the parser returns
+  the fields it *did* recover (DOB, address, sex, …) rather than discarding the
+  whole result.
+
+These are parser/OCR-coverage characteristics, not a hard cutoff; coverage is
+tracked against the cross-jurisdiction harness so additions can't silently
+regress a covered state.
+
 ### No ML-based per-character OCR correction
 
 The `'ocr'` mode in v1 does **not** apply an ML model to correct per-character

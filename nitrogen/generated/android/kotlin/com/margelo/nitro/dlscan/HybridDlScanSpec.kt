@@ -12,6 +12,7 @@ import com.facebook.jni.HybridData
 import com.facebook.proguard.annotations.DoNotStrip
 import com.margelo.nitro.core.NullType
 import com.margelo.nitro.core.Promise
+import com.margelo.nitro.core.ArrayBuffer
 import com.margelo.nitro.camera.HybridFrameSpec
 import com.margelo.nitro.core.HybridObject
 
@@ -47,11 +48,35 @@ abstract class HybridDlScanSpec: HybridObject() {
   
   @DoNotStrip
   @Keep
-  abstract fun recognizeLicenseFields(frame: com.margelo.nitro.camera.HybridFrameSpec): Variant_NullType_LicenseDataSpec
+  abstract fun resetLicenseFieldRecognition(): Unit
   
   @DoNotStrip
   @Keep
-  abstract fun resetLicenseFieldRecognition(): Unit
+  abstract fun preprocessFieldInput(rgb: ArrayBuffer, width: Double, height: Double): ArrayBuffer
+  
+  @DoNotStrip
+  @Keep
+  abstract fun decodeFieldOutput(output: ArrayBuffer, scaleX: Double, scaleY: Double): Array<FieldDetectionSpec>
+  
+  @DoNotStrip
+  @Keep
+  abstract fun preprocessDocAlignerInput(rgb: ArrayBuffer, width: Double, height: Double): ArrayBuffer
+  
+  @DoNotStrip
+  @Keep
+  abstract fun decodeCorners(output: ArrayBuffer): DoubleArray
+  
+  @DoNotStrip
+  @Keep
+  abstract fun rectifyFrame(frame: com.margelo.nitro.camera.HybridFrameSpec): Variant_NullType_RectifiedFrameSpec
+  
+  @DoNotStrip
+  @Keep
+  abstract fun ocrExtractFields(token: Double, detections: Array<FieldDetectionSpec>): Variant_NullType_LicenseDataSpec
+  
+  @DoNotStrip
+  @Keep
+  abstract fun runTtaVerification(modes: DoubleArray): Variant_NullType_LicenseDataSpec
 
   // Default implementation of `HybridObject.toString()`
   override fun toString(): String {

@@ -56,8 +56,8 @@ TEST(AamvaLexerInvariants, LetterPrecededDigitIsNotAToken_R2D2) {
 }
 
 TEST(AamvaLexerInvariants, DigitPrecededDigitIsNotAToken) {
-    // "2119" — digit-preceded digits never start an index.
-    auto tokens = find_all_aamva_tokens("2119 DOB");
+    // "7350" — digit-preceded digits never start an index.
+    auto tokens = find_all_aamva_tokens("7350 DOB");
     EXPECT_TRUE(tokens.empty());
 }
 
@@ -75,7 +75,7 @@ TEST(AamvaLexerInvariants, BoundaryAfterNonAlnumIsValid) {
 
 // ============================================================================
 // Invariant 3 — trailing-char rule.  Index immediately followed by another
-// digit is rejected ("2" inside "2119", "18" inside "180").
+// digit is rejected ("2" inside "2074", "18" inside "180").
 // ============================================================================
 
 TEST(AamvaLexerInvariants, TrailingDigitRejects_2InsideZipLikeNumber) {
@@ -235,6 +235,20 @@ TEST(AamvaLexerDomain, VehicleClass_AcceptsCommonForms) {
     EXPECT_TRUE(value_matches_domain("CDL", "9"));
     EXPECT_TRUE(value_matches_domain("C-1", "9"));
     EXPECT_FALSE(value_matches_domain("0123", "9"));
+}
+
+TEST(AamvaLexerDomain, NameIndicesAcceptAlphaSpaceValues) {
+    EXPECT_TRUE(value_matches_domain("DELGADO", "1"));
+    EXPECT_TRUE(value_matches_domain("MARCUS ANTOINE", "2"));
+    EXPECT_FALSE(value_matches_domain("2 MARCUS ANTOINE", "2"));
+    EXPECT_FALSE(value_matches_domain("J415-2208-5573-28", "1"));
+}
+
+TEST(AamvaLexerDomain, LicenseIndexAcceptsCompactAlnumHyphenOnly) {
+    EXPECT_TRUE(value_matches_domain("J415-2208-5573-28", "4d"));
+    EXPECT_TRUE(value_matches_domain("26798765", "4d"));
+    EXPECT_FALSE(value_matches_domain("2 MARCUS ANTOINE", "4d"));
+    EXPECT_FALSE(value_matches_domain("MARCUS ANTOINE", "4d"));
 }
 
 TEST(AamvaLexerDomain, UnknownIndexReturnsFalse) {

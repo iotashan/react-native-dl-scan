@@ -1,13 +1,16 @@
 # Third-Party Models
 
 `react-native-dl-scan` bundles one third-party machine-learning model for
-redistribution. This document provides the attribution and license terms
-required to redistribute that model. It also points to where the project's
-own field-detector model license is documented.
+redistribution (DocAligner, on Android). This document provides the attribution
+and license terms required to redistribute that model. It also documents the
+field detector — trained by this project on the Apache-2.0 NanoDet architecture
+(it is not a redistributed third-party model, but its architecture/training-code
+provenance is recorded here).
 
-If you redistribute this package (or an app that embeds it), you redistribute
-the bundled model below and are responsible for preserving the attribution and
-license terms reproduced here.
+Every model in the pipeline is Apache-2.0 (DocAligner and NanoDet); there is no
+AGPL-licensed model anywhere. If you redistribute this package (or an app that
+embeds it), you redistribute the bundled DocAligner model below and are
+responsible for preserving the attribution and license terms reproduced here.
 
 ---
 
@@ -262,19 +265,32 @@ Version 2.0. Copyright is held by the DocAligner project's contributors
 
 ---
 
-## DlScanFieldDetector (YOLOv8n field detector)
+## NanoDet (field-detector architecture)
 
-The `DlScanFieldDetector` model bundled with this package (`.mlmodelc` on iOS,
-`android/src/main/assets/dl_scan_field_detector.tflite` on Android) is **trained
-by this project**, not a redistributed third-party model. Its upstream training
-and export tooling is [Ultralytics](https://github.com/ultralytics/ultralytics)
-(YOLOv8n architecture).
+| Property | Value |
+|---|---|
+| Bundled file | `models/nanodet_field_416.tflite` (~4.99 MB, LiteRT/TFLite fp32) |
+| Role | Field detection — locating individual text fields on a rectified card crop (both platforms; loaded in JS via react-native-fast-tflite) |
+| Architecture / training code | NanoDet-Plus-m — [RangiLyu/nanodet](https://github.com/RangiLyu/nanodet) |
+| Author / owner | RangiLyu and NanoDet contributors |
+| License | Apache License, Version 2.0 |
 
-The precise redistribution license for these field-detector weights is
+The `DlScanFieldDetector` model is **trained by this project**, not a
+redistributed third-party model. Its architecture and training framework are
+RangiLyu/nanodet (NanoDet-Plus-m), which is **Apache-2.0**. The architecture,
+the training code, and the resulting trained weights are therefore all
+Apache/permissive.
+
+**No AGPL anywhere in the field-detection path.** This detector replaces a
+previous YOLOv8n field detector that was trained and exported with
+[Ultralytics](https://github.com/ultralytics/ultralytics) (AGPL-3.0). Because
+NanoDet shares none of YOLO's lineage, the prior AGPL ambiguity — the
+possibility that Ultralytics' AGPL attached to the YOLO-derived weights — is
+eliminated. The same Apache-2.0 text reproduced above for DocAligner governs
+NanoDet.
+
+The precise redistribution license for the trained field-detector weights is
 documented in [docs/MODEL_CARD.md](MODEL_CARD.md) (see its **License** section).
-This third-party document does not assert a license for those weights — refer
-to the model card for the authoritative statement.
-
-Note that the field detector is trained on the IDNet dataset, which is licensed
-CC-BY-4.0 and carries an attribution requirement; that attribution is provided
-in [docs/MODEL_CARD.md](MODEL_CARD.md) and [docs/DATA_CARD.md](DATA_CARD.md).
+The field detector is trained on the IDNet dataset, which is licensed CC-BY-4.0
+and carries an attribution requirement; that attribution is provided in
+[docs/MODEL_CARD.md](MODEL_CARD.md) and [docs/DATA_CARD.md](DATA_CARD.md).

@@ -177,13 +177,103 @@ open class HybridDlScanSpec_cxx {
   }
   
   @inline(__always)
-  public final func recognizeLicenseFields(frame: bridge.std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_) -> bridge.Result_std__variant_nitro__NullType__LicenseDataSpec__ {
+  public final func resetLicenseFieldRecognition() -> bridge.Result_void_ {
     do {
-      let __result = try self.__implementation.recognizeLicenseFields(frame: { () -> any HybridFrameSpec in
+      try self.__implementation.resetLicenseFieldRecognition()
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func preprocessFieldInput(rgb: ArrayBuffer, width: Double, height: Double) -> bridge.Result_std__shared_ptr_ArrayBuffer__ {
+    do {
+      let __result = try self.__implementation.preprocessFieldInput(rgb: rgb, width: width, height: height)
+      let __resultCpp = __result.getArrayBuffer()
+      return bridge.create_Result_std__shared_ptr_ArrayBuffer__(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_ArrayBuffer__(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func decodeFieldOutput(output: ArrayBuffer, scaleX: Double, scaleY: Double) -> bridge.Result_std__vector_FieldDetectionSpec__ {
+    do {
+      let __result = try self.__implementation.decodeFieldOutput(output: output, scaleX: scaleX, scaleY: scaleY)
+      let __resultCpp = { () -> bridge.std__vector_FieldDetectionSpec_ in
+        var __vector = bridge.create_std__vector_FieldDetectionSpec_(__result.count)
+        for __item in __result {
+          __vector.push_back(__item)
+        }
+        return __vector
+      }()
+      return bridge.create_Result_std__vector_FieldDetectionSpec__(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__vector_FieldDetectionSpec__(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func preprocessDocAlignerInput(rgb: ArrayBuffer, width: Double, height: Double) -> bridge.Result_std__shared_ptr_ArrayBuffer__ {
+    do {
+      let __result = try self.__implementation.preprocessDocAlignerInput(rgb: rgb, width: width, height: height)
+      let __resultCpp = __result.getArrayBuffer()
+      return bridge.create_Result_std__shared_ptr_ArrayBuffer__(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__shared_ptr_ArrayBuffer__(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func decodeCorners(output: ArrayBuffer) -> bridge.Result_std__vector_double__ {
+    do {
+      let __result = try self.__implementation.decodeCorners(output: output)
+      let __resultCpp = { () -> bridge.std__vector_double_ in
+        var __vector = bridge.create_std__vector_double_(__result.count)
+        for __item in __result {
+          __vector.push_back(__item)
+        }
+        return __vector
+      }()
+      return bridge.create_Result_std__vector_double__(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__vector_double__(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func rectifyFrame(frame: bridge.std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_) -> bridge.Result_std__variant_nitro__NullType__RectifiedFrameSpec__ {
+    do {
+      let __result = try self.__implementation.rectifyFrame(frame: { () -> any HybridFrameSpec in
         let __unsafePointer = bridge.get_std__shared_ptr_margelo__nitro__camera__HybridFrameSpec_(frame)
         let __instance = HybridFrameSpec_cxx.fromUnsafe(__unsafePointer)
         return __instance.getHybridFrameSpec()
       }())
+      let __resultCpp = { () -> bridge.std__variant_nitro__NullType__RectifiedFrameSpec_ in
+        switch __result {
+          case .first(let __value):
+            return bridge.create_std__variant_nitro__NullType__RectifiedFrameSpec_(margelo.nitro.NullType.null)
+          case .second(let __value):
+            return bridge.create_std__variant_nitro__NullType__RectifiedFrameSpec_(__value)
+        }
+      }().variant
+      return bridge.create_Result_std__variant_nitro__NullType__RectifiedFrameSpec__(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__variant_nitro__NullType__RectifiedFrameSpec__(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func ocrExtractFields(token: Double, detections: bridge.std__vector_FieldDetectionSpec_) -> bridge.Result_std__variant_nitro__NullType__LicenseDataSpec__ {
+    do {
+      let __result = try self.__implementation.ocrExtractFields(token: token, detections: detections.map({ __item in __item }))
       let __resultCpp = { () -> bridge.std__variant_nitro__NullType__LicenseDataSpec_ in
         switch __result {
           case .first(let __value):
@@ -200,13 +290,21 @@ open class HybridDlScanSpec_cxx {
   }
   
   @inline(__always)
-  public final func resetLicenseFieldRecognition() -> bridge.Result_void_ {
+  public final func runTtaVerification(modes: bridge.std__vector_double_) -> bridge.Result_std__variant_nitro__NullType__LicenseDataSpec__ {
     do {
-      try self.__implementation.resetLicenseFieldRecognition()
-      return bridge.create_Result_void_()
+      let __result = try self.__implementation.runTtaVerification(modes: modes.map({ __item in __item }))
+      let __resultCpp = { () -> bridge.std__variant_nitro__NullType__LicenseDataSpec_ in
+        switch __result {
+          case .first(let __value):
+            return bridge.create_std__variant_nitro__NullType__LicenseDataSpec_(margelo.nitro.NullType.null)
+          case .second(let __value):
+            return bridge.create_std__variant_nitro__NullType__LicenseDataSpec_(__value)
+        }
+      }().variant
+      return bridge.create_Result_std__variant_nitro__NullType__LicenseDataSpec__(__resultCpp)
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
-      return bridge.create_Result_void_(__exceptionPtr)
+      return bridge.create_Result_std__variant_nitro__NullType__LicenseDataSpec__(__exceptionPtr)
     }
   }
 }

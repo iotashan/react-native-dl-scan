@@ -1,35 +1,21 @@
 {
-  "field_detector": {
-    "exported_at": "2026-05-08T18:11:10.284963+00:00",
-    "weights": "model-training/runs/field_detector/run_mps_patched/weights/best.pt",
-    "coreml_int8": "models/DlScanFieldDetector.mlpackage",
-    "coreml_int8_strategy": "cto.linear_quantize_weights mode=linear (asymmetric) per_channel weight_threshold=65536",
-    "coreml_int8_validation": {
-      "mAP50": 0.995,
-      "mAP50_95": 0.994,
-      "P": 1.0,
-      "R": 1.0,
-      "weight_bin_mb": 4.12
+  "fieldDetector": {
+    "model": "NanoDet-Plus-m",
+    "backbone": "ShuffleNetV2 1.0x + GhostPAN, GFL/DFL head (reg_max=7)",
+    "input": "416x416 NHWC RGB8 (BGR ImageNet mean/std applied in preprocess)",
+    "output": "[1,3598,62] anchor-major: 30 sigmoid class scores + 4x8 DFL logits",
+    "classes": 30,
+    "trainedOn": "IDNet (95490 train / 12055 val, COCO format)",
+    "metrics": {
+      "mAP@0.5:0.95": 0.967,
+      "AP@0.5": 0.9996,
+      "AP@0.75": 0.994
     },
-    "tflite_int8": "models/dl_scan_field_detector.tflite",
-    "tflite_int8_strategy": "Ultralytics export(format=tflite, int8=True, fraction=0.05, nms=False) -> best_full_integer_quant.tflite",
-    "tflite_int8_validation": {
-      "mAP50": 0.9554,
-      "mAP50_95": 0.7338,
-      "P": 0.8897,
-      "R": 0.9962,
-      "size_mb": 3.28
-    },
-    "fp32_pt_baseline": {
-      "mAP50": 0.995,
-      "mAP50_95": 0.995
-    },
-    "training": {
-      "epochs": 31,
-      "best_epoch": 21,
-      "imgsz": 640,
-      "classes": 30,
-      "optimizer": "AdamW"
-    }
+    "license": "Apache-2.0",
+    "trainingFramework": "RangiLyu/nanodet (Apache-2.0)",
+    "exportedVia": "litert-torch (PyTorch -> LiteRT/TFLite), sigmoid baked into cls",
+    "file": "nanodet_field_416.tflite",
+    "sizeBytes": 4991168,
+    "note": "Replaces the former AGPL-ambiguous YOLOv8n detector. Loaded in JS via react-native-fast-tflite; consumers pass it to useLicenseScanner ocrModelSources."
   }
 }

@@ -133,3 +133,8 @@ tools/dlscan-debug-cli/used-images.txt
 # Python bytecode cache
 __pycache__/
 *.pyc
+
+# NanoDet training env: venv, upstream clone, training workspace (regenerable)
+model-training/envs/*/.venv/
+model-training/envs/nanodet/nanodet/
+model-training/**/workspace/

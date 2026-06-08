@@ -85,14 +85,27 @@ struct LicenseData {
 ///     with index, value matches expected-domain regex, candidate unique
 ///     across observation pool). Stricter than ShapeMatched because three
 ///     of the gates are content-aware checks beyond regex shape.
+///   MarkerLocated (0.88) — value was located by its authoritative AAMVA
+///     marker (the strict text-pool / "<key>_strict" path), but the value
+///     is free-text content (a name or a street line) so no independent
+///     content-SHAPE check is possible or meaningful. This is a PROVENANCE
+///     guarantee ("we found this exactly where the AAMVA layout says it
+///     lives"), not a content guarantee — which is precisely the right
+///     signal for fields whose content is inherently unverifiable-by-shape
+///     yet highly trustworthy when anchored to their marker. Ranked ABOVE
+///     ShapeMatched: marker-anchoring on a name is a stronger correctness
+///     signal than a regex shape match on a format-checkable field.
 ///   ShapeMatched  (0.85) — value matches the field's expected regex shape
 ///     (e.g. ISO date, normalised sex M/F/X, parseable city-state-zip,
 ///     `[A-Z0-9]+(?:-[A-Z0-9]+)*` license number).
 ///   ExtractedRaw  (0.50) — value came from the FieldsMap but the
-///     structured extractor couldn't apply any content-shape verification.
+///     structured extractor couldn't apply any content-shape verification
+///     AND it wasn't anchored to its authoritative marker either (an
+///     unanchored bbox / fallback crop).
 enum class ValidationTier {
     CrossValidated = 100,
     AllGatesPassed = 95,
+    MarkerLocated  = 88,
     ShapeMatched   = 85,
     ExtractedRaw   = 50,
 };

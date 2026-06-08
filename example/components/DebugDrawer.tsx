@@ -30,7 +30,40 @@ import {
   type Direction,
   type ConfidenceTier,
 } from '../theme/tokens';
+import {
+  TOGGLEABLE_REQUIRED_FIELDS,
+  TTA_MODE_OPTIONS,
+} from '../hooks/useTweaks';
 import type { Tweaks, SetTweak } from '../hooks/useTweaks';
+import type { TtaMode } from 'react-native-dl-scan';
+
+/** Human labels for the best-crop re-parse augmentation modes shown in the drawer. */
+const TTA_MODE_LABELS: Record<TtaMode, string> = {
+  original: 'Original (unfiltered)',
+  blueChannel: 'Blue channel',
+  contrastStretch: 'Contrast stretch',
+};
+
+// Human labels for the required-field checkboxes.
+const FIELD_LABELS: Partial<Record<keyof LicenseData, string>> = {
+  firstName: 'First name',
+  middleName: 'Middle name',
+  lastName: 'Last name',
+  street: 'Street',
+  city: 'City',
+  state: 'State',
+  postalCode: 'ZIP',
+  sex: 'Sex',
+  dateOfBirth: 'Date of birth',
+  licenseNumber: 'License №',
+  height: 'Height',
+  weight: 'Weight',
+  eyeColor: 'Eye color',
+  hairColor: 'Hair color',
+  vehicleClass: 'Class',
+  expirationDate: 'Expiration',
+  issueDate: 'Issue date',
+};
 import type { LicenseData } from 'react-native-dl-scan';
 import { IconCheck } from '../icons';
 import { AcknowledgmentsScreen } from './AcknowledgmentsScreen';
@@ -81,6 +114,7 @@ const TIER_HELP: Array<[ConfidenceTier, string]> = [
     'Two independent checks agree (e.g. PDF417 + OCR consensus)',
   ],
   ['all_gates_passed', '4-gate strict demographic parser'],
+  ['marker_located', 'Free-text value found at its authoritative AAMVA marker'],
   ['shape_matched', 'Value matches expected regex shape'],
   ['extracted_raw', 'Pulled from text pool, no content check'],
 ];
@@ -361,6 +395,90 @@ function DebugSettings({ t, tweaks, setTweak }: DebugSettingsProps) {
         </SettingRow>
       )}
 
+      <SettingRow
+        t={t}
+        label="Max passes"
+        hint="Stop after this many OCR passes (2–50)"
+      >
+        <Stepper
+          t={t}
+          value={tweaks.maxPasses}
+          min={2}
+          max={50}
+          step={2}
+          onChange={(v) => setTweak('maxPasses', v)}
+        />
+      </SettingRow>
+
+      <SettingRow
+        t={t}
+        label="Validation pass"
+        hint="One extra confirming pass before finishing"
+      >
+        <Toggle
+          t={t}
+          value={tweaks.validationPass}
+          onChange={(v) => setTweak('validationPass', v)}
+        />
+      </SettingRow>
+
+      <SettingRow
+        t={t}
+        label="Best-crop re-parse"
+        hint="At finalization, re-parse the best card crop (minVotes=1) to recover vote-dropped fields. Default on."
+      >
+        <Toggle
+          t={t}
+          value={tweaks.ttaEnabled}
+          onChange={(v) => setTweak('ttaEnabled', v)}
+        />
+      </SettingRow>
+
+      {tweaks.ttaEnabled &&
+        TTA_MODE_OPTIONS.map((m) => (
+          <SettingRow
+            key={m}
+            t={t}
+            label={`TTA: ${TTA_MODE_LABELS[m]}`}
+            hint={null}
+          >
+            <Toggle
+              t={t}
+              value={tweaks.ttaModes.includes(m)}
+              onChange={(on) =>
+                setTweak(
+                  'ttaModes',
+                  on
+                    ? [...tweaks.ttaModes, m]
+                    : tweaks.ttaModes.filter((x) => x !== m)
+                )
+              }
+            />
+          </SettingRow>
+        ))}
+
+      {TOGGLEABLE_REQUIRED_FIELDS.map((f) => (
+        <SettingRow
+          key={String(f)}
+          t={t}
+          label={`Require: ${FIELD_LABELS[f] ?? String(f)}`}
+          hint={null}
+        >
+          <Toggle
+            t={t}
+            value={tweaks.requiredFields.includes(f)}
+            onChange={(on) =>
+              setTweak(
+                'requiredFields',
+                on
+                  ? [...tweaks.requiredFields, f]
+                  : tweaks.requiredFields.filter((x) => x !== f)
+              )
+            }
+          />
+        </SettingRow>
+      ))}
+
       <MinTierPicker
         t={t}
         value={tweaks.minTier}
@@ -587,6 +705,11 @@ function MinTierPicker({
       value: 'shape_matched',
       label: 'Shape ↑',
       hint: 'Drop raw; keep values matching expected regex shape',
+    },
+    {
+      value: 'marker_located',
+      label: 'Marker ↑',
+      hint: 'Drop shape-only; keep marker-located free-text and stricter',
     },
     {
       value: 'all_gates_passed',

@@ -20,6 +20,7 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.margelo.nitro.camera.HybridFrameSpec
 import com.margelo.nitro.camera.public.NativeFrame
+import com.margelo.nitro.core.ArrayBuffer
 import com.margelo.nitro.core.NullType
 import com.margelo.nitro.core.Promise
 import org.tensorflow.lite.DataType
@@ -83,34 +84,15 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
     @Keep
     private external fun nativeClassNameToFieldId(className: String): Int
 
-    /**
-     * Decode the YOLOv8n raw output tensor and run per-class NMS in C++.
-     * Returns a flat float array of length 6 * num_detections, with each
-     * 6-tuple laid out as [class_id, confidence, x1, y1, x2, y2] in 640x640
-     * model-input pixel space. Empty array if no anchor passes the
-     * confidence threshold. Empty if the model output is malformed.
-     *
-     * `layout`: 0 = ChannelMajor (Ultralytics export default), 1 = AnchorMajor.
-     */
-    @DoNotStrip
-    @Keep
-    private external fun nativeDecodeAndNms(
-        tensor: FloatArray,
-        numClasses: Int,
-        numAnchors: Int,
-        layout: Int,
-        confThreshold: Float,
-        iouThreshold: Float,
-        maxDetections: Int
-    ): FloatArray
-
     /** Maps a YOLO class index (0..29) to the canonical class name string. */
     @DoNotStrip
     @Keep
     private external fun nativeClassName(classId: Int): String
 
     // ---- v2 voter JNI (task #52). FieldVoter Kotlin wrapper routes here.
-    @DoNotStrip @Keep private external fun nativeVoterNew(maxVotes: Int): Long
+    @DoNotStrip @Keep private external fun nativeVoterNew(
+        maxVotes: Int, minVotes: Int,
+    ): Long
     @DoNotStrip @Keep private external fun nativeVoterDelete(handle: Long)
     @DoNotStrip @Keep private external fun nativeVoterReset(handle: Long)
     @DoNotStrip @Keep private external fun nativeVoterAccept(
@@ -122,6 +104,15 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
         handle: Long
     ): Array<String>?
 
+    // Shared C++ marker-anchored demographic parser
+    // (dlscan::parse_aamva_demographic_fields). Input: OCR observation texts
+    // in reading order. Returns the same flat Array<String> 3*N wire shape as
+    // nativeVoterConsensus ([fieldIdStr, sourceStr, text, ...], source always
+    // StrictTextPool). Single source of truth shared with iOS.
+    @DoNotStrip @Keep private external fun nativeParseAamvaDemographicFields(
+        texts: Array<String>
+    ): Array<String>?
+
     // -------------------------------------------------------------------------
     // ML Kit text recognizer — created once, reused across frames.
     // TextRecognition.getClient is thread-safe per ML Kit documentation.
@@ -130,15 +121,10 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
     private val textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
     // -------------------------------------------------------------------------
-    // TFLite field detector — lazy-loaded once per hybrid instance.
+    // DocAligner doc-segmentation model — lazy-loaded once per hybrid instance.
     // -------------------------------------------------------------------------
 
-    private val tfliteLock = ReentrantLock()
-    private var tfliteInterpreter: Interpreter? = null
-    private var tfliteLoadAttempted = false
-
-    // DocAligner doc-segmentation model — separate Interpreter, same load
-    // pattern as the YOLO field detector. lcnet100 heatmap regression,
+    // lcnet100 heatmap regression,
     // FP16 TFLite (2.4 MB asset). Output: 4-channel 128x128 heatmap; per
     // channel = one corner (trained order: TL, TR, BR, BL).
     private val docAlignerLock = ReentrantLock()
@@ -169,7 +155,7 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
     /**
      * Thin JNI wrapper around dlscan::FieldVoter. The voting algorithm + the
      * (FieldId, FieldSource) bucket-keying live in C++ (cpp/voter.cpp,
-     * 12 unit tests).
+     * 14 unit tests).
      *
      * v2 Sequence G (task #54) — typed `List<FieldCandidate>` surface.
      * Replaces the legacy Map<String,String> wire format and the
@@ -184,8 +170,8 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
      * to implement AutoCloseable because the JS side controls reset via
      * resetLicenseFieldRecognition() not destruction.
      */
-    private inner class FieldVoter(maxVotes: Int = 20) {
-        private val handle: Long = nativeVoterNew(maxVotes)
+    private inner class FieldVoter(maxVotes: Int = 20, minVotes: Int = 2) {
+        private var handle: Long = nativeVoterNew(maxVotes, minVotes)
 
         fun accept(candidates: List<FieldCandidate>) {
             if (handle == 0L || candidates.isEmpty()) return
@@ -224,8 +210,13 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
             nativeVoterReset(handle)
         }
 
+        @Synchronized
         fun close() {
-            if (handle != 0L) nativeVoterDelete(handle)
+            if (handle != 0L) {
+                nativeVoterDelete(handle)
+                handle = 0L  // idempotent: stop the GC FinalizerDaemon from
+                             // double-freeing (finalize -> close -> delete).
+            }
         }
 
         protected fun finalize() {
@@ -235,7 +226,7 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
         }
     }
 
-    private val voter = FieldVoter(maxVotes = 20)
+    private val voter = FieldVoter(maxVotes = 20, minVotes = 2)
 
     // Temporal smoothing of doc-seg corners — INSTANCE state (not companion)
     // so multiple scanner instances don't clobber each other's caches.
@@ -253,7 +244,7 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
     // Telemetry counters (round-5 design — task #30).
     //
     // All counters are instance-scoped (per scanner session) and mutated
-    // single-threaded from inside `runDetectionPipeline`'s worker thread.
+    // single-threaded from inside `ocrExtractFields`.
     // Flushed to logcat at the same 2-second throttle as the IoU debug log.
     // Counters reset each flush so a single log line covers a discrete window.
     // PII rule: never include raw observation text in telemetry — counts and
@@ -303,39 +294,31 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
         telemetryDemoAccepted = 0
     }
 
-    // No ImageProcessor field — runYolo builds the quantized input ByteBuffer
-    // directly from bitmap pixels, applying the model's actual input
-    // quantizationParams (scale, zeroPoint) read at inference time. This
-    // avoids the trap that TensorImage(INT8).load(bitmap) just casts uint8
-    // bytes (255 -> -1) without applying the zero_point = -128 that the
-    // YOLOv8 export uses (caught in final review).
-
     // -------------------------------------------------------------------------
-    // OCR state — all reads/writes guarded by ocrLock.
+    // Scan-session state
     // -------------------------------------------------------------------------
 
-    private val ocrLock = ReentrantLock()
-    private var cachedOcrResult: LicenseDataSpec? = null
-    private var ocrInFlight = false
-    private var lastOcrTime: Long = 0L
-    /// Generation counter — bumped by resetLicenseFieldRecognition() so any
-    /// in-flight detection job whose result lands AFTER a reset() will be
-    /// discarded instead of overwriting the cleared cache with stale data.
-    private var ocrGeneration: Long = 0L
     @Volatile private var cardCapturedThisSession = false
 
-    /**
-     * Pipeline-result generation — bumped each time runDetectionPipeline
-     * actually completes and writes cachedOcrResult. Distinct from
-     * ocrGeneration (which is reset-driven). JS-side voting uses this to
-     * count UNIQUE frame results: the worklet calls recognizeLicenseFields
-     * many times per second but the worker thread only fires ~2 FPS, so
-     * most calls return the same cached spec. Returning the spec to JS
-     * only when this generation has changed since the last JS read gives
-     * JS one result-per-unique-pipeline-run.
-     */
-    private var ocrResultGeneration: Long = 0L
-    private var lastReadOcrResultGeneration: Long = -1L
+    // JS-orchestration rectify cache (mirrors iOS). rectifyFrame() exposes the
+    // rectified RGB to JS for fast-tflite NanoDet detection; ocrExtractFields()
+    // consumes the JS detections against the cached bitmaps by token.
+    private val rectifyLock = ReentrantLock()
+    private var lastRectifyTime: Long = 0L
+    private var nextRectifyToken: Double = 1.0
+    private data class RectEntry(val source: Bitmap, val corners: FloatArray, val ocrBitmap: Bitmap)
+    private val rectifiedCache = HashMap<Double, RectEntry>()
+
+    // TTA-as-verification retained crop (mirrors iOS). The BEST captured card
+    // crop — the consensus rectified RGB8 bytes kept on the frame that saved
+    // cardImagePath. runTtaVerification() augments + re-OCRs this to recover
+    // small glyphs a single OCR pass misses. Retained as raw RGB8 (row-major,
+    // 3 B/px) + dims so dlscan_augment_rgb (via nativeAugmentRgb) can drive the
+    // augmented re-OCR. Guarded by rectifyLock; cleared in
+    // resetLicenseFieldRecognition.
+    private var ttaRetainedRgb: ByteArray? = null
+    private var ttaRetainedWidth: Int = 0
+    private var ttaRetainedHeight: Int = 0
 
     // -------------------------------------------------------------------------
     // parseBarcodeData — runs C++ AAMVA parser off the JS thread.
@@ -350,898 +333,6 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
                 Variant_NullType_LicenseDataSpec.create(spec)
             }
         }
-    }
-
-    // -------------------------------------------------------------------------
-    // recognizeLicenseFields — synchronously called on a Camera worklet thread.
-    //
-    // Pipeline (per Phase 4 design — reviewed):
-    //   1. Convert YUV mediaImage → ARGB Bitmap (one-time per frame).
-    //   2. Letterbox-resize to 640x640 (preserves aspect ratio for YOLO).
-    //   3. TFLite inference → raw output tensor (1, 34, 8400) float32.
-    //   4. dlscan::yolo::decode_and_nms → per-field bboxes (in 640x640 space).
-    //   5. Reverse-letterbox bboxes back to original-frame pixel space.
-    //   6. ML Kit Text recognition on the same Bitmap (one call) → text + bboxes.
-    //   7. IoU-match observations to YOLO bboxes.
-    //   8. dlscan::extract_fields_from_candidates (via JNI) → LicenseDataSpec.
-    //
-    // Doc segmentation is intentionally skipped on Android v1 (ML Kit
-    // Document Scanner is a full-screen Activity, not a per-frame API).
-    // YOLO runs on the raw camera frame; accuracy is lower than iOS until
-    // a v2 takes a different segmentation approach.
-    // -------------------------------------------------------------------------
-
-    @ExperimentalGetImage
-    override fun recognizeLicenseFields(frame: HybridFrameSpec): Variant_NullType_LicenseDataSpec {
-        val now = System.currentTimeMillis()
-
-        // Snapshot the cached result + generation under lock. Return the
-        // spec to JS only if its generation has advanced since the last
-        // call — otherwise JS sees the SAME pipeline run as many times as
-        // the camera fires frames (camera ~30 fps, worker ~2 fps → ~15x
-        // duplicate returns per real result). The voting loop on JS
-        // depends on each non-null return being a fresh frame.
-        val snapshotCached: LicenseDataSpec?
-        val snapshotGen: Long
-        ocrLock.withLock {
-            snapshotCached = cachedOcrResult
-            snapshotGen = ocrResultGeneration
-        }
-        val freshSpec: LicenseDataSpec? =
-            if (snapshotCached != null && snapshotGen != lastReadOcrResultGeneration) {
-                lastReadOcrResultGeneration = snapshotGen
-                snapshotCached
-            } else null
-
-        // Snapshot + decide under lock — minimal critical section.
-        //
-        // THREADING ASSUMPTION (round-6 finding): Vision Camera's
-        // Android frame-processor invokes recognizeLicenseFields from a
-        // single serial worklet thread, so two concurrent callers cannot
-        // exist. That guarantee is what makes the check-then-set pattern
-        // safe — we release the lock between reading `ocrInFlight=false`
-        // and setting `ocrInFlight=true`, which would otherwise race with
-        // a parallel caller. If a future refactor adds a second entry
-        // point (e.g. a one-shot capture API or a manual scan() bridge),
-        // this dual-lock pattern must be replaced with a compare-and-set
-        // or single-acquisition begin-job() helper.
-        val cached: LicenseDataSpec?
-        val shouldStart: Boolean
-        ocrLock.withLock {
-            cached = cachedOcrResult
-            val elapsed = now - lastOcrTime
-            shouldStart = !ocrInFlight && elapsed >= 300L  // ~3.3 fps rate limit (experiment B)
-        }
-
-        if (!shouldStart) {
-            return variantOf(freshSpec)
-        }
-
-        // Extract the underlying android.media.Image from the VC Frame.
-        // HybridFrame implements NativeFrame; NativeFrame.image is an
-        // ImageProxy whose .image is the underlying android.media.Image
-        // (requires @ExperimentalGetImage).
-        val nativeFrame = frame as? NativeFrame
-        val mediaImage = nativeFrame?.image?.image
-        if (mediaImage == null) {
-            return variantOf(freshSpec)
-        }
-
-        val rotationDegrees = nativeFrame.image.imageInfo.rotationDegrees
-        if (!rotationDebugLogged) {
-            rotationDebugLogged = true
-            Log.i(TAG, "DEBUG: rotationDegrees=" + rotationDegrees
-                + " mediaImage=" + mediaImage.width + "x" + mediaImage.height)
-        }
-
-        // CRITICAL: convert YUV → Bitmap SYNCHRONOUSLY on the worklet thread
-        // before dispatching to the background worker. Vision Camera disposes
-        // the frame immediately after this method returns, so the underlying
-        // android.media.Image will be closed/recycled by CameraX before the
-        // worker thread runs — copying the pixels into a Bitmap now severs
-        // that lifetime dependency. (iOS retains via Swift's CF bridging on
-        // CVPixelBuffer; Android needs an explicit copy here.)
-        val bitmap = mediaImageToBitmap(mediaImage, rotationDegrees)
-        if (bitmap == null) {
-            // YUV conversion failed — skip without burning the rate limit.
-            return variantOf(freshSpec)
-        }
-
-        // Commit: reserve the in-flight slot, record the start time, snapshot
-        // the generation. Job result is only written back if generation
-        // hasn't been bumped by resetLicenseFieldRecognition() in the
-        // meantime — see ocrGeneration field doc.
-        val jobGeneration: Long
-        ocrLock.withLock {
-            ocrInFlight = true
-            lastOcrTime = now
-            jobGeneration = ocrGeneration
-        }
-
-        // Run the full pipeline on a separate thread so the worklet never blocks.
-        // The Bitmap was copied above; the underlying mediaImage is no longer
-        // referenced past this point and is safe for VC to dispose.
-        Promise.parallel {
-            try {
-                val spec = runDetectionPipeline(bitmap)
-                ocrLock.withLock {
-                    if (ocrGeneration == jobGeneration) {
-                        cachedOcrResult = spec
-                        // Bump the per-pipeline-run generation so the next
-                        // recognizeLicenseFields call to JS returns a FRESH
-                        // result rather than the same cached spec again.
-                        // Only bumped on non-null specs: null pipelines
-                        // shouldn't tick the voter forward.
-                        if (spec != null) ocrResultGeneration += 1L
-                    }
-                }
-            } catch (t: Throwable) {
-                Log.w(TAG, "detection pipeline failed", t)
-                // Don't clobber the cache on transient failure; next frame retries.
-            } finally {
-                ocrLock.withLock {
-                    ocrInFlight = false
-                }
-            }
-        }
-
-        return variantOf(cached)
-    }
-
-    /**
-     * Full detection pipeline: YOLO → IoU-match → C++ structured extract.
-     * The bitmap is the camera frame already YUV-converted + rotated; this
-     * function runs entirely on the worker thread. Returns null on any
-     * stage failure (logged for diagnostics).
-     */
-    /**
-     * Test-only eval entry point: run the production single-frame pipeline
-     * on a pre-decoded bitmap and return the per-yolo-class extracted text
-     * BEFORE the multi-frame voter and BEFORE the C++ extract_fields step.
-     *
-     * Used by the IDNet batch-eval instrumented test
-     * (androidTest/.../IdnetBatchEvalTest.kt) to measure per-state per-field
-     * accuracy against ground truth JSON. Strict-text-pool candidates
-     * override bbox-IoU candidates for the same yolo class — mirrors the
-     * StrictAgrees → CrossValidated tier upgrade applied by the C++
-     * resolver in production. Keep in sync with runDetectionPipeline; if
-     * either drifts, the eval ceases to reflect production behaviour.
-     *
-     * Returns the FieldId → text map (FieldId int from FieldCandidate),
-     * empty on any stage failure. Caller maps FieldId → yolo class via the
-     * static FieldId.classNameOrNull() table inlined for tests below.
-     */
-    @VisibleForTesting
-    fun ocrPipelineForEval(bitmap: Bitmap): Map<String, String> {
-        val corners = runDocAligner(bitmap)
-        val ocrBitmap = if (corners != null) {
-            rectifyBitmap(bitmap, corners, OCR_RECTIFY_WIDTH, OCR_RECTIFY_HEIGHT)
-        } else bitmap
-        val yoloBitmap = if (corners != null) {
-            Bitmap.createScaledBitmap(ocrBitmap, YOLO_INPUT_SIZE, YOLO_INPUT_SIZE, true)
-        } else bitmap
-        val ocrToYoloScaleX = YOLO_INPUT_SIZE.toFloat() / ocrBitmap.width.toFloat()
-        val ocrToYoloScaleY = YOLO_INPUT_SIZE.toFloat() / ocrBitmap.height.toFloat()
-
-        val detections = runYolo(yoloBitmap) ?: return emptyMap()
-        if (detections.isEmpty()) return emptyMap()
-
-        val visionResult = try {
-            Tasks.await(
-                textRecognizer.process(InputImage.fromBitmap(ocrBitmap, 0)),
-                10L,
-                java.util.concurrent.TimeUnit.SECONDS
-            )
-        } catch (t: Throwable) {
-            Log.w(TAG, "eval: ML Kit failed: $t")
-            return emptyMap()
-        }
-
-        val observations = mutableListOf<OcrObservation>()
-        var nextLineId = 0
-        fun toYoloSpace(r: RectF): RectF = if (corners != null) {
-            RectF(r.left * ocrToYoloScaleX, r.top * ocrToYoloScaleY,
-                  r.right * ocrToYoloScaleX, r.bottom * ocrToYoloScaleY)
-        } else r
-        for (block in visionResult.textBlocks) {
-            for (line in block.lines) {
-                val box = line.boundingBox ?: continue
-                val lineBbox = RectF(box)
-                val lineId = nextLineId++
-                val clusters = clusterLineByElementHeight(line, lineBbox, lineId)
-                for (clusterObs in clusters) {
-                    for ((subText, subBbox) in splitObservationByAamvaIndices(
-                            clusterObs.text, clusterObs.bbox)) {
-                        observations.add(
-                            OcrObservation(
-                                text = subText,
-                                bbox = toYoloSpace(subBbox),
-                                sourceLineIndex = clusterObs.sourceLineIndex,
-                                indexWithinSourceLine = clusterObs.indexWithinSourceLine,
-                            )
-                        )
-                    }
-                }
-            }
-        }
-        if (observations.isEmpty()) return emptyMap()
-
-        val demographicCandidates = parseAamvaDemographicFields(observations)
-        val bboxCandidates = matchObservationsToFields(observations, detections)
-
-        // FieldId int → yolo class name. MUST match cpp/yolo/field_classes.cpp's
-        // kFieldClassNames + kFieldClassToFieldId parallel arrays. Manually
-        // built here because the JNI nativeClassNameToFieldId only does the
-        // reverse direction; eval reporting is most useful keyed by yolo
-        // class string. flagged: if FieldId enum gains a new value,
-        // this map needs a row.
-        val fieldIdToClassName = mapOf(
-            1   to "list_1",
-            2   to "list_2",
-            3   to "list_3",
-            5   to "list_5",
-            9   to "list_9",
-            12  to "list_12",
-            15  to "list_15",
-            16  to "list_16",
-            17  to "list_17",
-            18  to "list_18",
-            19  to "list_19",
-            41  to "list_4a",
-            42  to "list_4b",
-            43  to "list_4d",
-            81  to "list_8f",
-            82  to "list_8s",
-            91  to "list_9a",
-            100 to "surname",
-            101 to "given_name",
-            102 to "birthday",
-            103 to "expire_date",
-            104 to "personal_num",
-            105 to "gender",
-            106 to "country",
-        )
-
-        // Bbox first; strict-text-pool wins by overwrite (mirrors the
-        // StrictAgrees → CrossValidated upgrade behaviour in the C++ resolver).
-        val out = HashMap<String, String>()
-        for (c in bboxCandidates) {
-            val name = fieldIdToClassName[c.fieldId] ?: continue
-            out[name] = c.text
-        }
-        for (c in demographicCandidates) {
-            val name = fieldIdToClassName[c.fieldId] ?: continue
-            out[name] = c.text
-        }
-        return out
-    }
-
-    /**
-     * Iter 7 D-lite probe (Android port of `runVisionKitPerRegion` in the
-     * iOS CLI). Runs YOLO first, then runs MLKit Text Recognition once per
-     * YOLO detection on a bitmap cropped to that detection's bbox. Avoids
-     * whole-card OCR and the downstream bbox-IoU matching entirely; tests
-     * whether field-localised OCR beats the whole-card + heuristics pipeline.
-     *
-     * Returns the yolo-class → text map. Each text is the first MLKit line's
-     * value run through the same strip+tighten chain the production pipeline
-     * uses (so per-class shape constraints still apply). A second pass
-     * re-tightens list_4d once a state is detected from the region pool.
-     *
-     * Test-only — paired with `ocrPipelineRegionForEval` in
-     * tools/dlscan-debug-cli/android-test/IdnetBatchEvalTest.kt.
-     */
-    @VisibleForTesting
-    fun ocrPipelineRegionForEval(bitmap: Bitmap): Map<String, String> {
-        val corners = runDocAligner(bitmap)
-        val ocrBitmap = if (corners != null) {
-            rectifyBitmap(bitmap, corners, OCR_RECTIFY_WIDTH, OCR_RECTIFY_HEIGHT)
-        } else bitmap
-        val yoloBitmap = if (corners != null) {
-            Bitmap.createScaledBitmap(ocrBitmap, YOLO_INPUT_SIZE, YOLO_INPUT_SIZE, true)
-        } else bitmap
-        val detections = runYolo(yoloBitmap) ?: return emptyMap()
-        if (detections.isEmpty()) return emptyMap()
-
-        // YOLO bbox → ocrBitmap pixel space inverse mapping. When doc-seg
-        // succeeded ocrBitmap is OCR_RECTIFY_WIDTH × OCR_RECTIFY_HEIGHT, and
-        // YOLO sees a 640×640 anisotropic squish of that. When doc-seg
-        // failed, runYolo letterboxed the raw bitmap → we'd need the
-        // letterbox params to invert exactly. For this probe (eval-only,
-        // doc-seg almost always succeeds on the IDNet corpus) we skip the
-        // failure case and fall back to the un-cropped path.
-        // Iter-9 fix: scale depends on whether doc-seg succeeded.
-        //   corners != null: YOLO ran on 640x640 scaled ocrBitmap → scale up.
-        //   corners == null: YOLO ran on raw bitmap and reversed letterbox
-        //     internally, so detections are already in ocrBitmap (=raw) space.
-        val yoloToOcrScaleX = if (corners != null) ocrBitmap.width.toFloat() / YOLO_INPUT_SIZE.toFloat() else 1.0f
-        val yoloToOcrScaleY = if (corners != null) ocrBitmap.height.toFloat() / YOLO_INPUT_SIZE.toFloat() else 1.0f
-
-        // Iter-13 findings: tried 5% blanket pad (hurt long fields), 3% on
-        // tiny classes only (mixed), 1.5% on tiny classes (worse). MLKit's
-        // recogniser needs FULL-IMAGE context, not just more cropped
-        // pixels. The cropping itself (vs Vision's regionOfInterest which
-        // operates on the full image with a hint) is what kills accuracy.
-        // Reverted to iter-9 baseline + per-class right-pad for the date
-        // and zip suffix recovery (those are bbox-edge issues, not
-        // context issues — they work fine).
-        val padX = 0.005f * ocrBitmap.width
-        val padY = 0.005f * ocrBitmap.height
-        val expandedRightClasses = setOf("list_3", "list_4a", "list_4b",
-                                          "list_17", "list_8s")
-
-        // First pass: per-region OCR + strip + (state-less) tighten.
-        data class RegionResult(val yoloClass: String, val rawText: String,
-                                val stripped: String, val latencyMs: Long)
-        val perRegion = mutableListOf<RegionResult>()
-        for (det in detections) {
-            val b = det.bbox
-            val rightPad = if (det.name in expandedRightClasses)
-                0.06f * ocrBitmap.width else padX
-            val left = (b.left * yoloToOcrScaleX - padX).coerceAtLeast(0f)
-            val top = (b.top * yoloToOcrScaleY - padY).coerceAtLeast(0f)
-            val right = (b.right * yoloToOcrScaleX + rightPad)
-                .coerceAtMost(ocrBitmap.width.toFloat())
-            val bottom = (b.bottom * yoloToOcrScaleY + padY)
-                .coerceAtMost(ocrBitmap.height.toFloat())
-            val w = (right - left).toInt()
-            val h = (bottom - top).toInt()
-            if (w < 4 || h < 4) {
-                perRegion.add(RegionResult(det.name, "", "", 0L))
-                continue
-            }
-            // Iter-14: white-mask region emulation instead of bitmap crop.
-            // MLKit needs the recogniser's input to look like a full-card
-            // image (its CNN was trained on full cards / pages). Cropping
-            // (iters 7-13) starved the recogniser of context and made it
-            // emit empty on most regions. Instead: clone the full
-            // ocrBitmap and paint white over everything OUTSIDE the YOLO
-            // bbox. The recogniser still sees a card-sized image, but
-            // there's only text in the bbox region — so its output is
-            // effectively bound to that field. Mirrors Vision's
-            // regionOfInterest semantics without an MLKit API change.
-            val crop = ocrBitmap.copy(Bitmap.Config.ARGB_8888, true)
-            val canvas = Canvas(crop)
-            val whitePaint = Paint().apply { color = Color.WHITE; style = Paint.Style.FILL }
-            // Iter-14b: mask top/bottom only, preserve full image width.
-            // Masking left/right strips cuts off horizontal context that
-            // MLKit's recogniser uses for character disambiguation
-            // (especially on dates and single-letter fields). Top/bottom
-            // masking still constrains MLKit to the bbox's row band, so
-            // the per-field result doesn't bleed adjacent rows; the
-            // full-width context gives the recogniser the language
-            // model anchoring it needs.
-            canvas.drawRect(0f, 0f, crop.width.toFloat(), top, whitePaint)
-            canvas.drawRect(0f, bottom, crop.width.toFloat(), crop.height.toFloat(), whitePaint)
-            val t0 = System.currentTimeMillis()
-            val visionResult = try {
-                Tasks.await(
-                    textRecognizer.process(InputImage.fromBitmap(crop, 0)),
-                    10L,
-                    java.util.concurrent.TimeUnit.SECONDS
-                )
-            } catch (t: Throwable) {
-                Log.w(TAG, "regionEval: ML Kit failed for ${det.name}: $t")
-                crop.recycle()
-                perRegion.add(RegionResult(det.name, "", "", 0L))
-                continue
-            }
-            val dt = System.currentTimeMillis() - t0
-            // iOS takes the joined text of all observations in the region.
-            // MLKit returns text grouped as blocks→lines→elements; flatten
-            // line-by-line to mirror that behaviour, preserving order.
-            val texts = mutableListOf<String>()
-            for (block in visionResult.textBlocks) {
-                for (line in block.lines) {
-                    texts.add(line.text)
-                }
-            }
-            crop.recycle()
-            val rawText = texts.joinToString(" ")
-            val stripped = stripAamvaPrefixForClass(rawText, det.name).text
-            val tightened = tightenByContentShape(stripped, det.name, null)
-            perRegion.add(RegionResult(det.name, rawText, tightened, dt))
-        }
-
-        // State detection on the joined raw region pool (iOS analog: scan
-        // the joined uppercase of all per-region texts for known state names).
-        val pool = perRegion.joinToString(" ") { it.rawText.uppercase() }
-        val detectedState = kStateNameToCode.firstOrNull { (name, _) ->
-            name in pool
-        }?.second
-
-        val out = HashMap<String, String>()
-        for (r in perRegion) {
-            // First-wins per yolo class; runYolo's detections are sorted by
-            // descending confidence already (see runYolo's NMS path), so the
-            // first detection of any class is the highest-conf one.
-            if (r.stripped.isNotEmpty() && r.yoloClass !in out) {
-                out[r.yoloClass] = r.stripped
-            }
-        }
-
-        // Second pass for list_4d: now that we know the state, re-tighten
-        // with the per-state license-shape regex. Mirrors the iOS second
-        // pass in the eval block.
-        if (detectedState != null) {
-            val r4 = perRegion.firstOrNull { it.yoloClass == "list_4d" }
-            if (r4 != null && r4.rawText.isNotEmpty()) {
-                val stripped = stripAamvaPrefixForClass(r4.rawText, "list_4d").text
-                val tightened = tightenByContentShape(stripped, "list_4d", detectedState)
-                if (tightened.isNotEmpty()) out["list_4d"] = tightened
-            }
-        }
-
-        return out
-    }
-
-    @ExperimentalGetImage
-    private fun runDetectionPipeline(bitmap: Bitmap): LicenseDataSpec? {
-        // 0a. Document segmentation → corners in source-bitmap pixel space.
-        val corners = runDocAligner(bitmap)
-        // round-5 (task #82): when DocAligner returns null, do NOT
-        // fall through to running YOLO on the raw camera frame. YOLO was
-        // trained on rectified DL crops; raw frames produce garbage
-        // detections that poison the voter. Cleaner to skip the frame.
-        if (corners == null) {
-            _scanProgress = maxOf(_scanProgress, 0.02)
-            return null
-        }
-        // Normalize corners to [0,1] in DISPLAY orientation (portrait).
-        // Camera sensor is landscape (w > h). Rotate 90° CW so that
-        // displayX = sensorY/h and displayY = 1 - sensorX/w. The JS
-        // side then only needs the aspect-fill crop transform.
-        run {
-            val w = bitmap.width.toFloat()
-            val h = bitmap.height.toFloat()
-            val landscape = w > h
-            _detectedCardCorners = DoubleArray(8) { i ->
-                val ci = (i / 2) * 2
-                if (landscape) {
-                    if (i % 2 == 0) (corners[ci + 1] / h).toDouble()
-                    else 1.0 - (corners[ci] / w).toDouble()
-                } else {
-                    if (i % 2 == 0) (corners[i] / w).toDouble()
-                    else (corners[i] / h).toDouble()
-                }
-            }
-            Log.d(TAG, "CORNERS ${w.toInt()}x${h.toInt()} disp=[${
-                _detectedCardCorners.joinToString(",") { "%.3f".format(it) }
-            }]")
-        }
-        _scanProgress = maxOf(_scanProgress, 0.05)
-        // 0b. Rectify to true ID-1 aspect ratio (1280×806) for ML Kit OCR.
-        //     round-9: square 640×640 rectify horizontally squished
-        //     small AAMVA index digits beyond MLKit's recognition floor,
-        //     producing the "8"→"1" misread on the address row.
-        val ocrBitmap = rectifyBitmap(
-            bitmap, corners, OCR_RECTIFY_WIDTH, OCR_RECTIFY_HEIGHT
-        )
-        // 0c. Produce the YOLO input by anisotropic squish (NOT center-crop,
-        //     NOT letterbox) of the OCR bitmap to 640×640. This reproduces
-        //     YOLO's square-trained distribution without a second perspective
-        //     warp.
-        val yoloBitmap = Bitmap.createScaledBitmap(
-            ocrBitmap, YOLO_INPUT_SIZE, YOLO_INPUT_SIZE, true
-        )
-        // Ratios used to map OCR observation bboxes (in ocrBitmap space) to
-        // YOLO output bboxes (in 640×640 space) for IoU matching.
-        val ocrToYoloScaleX = YOLO_INPUT_SIZE.toFloat() / ocrBitmap.width.toFloat()
-        val ocrToYoloScaleY = YOLO_INPUT_SIZE.toFloat() / ocrBitmap.height.toFloat()
-
-        // 1. YOLO field detector → bboxes in 640×640 input space.
-        val detections = runYolo(yoloBitmap) ?: run {
-            Log.w(TAG, "YOLO inference returned null")
-            return null
-        }
-        if (detections.isEmpty()) {
-            Log.i(TAG, "YOLO produced 0 detections")
-            return null
-        }
-
-        // 2. ML Kit text recognition on the FULL-RESOLUTION rectified bitmap
-        //    so character glyphs render at undistorted scale. OCR observation
-        //    bboxes come back in ocrBitmap (1280×806) space and we scale them
-        //    DOWN to YOLO (640×640) space for IoU matching.
-        val visionResult = Tasks.await(
-            textRecognizer.process(InputImage.fromBitmap(ocrBitmap, 0)),
-            5L,
-            java.util.concurrent.TimeUnit.SECONDS
-        )
-        val observations = mutableListOf<OcrObservation>()
-        var nextLineId = 0
-        // Scale OCR bboxes from ocrBitmap (1280×806) space INTO YOLO
-        // (640×640) space so IoU matching against runYolo's detections
-        // works without further bookkeeping downstream. Identity scale
-        // when corners==null (no doc-seg → ocrBitmap is the raw frame and
-        // runYolo's own letterbox handles the geometry).
-        //
-        // Important: all OcrObservation bboxes need to be in the same space.
-        // Cluster + AAMVA-split helpers operate on raw ML Kit element bboxes
-        // (1280×806 space), so we scale at the FINAL observation construction
-        // step — after clusterLineByElementHeight and splitObservationByAamvaIndices
-        // have both produced their bboxes in raw space.
-        fun toYoloSpace(r: RectF): RectF = if (corners != null) {
-            RectF(r.left * ocrToYoloScaleX, r.top * ocrToYoloScaleY,
-                  r.right * ocrToYoloScaleX, r.bottom * ocrToYoloScaleY)
-        } else r
-        for (block in visionResult.textBlocks) {
-            for (line in block.lines) {
-                val box = line.boundingBox ?: continue
-                val lineBbox = RectF(box)  // raw ML Kit space
-                val lineId = nextLineId++
-                // Cluster line.elements by glyph height before AAMVA-index
-                // splitting. ML Kit returns "D440-1234-5678-99 9 CLASS D"
-                // (license # row on user's WI license) as ONE line, but
-                // the value characters are 2-3× taller than the small
-                // AAMVA-index "9" and label "CLASS". MLKit doesn't expose
-                // font metadata, but the per-element bbox heights encode
-                // it directly. Splitting by height-cluster prevents the
-                // tail-end "9 CLASS D" (which OCRs noisily as e.g. "scussD"
-                // when fused with the value) from leaking into the
-                // license # value. Each emergent cluster becomes its own
-                // OcrObservation tagged with sourceLineIndex so the
-                // demographic parser can do a bounded lookahead across
-                // adjacent clusters from the same source line (review
-                // round-7 — handles "9 CLASS" + "D" → vehicle class "D").
-                val clusters = clusterLineByElementHeight(line, lineBbox, lineId)
-                for (clusterObs in clusters) {
-                    for ((subText, subBbox) in splitObservationByAamvaIndices(clusterObs.text, clusterObs.bbox)) {
-                        // Scale the bbox into YOLO space here — clusterObs and
-                        // subBbox are both in raw ML Kit (ocrBitmap) space.
-                        observations.add(
-                            OcrObservation(
-                                text = subText,
-                                bbox = toYoloSpace(subBbox),
-                                sourceLineIndex = clusterObs.sourceLineIndex,
-                                indexWithinSourceLine = clusterObs.indexWithinSourceLine,
-                            )
-                        )
-                    }
-                }
-            }
-        }
-        if (observations.isEmpty()) {
-            Log.i(TAG, "ML Kit produced 0 observations")
-            return null
-        }
-
-        // 3a. Demographic text-pool parse — scan observations for AAMVA-D-20
-        //     tokens with strict four-gate matching (round-4 design):
-        //     (a) canonical index in {9,15,16,17,18,19}
-        //     (b) label compatible with that index
-        //     (c) value in expected domain
-        //     (d) unique candidate across the pool (>=2 = drop)
-        //     This BYPASSES YOLO bbox matching for the sex/hgt/wgt/eye/hair/
-        //     class fields, which works around the under-trained-jurisdiction
-        //     bbox geometric mismatch (e.g. list_16 hitting the eye/hair row
-        //     on WI). Fields the parser locks in here override anything the
-        //     bbox matcher returns for the same yolo class.
-        val demographicCandidates = parseAamvaDemographicFields(observations)
-
-        // 3b. IoU-match observations → typed FieldCandidates (BboxIoU source).
-        val bboxCandidates = matchObservationsToFields(observations, detections)
-
-        // v2 Sequence G (task #54) — concat instead of map-overlay. The C++
-        // resolver buckets by (FieldId, FieldSource), so multi-source
-        // candidates for the same field are PRESERVED — that's the input
-        // to the StrictAgrees → CrossValidated tier upgrade. Do NOT
-        // deduplicate here.
-        val frameCandidates: List<FieldCandidate> = bboxCandidates + demographicCandidates
-
-        // 4a. Structured path — accumulate this frame's candidates into the
-        //     per-instance multi-frame voter, then run C++ extract on the
-        //     current cross-frame CONSENSUS rather than this single frame.
-        //     ML Kit's frame-to-frame OCR variance ("JOHN QUINCY" vs
-        //     "JOHN QUINCYY", "1 DOEFORD" vs "DOEFORD" vs "1DOEFORD") was
-        //     defeating the previous first-wins lock; majority across a
-        //     bounded history converges on the most-recurrent reading per
-        //     field. round-8 design (task #33).
-        if (frameCandidates.isNotEmpty()) {
-            voter.accept(frameCandidates)
-            val consensus = voter.consensus()
-            // Progress by stabilized field count (review consensus)
-            val totalExpected = 14.0 // core AAMVA fields
-            val stabilized = consensus.map { it.fieldId }.distinct().size
-            _scanProgress = minOf(maxOf(_scanProgress, 0.10 + (stabilized / totalExpected) * 0.85), 1.0)
-            if (consensus.isNotEmpty()) {
-                val n = consensus.size
-                val fieldIds = IntArray(n)
-                val sources = IntArray(n)
-                val texts = arrayOfNulls<String>(n)
-                for (i in 0 until n) {
-                    fieldIds[i] = consensus[i].fieldId
-                    sources[i] = consensus[i].source
-                    texts[i] = consensus[i].text
-                }
-                _pipelineStage = 1.0 // extracting fields
-                @Suppress("UNCHECKED_CAST")
-                val r = nativeExtractFieldsCandidates(
-                    fieldIds, sources, texts as Array<String>)
-                _pipelineStage = 2.0 // normalizing (C++ already normalized)
-                maybeFlushTelemetry()
-
-                // Capture card image + headshot ONCE per scan session.
-                if (r != null && !cardCapturedThisSession) {
-                    cardCapturedThisSession = true
-                    _pipelineStage = 3.0 // saving card
-                    val cardPath = saveRectifiedCard(bitmap, corners)
-                    _pipelineStage = 4.0 // detecting face
-                    val headshotPath = extractHeadshot(ocrBitmap, detections, cardPath)
-                    _pipelineStage = 5.0 // done
-                    return r.copy(
-                        cardImagePath = cardPath,
-                        headshotImagePath = headshotPath
-                    )
-                }
-                return r
-            }
-        }
-
-        // 4b. AAMVA fallback — YOLO under-detected (common on jurisdictions
-        //     under-represented in training data). The OCR observations on
-        //     a rectified card always carry AAMVA D-20 field indices
-        //     ("1 DOEFORD", "2 JOHN QUINC", "4d D440-1234-...", "8 2119
-        //     ASHWOOD", ...). nativeExtractOcrFields() parses those
-        //     index tokens directly without needing YOLO bboxes. Better to
-        //     return SOME fields than fail the whole frame.
-        val nowDbg = System.currentTimeMillis()
-        if (nowDbg - lastBboxLog > 2000L) {
-            lastBboxLog = nowDbg
-            val sb = StringBuilder()
-            sb.append("DEBUG YOLO ").append(detections.size).append(": ")
-            for (d in detections.take(8)) {
-                sb.append(d.name).append("@(")
-                    .append(d.bbox.left.toInt()).append(",")
-                    .append(d.bbox.top.toInt()).append("..")
-                    .append(d.bbox.right.toInt()).append(",")
-                    .append(d.bbox.bottom.toInt()).append(") ")
-            }
-            Log.i(TAG, sb.toString())
-            // OCR-text-emitting debug log removed before public release
-            // (would emit fragments of license fields to logcat).
-        }
-        Log.i(TAG, "no YOLO bbox matches — falling back to AAMVA index parser")
-        // The C++ legacy extract_ocr_fields path expects LABEL-style lines
-        // ("LN DOEFORD", "DL D1234567"), not the AAMVA-index form MLKit pulls
-        // off a real US licence ("1 DOEFORD", "4d D440-..."). Until the C++
-        // path learns the AAMVA-index grammar (task #26), pass the lines
-        // through verbatim — extract_ocr_fields will partial-match what it
-        // can (city/state/zip regex is layout-agnostic) and return nullopt
-        // for fields it can't see. That's still better than the v1 path
-        // which returned null on any YOLO underdetection.
-        val lines = observations.map { it.text }.toTypedArray()
-        val r = nativeExtractOcrFields(lines)
-        maybeFlushTelemetry()
-        return r
-    }
-
-    /**
-     * Run TFLite YOLOv8n inference + C++ NMS, returning detections in the
-     * ORIGINAL bitmap's pixel space (post-letterbox-reversal).
-     *
-     * The bundled model is **full-integer quantized** (int8 input AND int8
-     * output). Buffer types must match the model's tensor dtypes, otherwise
-     * Interpreter.run() throws on byte-size mismatch. Output int8 values are
-     * dequantized manually via the output tensor's QuantizationParams
-     * (TensorBuffer.floatArray would return raw byte values cast to float,
-     * NOT the dequantized values — that path was caught in review).
-     */
-    private fun runYolo(bitmap: Bitmap): List<Detection>? {
-        val interpreter = ensureTfliteInterpreter() ?: return null
-
-        // DEBUG: dump the FIRST bitmap to the app's external files dir so
-        // we can adb-pull the actual JPEG and inspect what YOLO is being fed.
-        // External files dir doesn't require runtime permission.
-        // PII gate (task #47): only on debug builds — release builds must
-        // never persist DL imagery to disk.
-        if (BuildConfig.DEBUG && !yoloDebugDumped) {
-            yoloDebugDumped = true
-            try {
-                val ctx = com.dlscan.DlScanPackage.appContext
-                val dir = ctx?.getExternalFilesDir(null)
-                if (dir != null) {
-                    val f = java.io.File(dir, "dlscan-yolo-input.jpg")
-                    java.io.FileOutputStream(f).use { os ->
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, os)
-                    }
-                    Log.i(TAG, "DEBUG: wrote YOLO input " + bitmap.width + "x" + bitmap.height
-                        + " to " + f.absolutePath + " (" + f.length() + " bytes)")
-                } else {
-                    Log.w(TAG, "DEBUG bitmap dump skipped: no external files dir")
-                }
-            } catch (t: Throwable) {
-                Log.w(TAG, "DEBUG bitmap dump failed", t)
-            }
-        }
-
-        // Letterbox-resize first; matches the iOS .scaleFit path.
-        val (canvas, scale, padX, padY) = letterbox(bitmap, YOLO_INPUT_SIZE)
-
-        // DEBUG: dump the letterboxed canvas (literally what goes through
-        // the model) once. Lets us see if scaling/aspect-ratio is wrong.
-        // PII gate (task #47): debug builds only.
-        if (BuildConfig.DEBUG && !yoloCanvasDumped) {
-            yoloCanvasDumped = true
-            try {
-                val ctx = com.dlscan.DlScanPackage.appContext
-                val dir = ctx?.getExternalFilesDir(null)
-                if (dir != null) {
-                    val f = java.io.File(dir, "dlscan-yolo-canvas.png")
-                    java.io.FileOutputStream(f).use { os ->
-                        canvas.compress(Bitmap.CompressFormat.PNG, 100, os)
-                    }
-                    Log.i(TAG, "DEBUG: wrote YOLO canvas to " + f.absolutePath
-                        + " (" + canvas.width + "x" + canvas.height + ")")
-                }
-            } catch (t: Throwable) {
-                Log.w(TAG, "DEBUG canvas dump failed", t)
-            }
-        }
-
-        // Read tensor types from the bound model so we don't hardcode.
-        val inputTensor = interpreter.getInputTensor(0)
-        val outputTensor = interpreter.getOutputTensor(0)
-        val inputType = inputTensor.dataType()
-        val outputType = outputTensor.dataType()
-
-        // Build input ByteBuffer manually with explicit quantization.
-        // Read bitmap pixels (uint8 ARGB) and apply the model's input
-        // quantization formula:  q = round(value / scale + zeroPoint).
-        // For a typical YOLOv8 int8 export (scale=1/255, zeroPoint=-128),
-        // this reduces to (uint - 128). Generic form below also handles
-        // UINT8 inputs (scale=1/255, zeroPoint=0).
-        val inputBuffer = ByteBuffer.allocateDirect(inputTensor.numBytes())
-            .order(ByteOrder.nativeOrder())
-        run {
-            val n = YOLO_INPUT_SIZE
-            val pixels = IntArray(n * n)
-            canvas.getPixels(pixels, 0, n, 0, 0, n, n)
-            when (inputType) {
-                DataType.INT8, DataType.UINT8 -> {
-                    val qp = inputTensor.quantizationParams()
-                    val zero = qp.zeroPoint
-                    val scale = qp.scale
-                    // float = pixel / 255 (channel value in [0, 1])
-                    // q     = round(float / scale + zero)
-                    // For scale=1/255: q = round(pixel - 0) + zero = pixel + zero
-                    for (px in pixels) {
-                        val r = (px shr 16) and 0xFF
-                        val g = (px shr 8) and 0xFF
-                        val b = px and 0xFF
-                        val qr = ((r.toFloat() / 255f) / scale + zero).toInt()
-                            .coerceIn(-128, 127)
-                        val qg = ((g.toFloat() / 255f) / scale + zero).toInt()
-                            .coerceIn(-128, 127)
-                        val qb = ((b.toFloat() / 255f) / scale + zero).toInt()
-                            .coerceIn(-128, 127)
-                        inputBuffer.put(qr.toByte())
-                        inputBuffer.put(qg.toByte())
-                        inputBuffer.put(qb.toByte())
-                    }
-                }
-                DataType.FLOAT32 -> {
-                    // FP32 input: just normalize to [0, 1].
-                    val fb = inputBuffer.asFloatBuffer()
-                    for (px in pixels) {
-                        val r = ((px shr 16) and 0xFF).toFloat() / 255f
-                        val g = ((px shr 8) and 0xFF).toFloat() / 255f
-                        val b = (px and 0xFF).toFloat() / 255f
-                        fb.put(r); fb.put(g); fb.put(b)
-                    }
-                }
-                else -> {
-                    Log.e(TAG, "unsupported input dtype: $inputType")
-                    return null
-                }
-            }
-            inputBuffer.rewind()
-        }
-
-        // Output: allocate exactly numBytes() for the model's output tensor.
-        val outputBuffer = ByteBuffer.allocateDirect(outputTensor.numBytes())
-            .order(ByteOrder.nativeOrder())
-
-        try {
-            interpreter.run(inputBuffer, outputBuffer.rewind())
-        } catch (t: Throwable) {
-            Log.e(TAG, "TFLite Interpreter.run threw", t)
-            return null
-        }
-
-        // Dequantize int8 output → float32 using the tensor's quantization
-        // params. ByteBuffer is signed; for INT8 we keep the sign, for UINT8
-        // we mask to 0..255.
-        val numFloats = outputTensor.shape().fold(1) { acc, dim -> acc * dim }
-        val rawOutput = FloatArray(numFloats)
-        outputBuffer.rewind()
-        when (outputType) {
-            DataType.FLOAT32 -> {
-                outputBuffer.asFloatBuffer().get(rawOutput)
-            }
-            DataType.INT8, DataType.UINT8 -> {
-                val qp = outputTensor.quantizationParams()
-                val out = ByteArray(numFloats)
-                outputBuffer.get(out)
-                val zero = qp.zeroPoint
-                val s = qp.scale
-                if (outputType == DataType.UINT8) {
-                    for (i in 0 until numFloats) {
-                        rawOutput[i] = ((out[i].toInt() and 0xFF) - zero) * s
-                    }
-                } else {
-                    for (i in 0 until numFloats) {
-                        rawOutput[i] = (out[i].toInt() - zero) * s
-                    }
-                }
-            }
-            else -> {
-                Log.e(TAG, "unsupported output dtype: $outputType")
-                return null
-            }
-        }
-        // The int8 TFLite export quantized bbox outputs into [0, 1] (the
-        // training fraction=0.05 calibration capped scale=0.00419, zero=-111
-        // → max ≈ 0.997). C++ NMS expects bbox values in pixel space
-        // [0, YOLO_INPUT_SIZE]. Scale the bbox channels (rows 0..3 in the
-        // ChannelMajor [34, 8400] layout) up to pixel space here. Class
-        // channels (rows 4..33) are already in [0, 1] confidence space and
-        // need no rescaling. iOS doesn't need this because its CoreML FP32
-        // path doesn't go through the same quantization range.
-        if (outputType == DataType.INT8 || outputType == DataType.UINT8) {
-            val pixelScale = YOLO_INPUT_SIZE.toFloat()
-            val bboxEnd = 4 * YOLO_NUM_ANCHORS
-            for (i in 0 until bboxEnd) {
-                rawOutput[i] *= pixelScale
-            }
-        }
-
-        // DEBUG: log the raw output's max score so we can confirm whether
-        // the model is actually firing on this input or quantizing to zero.
-        val nowDbg = System.currentTimeMillis()
-        if (nowDbg - lastMaxScoreLog > 1000L) {
-            lastMaxScoreLog = nowDbg
-            var maxRaw = Float.NEGATIVE_INFINITY
-            val classRowStart = 4 * YOLO_NUM_ANCHORS
-            val classRowEnd = (4 + YOLO_NUM_CLASSES) * YOLO_NUM_ANCHORS
-            for (i in classRowStart until classRowEnd) {
-                if (rawOutput[i] > maxRaw) maxRaw = rawOutput[i]
-            }
-            Log.i(TAG, "DEBUG: maxRaw class score = " + maxRaw)
-        }
-
-        val flat = nativeDecodeAndNms(
-            rawOutput,
-            YOLO_NUM_CLASSES,
-            YOLO_NUM_ANCHORS,
-            /*layout=*/ 0,           // 0 = ChannelMajor
-            CONF_THRESHOLD,
-            IOU_THRESHOLD,
-            MAX_DETECTIONS
-        )
-        if (flat.isEmpty()) return emptyList()
-
-        // Reverse-letterbox: model coords → original-bitmap coords.
-        val out = mutableListOf<Detection>()
-        var i = 0
-        while (i + 5 < flat.size) {
-            val classId = flat[i].toInt()
-            val conf = flat[i + 1]
-            val mx1 = flat[i + 2]
-            val my1 = flat[i + 3]
-            val mx2 = flat[i + 4]
-            val my2 = flat[i + 5]
-            val x1 = (mx1 - padX) / scale
-            val y1 = (my1 - padY) / scale
-            val x2 = (mx2 - padX) / scale
-            val y2 = (my2 - padY) / scale
-            val name = nativeClassName(classId)
-            if (name.isNotEmpty()) {
-                out.add(Detection(name, RectF(x1, y1, x2, y2), conf))
-            }
-            i += 6
-        }
-        return out
     }
 
     /**
@@ -1559,10 +650,9 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
     }
 
     /**
-     * Lazy-init the DocAligner TFLite Interpreter. Same pattern as
-     * ensureTfliteInterpreter — returns null on missing asset or load
-     * failure, doesn't latch the failure permanently if the package
-     * context is just not ready yet.
+     * Lazy-init the DocAligner TFLite Interpreter. Returns null on missing
+     * asset or load failure, and doesn't latch the failure permanently if the
+     * package context is just not ready yet.
      */
     private fun ensureDocAlignerInterpreter(): Interpreter? {
         docAlignerLock.withLock {
@@ -1583,36 +673,6 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
                 interpreter
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to load DocAligner TFLite", t)
-                null
-            }
-        }
-    }
-
-    /**
-     * Lazy-init the TFLite Interpreter. Returns null if the asset isn't
-     * present or the load fails — pipeline degrades to "no result" rather
-     * than throwing.
-     */
-    private fun ensureTfliteInterpreter(): Interpreter? {
-        tfliteLock.withLock {
-            tfliteInterpreter?.let { return it }
-            if (tfliteLoadAttempted) return null
-            tfliteLoadAttempted = true
-
-            val context = com.dlscan.DlScanPackage.appContext ?: run {
-                Log.e(TAG, "DlScanPackage.appContext is null; package not yet booted?")
-                // Don't latch tfliteLoadAttempted permanently — context may
-                // arrive on a later frame if the package's hooks fire late.
-                tfliteLoadAttempted = false
-                return null
-            }
-            return try {
-                val modelBuffer = loadModelFile(context, "dl_scan_field_detector.tflite")
-                val interpreter = Interpreter(modelBuffer, Interpreter.Options())
-                tfliteInterpreter = interpreter
-                interpreter
-            } catch (t: Throwable) {
-                Log.e(TAG, "Failed to load DlScanFieldDetector TFLite", t)
                 null
             }
         }
@@ -1792,12 +852,12 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
 
     /**
      * Demographic-row text-pool parser. Scans the full OCR observation pool
-     * for AAMVA D-20 tokens covering the sex/height/weight/eye/hair/class
-     * fields and returns a map of (yolo-class → value) assignments that
+     * for AAMVA D-20 tokens covering the name/license/date/demographic
+     * fields and returns typed candidates that
      * bypass YOLO bbox matching for those classes.
      *
      * Four-gate strict matching (round-4 design, 2026-05-10):
-     *   (a) canonical index ∈ {9, 15, 16, 17, 18, 19}
+     *   (a) canonical index ∈ {1, 2, 3, 4a, 4b, 4d, 9, 12, 15, 16, 17, 18, 19}
      *   (b) lexer-recognized label compatible with the index
      *       (e.g. "16" requires "HGT"/"HEIGHT"/"HT")
      *   (c) value matches the expected domain regex for the index
@@ -1813,7 +873,47 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
      * prefix-mismatch telemetry: a dropped field is itself a labeled
      * signal that the YOLO model needs retraining for this jurisdiction.
      */
+    /**
+     * Demographic text-pool parser. Thin adapter over the shared C++
+     * `dlscan::parse_aamva_demographic_fields` (via nativeParse...). The
+     * marker-anchored 4-gate strict scan — including the 1-step look-ahead
+     * that links a bare "4d" marker to its value on the NEXT observation, the
+     * fused-row sex single-[MFX] extraction, and the name-marker-2 trailing-
+     * junk strip — now lives in ONE place (cpp/ocr/ocr_field_extractor.cpp)
+     * shared with iOS and pinned by cpp/tests/aamva_demographic_test.cpp.
+     *
+     * Passes observation texts in reading order; bbox geometry is not needed
+     * for the text-only marker parse, so the C++ look-ahead keys on
+     * observation sequence rather than the old sourceLineIndex pairing.
+     */
     private fun parseAamvaDemographicFields(
+        observations: List<OcrObservation>
+    ): List<FieldCandidate> {
+        val texts = observations.map { it.text }.toTypedArray()
+        val flat = nativeParseAamvaDemographicFields(texts) ?: return emptyList()
+        val out = ArrayList<FieldCandidate>(flat.size / 3)
+        var i = 0
+        while (i + 2 < flat.size) {
+            val fieldId = flat[i].toIntOrNull() ?: FieldSource.Unknown
+            val source = flat[i + 1].toIntOrNull() ?: FieldSource.StrictTextPool
+            val text = flat[i + 2]
+            if (text.isNotEmpty() && fieldId != 0) {
+                out += FieldCandidate(fieldId, source, text)
+            }
+            i += 3
+        }
+        return out
+    }
+
+    /**
+     * Legacy Kotlin-native marker parser — retained ONLY as dead reference
+     * during the C++ migration; no longer called (the adapter above is the
+     * active path). Kept compiling so the per-index emit + telemetry rationale
+     * stays reviewable beside the C++ port. Safe to delete after device
+     * verification of the shared C++ parser.
+     */
+    @Suppress("unused")
+    private fun parseAamvaDemographicFieldsLegacy(
         observations: List<OcrObservation>
     ): List<FieldCandidate> {
         // Map AAMVA index → typed FieldId (v2 Sequence G — task #54).
@@ -1823,9 +923,12 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
         // (1.00) upgrade when both StrictTextPool and BboxIoU candidates
         // converge on the same field (round-2 lock).
         val indexToFieldId = mapOf(
+            "1"  to 1,    // FieldId::List1   (last name)
+            "2"  to 2,    // FieldId::List2   (first + middle names)
             "3"  to 3,    // FieldId::List3   (DOB)
             "4a" to 41,   // FieldId::List4a  (issue date)
             "4b" to 42,   // FieldId::List4b  (expiration date)
+            "4d" to 43,   // FieldId::List4d  (licence number)
             "9"  to 9,    // FieldId::List9   (vehicle class)
             "12" to 12,   // FieldId::List12  (restrictions)
             "15" to 15,   // FieldId::List15  (sex)
@@ -1848,7 +951,6 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
             if (obs.sourceLineIndex >= 0) {
                 byKey[ObsKey(obs.sourceLineIndex, obs.indexWithinSourceLine)] = obs
             }
-        }
         }
         // Collect candidate tokens grouped by their AAMVA index. Each
         // gate-fall increments a telemetry counter so we can later see WHY
@@ -1875,7 +977,7 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
                 // round-6 follow-on: per-index value pre-extraction.
                 // OCR commonly concatenates adjacent fields into one
                 // observation (e.g. WI: "16 HGT 5'-04 17 WGT 160 lb"
-                // reads as one line; "3 DOB 08/12/1980 ea ENb NONE"
+                // reads as one line; "3 DOB 03/27/1976 ea ENb NONE"
                 // glues DOB onto the endorsements column). The lexer
                 // extracts everything after the label as the value,
                 // and the anchored dom regex then rejects the trailing
@@ -2329,33 +1431,265 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
     }
 
     // -------------------------------------------------------------------------
-    // resetLicenseFieldRecognition — invalidate cache + in-flight job.
+    // resetLicenseFieldRecognition — reset scan-session state for a new scan.
     // -------------------------------------------------------------------------
 
     override fun resetLicenseFieldRecognition() {
-        ocrLock.withLock {
-            ocrGeneration += 1L
-            cachedOcrResult = null
-            lastOcrTime = 0L
-            cardCapturedThisSession = false
-            _scanProgress = 0.0
-            _pipelineStage = 0.0
-            _detectedCardCorners = doubleArrayOf()
-            // Reset the dedupe marker so the next scan's first fresh
-            // result is returned to JS (otherwise the previous read marker
-            // would compare to a generation that hasn't happened yet —
-            // and the lazy-equality would miss).
-            lastReadOcrResultGeneration = -1L
-        }
+        // _scanProgress / _pipelineStage / _detectedCardCorners are @Volatile,
+        // so they're reset directly without a lock.
+        cardCapturedThisSession = false
+        _scanProgress = 0.0
+        _pipelineStage = 0.0
+        _detectedCardCorners = doubleArrayOf()
         // Clear the per-instance multi-frame voter so the next scan
         // starts with a fresh history. Without this, votes from a
         // previous card would influence the new scan's consensus.
         voter.reset()
+        // Clear the JS-orchestration rectify cache so stale bitmaps don't survive a
+        // scan-session boundary; reset the throttle clock too.
+        rectifyLock.withLock {
+            rectifiedCache.clear()
+            lastRectifyTime = 0L
+            // Drop the retained TTA crop so a stale card from the previous
+            // session can't be re-OCR'd into the next scan's result.
+            ttaRetainedRgb = null
+            ttaRetainedWidth = 0
+            ttaRetainedHeight = 0
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Unified TFLite runtime (react-native-fast-tflite), JS-orchestrated
+    // -------------------------------------------------------------------------
+    //
+    // JS loads the models + calls model.runSync; these bridge the shared,
+    // tested C++ pre/post (the detect_c C-ABI). No fast-tflite type is
+    // referenced (the c++-only TfliteModel can't cross into a Kotlin
+    // HybridObject — see docs/.../2026-05-30-ios-build-findings.md).
+    //
+    // Bridges to the detect_c C-ABI via JNI (nativePreprocessField etc., in
+    // dlscan_jni_bridge.cpp). Marshals the Nitro ArrayBuffer <-> primitive
+    // arrays. UNVALIDATED against a JDK-21 gradle build — confirm on first build.
+    // (iOS implements the same spec methods via Cxx interop.)
+    @DoNotStrip @Keep
+    private external fun nativePreprocessField(rgb: ByteArray, w: Int, h: Int): FloatArray
+    @DoNotStrip @Keep
+    private external fun nativeDecodeField(output: FloatArray, scaleX: Float, scaleY: Float): FloatArray
+    // TTA augmentation — synthesize an augmented RGB8 copy via shared C++
+    // dlscan_augment_rgb. mode = DLSCAN_AUG_* int. Returns w*h*3 bytes, or an
+    // empty array on error. Used by runTtaVerification.
+    @DoNotStrip @Keep
+    private external fun nativeAugmentRgb(rgb: ByteArray, w: Int, h: Int, mode: Int): ByteArray
+    @DoNotStrip @Keep
+    private external fun nativePreprocessDocAligner(rgb: ByteArray, w: Int, h: Int): FloatArray
+    @DoNotStrip @Keep
+    private external fun nativeDecodeCorners(output: FloatArray): FloatArray
+
+    override fun preprocessFieldInput(rgb: ArrayBuffer, width: Double, height: Double): ArrayBuffer =
+        floatsToArrayBuffer(nativePreprocessField(arrayBufferToBytes(rgb), width.toInt(), height.toInt()))
+
+    override fun decodeFieldOutput(
+        output: ArrayBuffer,
+        scaleX: Double,
+        scaleY: Double,
+    ): Array<FieldDetectionSpec> {
+        val flat = nativeDecodeField(arrayBufferToFloats(output), scaleX.toFloat(), scaleY.toFloat())
+        val n = flat.size / 6
+        return Array(n) { i ->
+            FieldDetectionSpec(
+                classId = flat[i * 6].toDouble(),
+                confidence = flat[i * 6 + 1].toDouble(),
+                x1 = flat[i * 6 + 2].toDouble(),
+                y1 = flat[i * 6 + 3].toDouble(),
+                x2 = flat[i * 6 + 4].toDouble(),
+                y2 = flat[i * 6 + 5].toDouble(),
+            )
+        }
+    }
+
+    override fun preprocessDocAlignerInput(rgb: ArrayBuffer, width: Double, height: Double): ArrayBuffer =
+        floatsToArrayBuffer(nativePreprocessDocAligner(arrayBufferToBytes(rgb), width.toInt(), height.toInt()))
+
+    override fun decodeCorners(output: ArrayBuffer): DoubleArray {
+        val r = nativeDecodeCorners(arrayBufferToFloats(output))
+        return DoubleArray(r.size) { r[it].toDouble() }
+    }
+
+    // Nitro ArrayBuffer <-> JVM primitive-array marshaling. duplicate() so the
+    // source buffer's position isn't disturbed; nativeOrder for the float view.
+    private fun arrayBufferToBytes(ab: ArrayBuffer): ByteArray {
+        val bb = ab.getBuffer(false).duplicate()
+        bb.clear()
+        val out = ByteArray(ab.size)
+        bb.get(out)
+        return out
+    }
+
+    private fun arrayBufferToFloats(ab: ArrayBuffer): FloatArray {
+        val byteSize = ab.size
+        if (byteSize % 4 != 0) return FloatArray(0)
+        val bb = ab.getBuffer(false).duplicate().order(ByteOrder.nativeOrder())
+        bb.clear()
+        val fb = bb.asFloatBuffer()
+        val out = FloatArray(byteSize / 4)
+        fb.get(out)
+        return out
+    }
+
+    private fun floatsToArrayBuffer(floats: FloatArray): ArrayBuffer {
+        val ab = ArrayBuffer.allocate(floats.size * 4)
+        val bb = ab.getBuffer(false).duplicate().order(ByteOrder.nativeOrder())
+        bb.clear()
+        bb.asFloatBuffer().put(floats)
+        bb.rewind()
+        return ab
     }
 
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    private fun variantOfRect(spec: RectifiedFrameSpec?): Variant_NullType_RectifiedFrameSpec =
+        if (spec != null) Variant_NullType_RectifiedFrameSpec.create(spec)
+        else Variant_NullType_RectifiedFrameSpec.create(NullType.NULL)
+
+    /** ARGB_8888 Bitmap -> row-major RGB8 ArrayBuffer (3 B/px). */
+    private fun bitmapToRGB8(bmp: Bitmap): ArrayBuffer {
+        val w = bmp.width
+        val h = bmp.height
+        val px = IntArray(w * h)
+        bmp.getPixels(px, 0, w, 0, 0, w, h)
+        val out = ByteArray(w * h * 3)
+        var di = 0
+        for (p in px) {
+            out[di++] = ((p shr 16) and 0xFF).toByte()
+            out[di++] = ((p shr 8) and 0xFF).toByte()
+            out[di++] = (p and 0xFF).toByte()
+        }
+        val ab = ArrayBuffer.allocate(out.size)
+        val bb = ab.getBuffer(false).duplicate()
+        bb.clear()
+        bb.put(out)
+        bb.rewind()
+        return ab
+    }
+
+    override fun rectifyFrame(frame: HybridFrameSpec): Variant_NullType_RectifiedFrameSpec {
+        val now = System.currentTimeMillis()
+        val throttled = rectifyLock.withLock { now - lastRectifyTime < 300L }
+        if (throttled) return variantOfRect(null)
+        val nativeFrame = frame as? NativeFrame
+        val mediaImage = nativeFrame?.image?.image ?: return variantOfRect(null)
+        val rotationDegrees = nativeFrame.image.imageInfo.rotationDegrees
+        val bitmap = mediaImageToBitmap(mediaImage, rotationDegrees) ?: return variantOfRect(null)
+        val corners = runDocAligner(bitmap) ?: run {
+            _scanProgress = maxOf(_scanProgress, 0.02)
+            return variantOfRect(null)
+        }
+        run {
+            val w = bitmap.width.toFloat()
+            val h = bitmap.height.toFloat()
+            val landscape = w > h
+            _detectedCardCorners = DoubleArray(8) { i ->
+                val ci = (i / 2) * 2
+                if (landscape) {
+                    if (i % 2 == 0) (corners[ci + 1] / h).toDouble() else 1.0 - (corners[ci] / w).toDouble()
+                } else {
+                    if (i % 2 == 0) (corners[i] / w).toDouble() else (corners[i] / h).toDouble()
+                }
+            }
+        }
+        _scanProgress = maxOf(_scanProgress, 0.05)
+        val ocrBitmap = rectifyBitmap(bitmap, corners, OCR_RECTIFY_WIDTH, OCR_RECTIFY_HEIGHT)
+        val rgb = bitmapToRGB8(ocrBitmap)
+        val token = rectifyLock.withLock {
+            lastRectifyTime = now
+            val t = nextRectifyToken
+            nextRectifyToken += 1.0
+            rectifiedCache[t] = RectEntry(bitmap, corners, ocrBitmap)
+            if (rectifiedCache.size > 4) {
+                rectifiedCache.keys.minOrNull()?.let { rectifiedCache.remove(it) }
+            }
+            t
+        }
+        return variantOfRect(
+            RectifiedFrameSpec(rgb, ocrBitmap.width.toDouble(), ocrBitmap.height.toDouble(), token)
+        )
+    }
+
+    override fun ocrExtractFields(
+        token: Double,
+        detections: Array<FieldDetectionSpec>,
+    ): Variant_NullType_LicenseDataSpec {
+        val entry = rectifyLock.withLock { rectifiedCache.remove(token) } ?: return variantOf(null)
+        val ocrBitmap = entry.ocrBitmap
+        // JS NanoDet detections are already in ocrBitmap pixel space (decodeFieldOutput
+        // mapped them back via inputSize/width). Map to internal Detection; no 640 rescale.
+        val dets = detections.mapNotNull { d ->
+            val name = nativeClassName(d.classId.toInt())
+            if (name.isEmpty()) null
+            else Detection(
+                name,
+                RectF(d.x1.toFloat(), d.y1.toFloat(), d.x2.toFloat(), d.y2.toFloat()),
+                d.confidence.toFloat()
+            )
+        }
+        if (dets.isEmpty()) return variantOf(null)
+
+        val observations = wholeCardObservations(ocrBitmap)
+        if (observations.isEmpty()) return variantOf(null)
+
+        val demographicCandidates = parseAamvaDemographicFields(observations)
+        val bboxCandidates = matchObservationsToFields(observations, dets)
+        val frameCandidates: List<FieldCandidate> = bboxCandidates + demographicCandidates
+
+        if (frameCandidates.isNotEmpty()) {
+            voter.accept(frameCandidates)
+            val consensus = voter.consensus()
+            val totalExpected = 14.0
+            val stabilized = consensus.map { it.fieldId }.distinct().size
+            _scanProgress = minOf(maxOf(_scanProgress, 0.10 + (stabilized / totalExpected) * 0.85), 1.0)
+            if (consensus.isNotEmpty()) {
+                val n = consensus.size
+                val fieldIds = IntArray(n)
+                val sources = IntArray(n)
+                val texts = arrayOfNulls<String>(n)
+                for (i in 0 until n) {
+                    fieldIds[i] = consensus[i].fieldId
+                    sources[i] = consensus[i].source
+                    texts[i] = consensus[i].text
+                }
+                _pipelineStage = 1.0
+                @Suppress("UNCHECKED_CAST")
+                val r = nativeExtractFieldsCandidates(fieldIds, sources, texts as Array<String>)
+                _pipelineStage = 2.0
+                maybeFlushTelemetry()
+                if (r != null && !cardCapturedThisSession) {
+                    cardCapturedThisSession = true
+                    _pipelineStage = 3.0
+                    val cardPath = saveRectifiedCard(entry.source, entry.corners)
+                    _pipelineStage = 4.0
+                    val headshotPath = extractHeadshot(ocrBitmap, dets, cardPath)
+                    _pipelineStage = 5.0
+                    // Retain THIS consensus crop (the rectified ocrBitmap as RGB8
+                    // bytes) as the best card for the optional TTA verification
+                    // pass. Snapshot to raw bytes now so it survives the
+                    // ocrBitmap being recycled when its cache entry is evicted.
+                    rectifyLock.withLock {
+                        ttaRetainedRgb = bitmapToRGB8Bytes(ocrBitmap)
+                        ttaRetainedWidth = ocrBitmap.width
+                        ttaRetainedHeight = ocrBitmap.height
+                    }
+                    return variantOf(r.copy(cardImagePath = cardPath, headshotImagePath = headshotPath))
+                }
+                return variantOf(r)
+            }
+        }
+        val lines = observations.map { it.text }.toTypedArray()
+        val r = nativeExtractOcrFields(lines)
+        maybeFlushTelemetry()
+        return variantOf(r)
+    }
 
     private fun variantOf(spec: LicenseDataSpec?): Variant_NullType_LicenseDataSpec =
         if (spec != null) {
@@ -2363,6 +1697,131 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
         } else {
             Variant_NullType_LicenseDataSpec.create(NullType.NULL)
         }
+
+    /**
+     * Whole-card MLKit OCR over [bitmap] → element-clustered, AAMVA-index-split
+     * [OcrObservation]s. Factored out of [ocrExtractFields] so the TTA
+     * verification pass reuses the exact same OCR→cluster→split sequence on the
+     * augmented crop. Returns an empty list when OCR finds no text.
+     */
+    private fun wholeCardObservations(bitmap: Bitmap): List<OcrObservation> {
+        val visionResult = Tasks.await(
+            textRecognizer.process(InputImage.fromBitmap(bitmap, 0)),
+            5L,
+            java.util.concurrent.TimeUnit.SECONDS
+        )
+        val observations = mutableListOf<OcrObservation>()
+        var nextLineId = 0
+        for (block in visionResult.textBlocks) {
+            for (line in block.lines) {
+                val box = line.boundingBox ?: continue
+                val lineBbox = RectF(box)
+                val lineId = nextLineId++
+                val clusters = clusterLineByElementHeight(line, lineBbox, lineId)
+                for (clusterObs in clusters) {
+                    for ((subText, subBbox) in splitObservationByAamvaIndices(clusterObs.text, clusterObs.bbox)) {
+                        observations.add(
+                            OcrObservation(
+                                text = subText,
+                                bbox = subBbox,
+                                sourceLineIndex = clusterObs.sourceLineIndex,
+                                indexWithinSourceLine = clusterObs.indexWithinSourceLine,
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        return observations
+    }
+
+    /** ARGB_8888 Bitmap -> row-major RGB8 ByteArray (3 B/px). The raw-array
+     *  sibling of [bitmapToRGB8] (which packs into a Nitro ArrayBuffer). */
+    private fun bitmapToRGB8Bytes(bmp: Bitmap): ByteArray {
+        val w = bmp.width
+        val h = bmp.height
+        val px = IntArray(w * h)
+        bmp.getPixels(px, 0, w, 0, 0, w, h)
+        val out = ByteArray(w * h * 3)
+        var di = 0
+        for (p in px) {
+            out[di++] = ((p shr 16) and 0xFF).toByte()
+            out[di++] = ((p shr 8) and 0xFF).toByte()
+            out[di++] = (p and 0xFF).toByte()
+        }
+        return out
+    }
+
+    /** Row-major RGB8 ByteArray (3 B/px) -> opaque ARGB_8888 Bitmap. Inverse of
+     *  [bitmapToRGB8Bytes]; used by the TTA pass to OCR an augmented crop. */
+    private fun rgb8ToBitmap(rgb: ByteArray, w: Int, h: Int): Bitmap {
+        val px = IntArray(w * h)
+        var si = 0
+        for (i in 0 until w * h) {
+            val r = rgb[si].toInt() and 0xFF
+            val g = rgb[si + 1].toInt() and 0xFF
+            val b = rgb[si + 2].toInt() and 0xFF
+            px[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+            si += 3
+        }
+        return Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
+    }
+
+    /**
+     * TTA-as-verification pass. ADDITIVE + opt-in (JS calls this only when the
+     * consumer enables `completion.tta`, after the normal scan completes).
+     * Re-OCRs the retained best card crop under each requested augmentation
+     * (nativeAugmentRgb → dlscan_augment_rgb), votes the augmented frames with a
+     * FRESH voter, and returns the voted LicenseDataSpec. Returns null when no
+     * crop is retained or the augmented frames produce no consensus. Does NOT
+     * touch the live scan voter or re-save card/headshot images.
+     */
+    override fun runTtaVerification(modes: DoubleArray): Variant_NullType_LicenseDataSpec {
+        val snapshot = rectifyLock.withLock {
+            val r = ttaRetainedRgb
+            if (r == null) null else Triple(r, ttaRetainedWidth, ttaRetainedHeight)
+        } ?: return variantOf(null)
+        val (retained, w, h) = snapshot
+        if (w <= 0 || h <= 0 || retained.size < w * h * 3) return variantOf(null)
+
+        val ttaVoter = FieldVoter(maxVotes = 20, minVotes = 1)
+        try {
+            var anyFrame = false
+            for (modeD in modes) {
+                val augmented = nativeAugmentRgb(retained, w, h, modeD.toInt())
+                if (augmented.size != w * h * 3) continue  // unknown mode / bad dims
+                val augBitmap = rgb8ToBitmap(augmented, w, h)
+                try {
+                    val observations = wholeCardObservations(augBitmap)
+                    if (observations.isEmpty()) continue
+                    val candidates = parseAamvaDemographicFields(observations)
+                    if (candidates.isEmpty()) continue
+                    ttaVoter.accept(candidates)
+                    anyFrame = true
+                } finally {
+                    augBitmap.recycle()
+                }
+            }
+            if (!anyFrame) return variantOf(null)
+            val consensus = ttaVoter.consensus()
+            if (consensus.isEmpty()) return variantOf(null)
+            val n = consensus.size
+            val fieldIds = IntArray(n)
+            val sources = IntArray(n)
+            val texts = arrayOfNulls<String>(n)
+            for (i in 0 until n) {
+                fieldIds[i] = consensus[i].fieldId
+                sources[i] = consensus[i].source
+                texts[i] = consensus[i].text
+            }
+            @Suppress("UNCHECKED_CAST")
+            val r = nativeExtractFieldsCandidates(fieldIds, sources, texts as Array<String>)
+            // No card/headshot re-capture — verification reuses the saved crop.
+            return variantOf(r)
+        } finally {
+            ttaVoter.close()
+        }
+    }
 
     // -------------------------------------------------------------------------
     // Library loading + companion constants.
@@ -2374,7 +1833,7 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
         /**
          * Per-AAMVA-index value pre-extractor. OCR commonly concatenates
          * adjacent fields onto one observation (WI: "16 HGT 5'-04 17 WGT
-         * 160 lb" or "3 DOB 08/12/1980 EnB NONE"); the lexer's value
+         * 160 lb" or "3 DOB 03/27/1976 EnB NONE"); the lexer's value
          * span includes the trailing junk; the anchored dom regex
          * rejects it. This helper extracts JUST the field-shape portion
          * so the dom gate sees a clean value. round-6 design.
@@ -2412,6 +1871,11 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
                     if (none != null) return none.value.uppercase()
                     val code = Regex("""\b([A-Z]{1,3})\b""").find(value)
                     code?.value ?: value
+                }
+                "4d" -> {
+                    val m = Regex("""[A-Za-z0-9][A-Za-z0-9-]{3,}""")
+                        .find(value)
+                    m?.value ?: value
                 }
                 else -> value
             }
@@ -2474,10 +1938,6 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
                 .map { (y, mo, d) -> "%02d/%02d/%04d".format(mo, d, y) }
         }
 
-        @Volatile private var yoloDebugDumped = false
-        @Volatile private var rotationDebugLogged = false
-        @Volatile private var yoloCanvasDumped = false
-        @Volatile private var lastMaxScoreLog: Long = 0L
         @Volatile private var lastBboxLog: Long = 0L
         @Volatile private var docSegDebugDumped = false
         @Volatile private var docSegRectifiedDumped = false
@@ -2525,14 +1985,15 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
         /**
          * AAMVA D-20 / DL-AID-005-3 field-index tokens per YOLO class. The
          * platform-layer prefix stripper consults this map: if an observation
-         * matched to `list_X` starts with a token whose canonicalized form
-         * equals `expectedAamvaIndex[list_X]`, the prefix is stripped before
-         * the value lands in the field map. Class-aware so a "12 MAIN ST"
-         * address line matched to a non-AAMVA class can NEVER lose its "12".
-         * 19 entries — stable across AAMVA spec v1-11; derived directly from
-         * the YOLO class name (strip "list_" prefix). No per-state data.
+         * matched to an indexed class starts with its own canonical index, the
+         * prefix is stripped before the value lands in the candidate pool.
+         * Class-aware so ordinary non-indexed text is never stripped unless
+         * that class is explicitly in dropOnIndexMismatch below.
          */
         private val expectedAamvaIndex: Map<String, String> = mapOf(
+            "surname" to "1",      // international class over AAMVA family-name row
+            "given_name" to "2",   // international class over AAMVA given-name row
+            "personal_num" to "4d", // international class over AAMVA DLN row
             "list_1"  to "1",   // family name
             "list_2"  to "2",   // given names
             "list_3"  to "3",   // DOB
@@ -2558,27 +2019,28 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
         // canonicalize internally.
 
         /**
-         * Strip the AAMVA index prefix from an observation's text iff the
-         * matched YOLO class is in the AAMVA-indexed set AND the leading
-         * lexer-recognized token canonicalizes to that class's expected
-         * index. Otherwise returns the original text unchanged (protects
-         * address lines like "12 MAIN ST" matched to non-AAMVA classes from
-         * being stripped). Now defers to [AamvaLexer.findAamvaToken] for
+         * Strip the AAMVA index prefix from an observation's text when the
+         * leading lexer-recognized token canonicalizes to the matched class's
+         * expected index. If the token is a different known AAMVA index and
+         * the class is guarded by [dropOnIndexMismatch], drop the observation
+         * before it can enter the voter under the wrong field id.
+         * Now defers to [AamvaLexer.findAamvaToken] for
          * recognition — handles whitespace-separated AND fused forms
          * (round 4, 2026-05-10).
          */
         /**
          * YOLO classes whose values should be DROPPED (returned as empty)
          * when the leading AAMVA-token index disagrees with the class's
-         * expectedAamvaIndex. These are the demographic/appearance fields
-         * where wrong-row bbox matches produce confusing wrong values
-         * (e.g. Height = "18 EYES BRO"). Non-demographic classes like
-         * list_1 (last name) keep the legacy "return unchanged" behavior
-         * so legitimate cases like "12 MAIN ST" accidentally matched to
-         * list_8s aren't erased. round-5 review fix (2026-05-10).
+         * expectedAamvaIndex. These are indexed AAMVA rows plus international
+         * aliases that commonly receive AAMVA OCR by bbox IoU. Dropping the
+         * whole observation prevents an index-prefixed value from reaching
+         * the voter under the wrong field id.
          */
         private val dropOnIndexMismatch: Set<String> = setOf(
-            "list_9", "list_15", "list_16", "list_17", "list_18", "list_19"
+            "surname", "given_name", "personal_num", "country",
+            "list_1", "list_2", "list_3", "list_4a", "list_4b", "list_4d",
+            "list_8f", "list_8s", "list_9", "list_9a", "list_12",
+            "list_15", "list_16", "list_17", "list_18", "list_19",
         )
 
         /**
@@ -2615,9 +2077,14 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
         )
 
         fun stripAamvaPrefixForClass(text: String, yoloClass: String): StripResult {
-            val expected = expectedAamvaIndex[yoloClass]
-                ?: return StripResult(text, null)
             val token = AamvaLexer.findAamvaToken(text)
+            val expected = expectedAamvaIndex[yoloClass]
+            if (expected == null) {
+                if (token != null && token.range.first <= 2 && yoloClass in dropOnIndexMismatch) {
+                    return StripResult("", token.index)
+                }
+                return StripResult(text, null)
+            }
             if (token != null && token.range.first <= 2) {
                 if (token.index == expected) {
                     val labelPart = if (token.label != null) "${token.label} " else ""
@@ -2912,8 +2379,8 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
          * earlier 640×640 square rectify horizontally squished characters
          * by ~37%, which combined with already-small AAMVA index digits
          * (rendered ~12 px tall) caused MLKit to misread "8" as "1" on the
-         * address row AND drop the inter-token space, producing "12119"
-         * instead of "8 2119". Rectifying to a wider canvas at the true
+         * address row AND drop the inter-token space, producing "14827"
+         * instead of "8 4827". Rectifying to a wider canvas at the true
          * card ratio gives MLKit roughly 2× the pixel density per
          * character without distortion.
          *
@@ -2946,7 +2413,7 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
             // platform-layer regex tighteners on the host JVM where no
             // libDlScan.so is loadable. Swallow UnsatisfiedLinkError so
             // companion-object static-init completes; instance methods
-            // that need JNI (parseBarcodeData, recognizeLicenseFields,
+            // that need JNI (parseBarcodeData, ocrExtractFields,
             // etc.) will hit the JNI bridge at first call and crash
             // there if the library actually failed to load on a real
             // device. The platform-layer regex helpers don't need JNI.

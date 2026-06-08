@@ -59,6 +59,13 @@
             "targetSdkVersion": 36
           }
         }
+      ],
+      [
+        "react-native-fast-tflite",
+        {
+          "enableCoreMLDelegate": true,
+          "enableAndroidGpuLibraries": true
+        }
       ]
     ]
   }

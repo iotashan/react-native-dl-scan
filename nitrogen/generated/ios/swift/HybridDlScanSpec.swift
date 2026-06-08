@@ -17,8 +17,14 @@ public protocol HybridDlScanSpec_protocol: HybridObject {
 
   // Methods
   func parseBarcodeData(barcodeData: String) throws -> Promise<Variant_NullType_LicenseDataSpec>
-  func recognizeLicenseFields(frame: (any HybridFrameSpec)) throws -> Variant_NullType_LicenseDataSpec
   func resetLicenseFieldRecognition() throws -> Void
+  func preprocessFieldInput(rgb: ArrayBuffer, width: Double, height: Double) throws -> ArrayBuffer
+  func decodeFieldOutput(output: ArrayBuffer, scaleX: Double, scaleY: Double) throws -> [FieldDetectionSpec]
+  func preprocessDocAlignerInput(rgb: ArrayBuffer, width: Double, height: Double) throws -> ArrayBuffer
+  func decodeCorners(output: ArrayBuffer) throws -> [Double]
+  func rectifyFrame(frame: (any HybridFrameSpec)) throws -> Variant_NullType_RectifiedFrameSpec
+  func ocrExtractFields(token: Double, detections: [FieldDetectionSpec]) throws -> Variant_NullType_LicenseDataSpec
+  func runTtaVerification(modes: [Double]) throws -> Variant_NullType_LicenseDataSpec
 }
 
 public extension HybridDlScanSpec_protocol {

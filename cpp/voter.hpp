@@ -40,8 +40,10 @@ public:
     ///   - short enough that a moved card invalidates the previous reading
     ///     within ~10 seconds at 2 fps
     static constexpr std::size_t DEFAULT_MAX_VOTES = 20;
+    static constexpr std::size_t DEFAULT_MIN_VOTES = 2;
 
-    explicit FieldVoter(std::size_t maxVotes = DEFAULT_MAX_VOTES);
+    explicit FieldVoter(std::size_t maxVotes = DEFAULT_MAX_VOTES,
+                        std::size_t minVotes = DEFAULT_MIN_VOTES);
 
     // Non-copyable (mutex), movable not exposed across the C++ class
     // boundary — owners hold via std::unique_ptr.
@@ -55,8 +57,9 @@ public:
     void accept(const std::vector<FieldCandidate>& frame);
 
     /// Compute the cross-frame consensus. One FieldCandidate emitted per
-    /// (FieldId, FieldSource) bucket — the text with the highest vote
-    /// count; ties broken by recency (most recently seen wins).
+    /// (FieldId, FieldSource) bucket only after the winning text reaches
+    /// minVotes — the text with the highest vote count wins; ties are
+    /// broken by recency (most recently seen wins).
     ///
     /// Each emitted candidate carries its bucket's source and the LAST
     /// observed values for ocrConfidence/detectorConfidence/iou/frameIndex
@@ -80,6 +83,7 @@ private:
     using Key = std::pair<FieldId, FieldSource>;
 
     std::size_t maxVotes_;
+    std::size_t minVotes_;
     mutable std::mutex m_;
     std::map<Key, std::deque<Vote>> buckets_;
 };

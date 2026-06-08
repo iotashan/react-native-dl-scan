@@ -14,6 +14,7 @@
 
 #include <jni.h>
 #include <fbjni/fbjni.h>
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -24,6 +25,7 @@
 #include "ocr_field_extractor.hpp"
 #include "voter.hpp"
 #include "yolo/field_classes.hpp"
+#include "detect/detect_c.hpp"  // JS-orchestrated fast-tflite C-ABI
 
 // Nitro/nitrogen-generated bridges
 #include "LicenseDataSpec.hpp"
@@ -288,85 +290,6 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeExtractFieldsCandidates(
 }
 
 /**
- * nativeDecodeAndNms
- *
- * Calls dlscan::yolo::decode_and_nms with the supplied raw model output and
- * NMS parameters. Returns surviving detections as a flat float[] of length
- * 6 * num_detections, with each 6-tuple laid out as:
- *
- *   [class_id, confidence, x1, y1, x2, y2]
- *
- * (class_id is stored as a float for return-array uniformity; cast on the
- * Kotlin side via .toInt() — values are integral 0..29.)
- *
- * An empty array is returned if no anchor passes the confidence threshold.
- *
- * Kotlin signature:
- *   external fun nativeDecodeAndNms(
- *       tensor: FloatArray, numClasses: Int, numAnchors: Int,
- *       layout: Int, confThreshold: Float, iouThreshold: Float,
- *       maxDetections: Int): FloatArray
- *
- * `layout`: 0 = ChannelMajor (Ultralytics export default), 1 = AnchorMajor.
- */
-extern "C" JNIEXPORT jfloatArray JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeDecodeAndNms(
-        JNIEnv* env, jobject /* thiz */,
-        jfloatArray jTensor,
-        jint jNumClasses, jint jNumAnchors,
-        jint jLayout,
-        jfloat jConfThreshold, jfloat jIouThreshold,
-        jint jMaxDetections) {
-    if (jTensor == nullptr) return env->NewFloatArray(0);
-
-    const jsize tensor_len = env->GetArrayLength(jTensor);
-    const std::size_t expected = static_cast<std::size_t>(jNumClasses + 4) *
-                                  static_cast<std::size_t>(jNumAnchors);
-    if (jNumClasses <= 0 || jNumAnchors <= 0 ||
-        static_cast<std::size_t>(tensor_len) < expected) {
-        return env->NewFloatArray(0);
-    }
-
-    // Get a direct pointer to the float buffer. JNI_ABORT on release because
-    // we never modify the array — avoids unnecessary copy-back.
-    jfloat* raw = env->GetFloatArrayElements(jTensor, nullptr);
-    if (raw == nullptr) return env->NewFloatArray(0);
-
-    dlscan::yolo::NmsConfig cfg;
-    cfg.conf_threshold = jConfThreshold;
-    cfg.iou_threshold  = jIouThreshold;
-    cfg.max_detections = static_cast<std::size_t>(
-        jMaxDetections > 0 ? jMaxDetections : 100);
-    cfg.layout = (jLayout == 1) ? dlscan::yolo::TensorLayout::AnchorMajor
-                                : dlscan::yolo::TensorLayout::ChannelMajor;
-
-    auto dets = dlscan::yolo::decode_and_nms(
-        static_cast<const float*>(raw),
-        static_cast<std::size_t>(jNumClasses),
-        static_cast<std::size_t>(jNumAnchors),
-        cfg);
-
-    env->ReleaseFloatArrayElements(jTensor, raw, JNI_ABORT);
-
-    const jsize out_len = static_cast<jsize>(dets.size() * 6);
-    jfloatArray out = env->NewFloatArray(out_len);
-    if (out == nullptr || out_len == 0) return env->NewFloatArray(0);
-
-    std::vector<jfloat> packed;
-    packed.reserve(static_cast<std::size_t>(out_len));
-    for (const auto& d : dets) {
-        packed.push_back(static_cast<jfloat>(d.class_id));
-        packed.push_back(d.confidence);
-        packed.push_back(d.x1);
-        packed.push_back(d.y1);
-        packed.push_back(d.x2);
-        packed.push_back(d.y2);
-    }
-    env->SetFloatArrayRegion(out, 0, out_len, packed.data());
-    return out;
-}
-
-/**
  * nativeClassName
  *
  * Bridge for dlscan::yolo::class_name_or_empty. Returns the canonical YOLO
@@ -384,6 +307,71 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeClassName(
     return env->NewStringUTF(name != nullptr ? name : "");
 }
 
+/**
+ * nativeParseAamvaDemographicFields
+ *
+ * Bridges the shared C++ marker-anchored demographic parser
+ * (dlscan::parse_aamva_demographic_fields) so Kotlin and Swift run the
+ * IDENTICAL 4-gate strict-text-pool scan — including the 1-step look-ahead
+ * (links a bare "4d" marker to its value on the next OCR observation), the
+ * fused-row marker extraction (sex single-[MFX] out of "15 SEX M 18 HOT ..."),
+ * and the name-marker-2 trailing-junk strip. Previously this orchestration was
+ * duplicated in HybridDlScanAndroid.parseAamvaDemographicFields; it now lives
+ * in C++ with one host-unit-test regression (cpp/tests/aamva_demographic_test).
+ *
+ * Input: Array<String> of OCR observation texts IN READING ORDER (already
+ * AAMVA-index-split by the Kotlin splitObservationByAamvaIndices). bbox
+ * geometry is not needed for the text-only marker parse.
+ *
+ * Returns: flat Array<String> of length 3*N, three strings per candidate
+ * [fieldIdStr, sourceStr, text] — same wire shape as nativeVoterConsensus.
+ * Source is always StrictTextPool (3). Returns null on null input.
+ *
+ * Kotlin signature:
+ *   external fun nativeParseAamvaDemographicFields(texts: Array<String>): Array<String>?
+ */
+extern "C" JNIEXPORT jobjectArray JNICALL
+Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeParseAamvaDemographicFields(
+        JNIEnv* env, jobject /* thiz */, jobjectArray jTexts) {
+    if (jTexts == nullptr) return nullptr;
+    const jsize n = env->GetArrayLength(jTexts);
+    dlscan::ObservationVector observations;
+    observations.reserve(static_cast<std::size_t>(n));
+    for (jsize i = 0; i < n; ++i) {
+        auto jT = (jstring) env->GetObjectArrayElement(jTexts, i);
+        if (jT == nullptr) { observations.emplace_back(); continue; }
+        const char* tChars = env->GetStringUTFChars(jT, nullptr);
+        observations.emplace_back(tChars ? tChars : "");
+        if (tChars) env->ReleaseStringUTFChars(jT, tChars);
+        env->DeleteLocalRef(jT);
+    }
+
+    const auto candidates = dlscan::parse_aamva_demographic_fields(observations);
+
+    jclass stringCls = env->FindClass("java/lang/String");
+    if (stringCls == nullptr) return nullptr;
+    jobjectArray out = env->NewObjectArray(
+        static_cast<jsize>(candidates.size() * 3), stringCls, nullptr);
+    if (out == nullptr) {
+        env->DeleteLocalRef(stringCls);
+        return nullptr;
+    }
+    jsize idx = 0;
+    for (const auto& c : candidates) {
+        jstring jId = env->NewStringUTF(std::to_string(static_cast<int>(c.id)).c_str());
+        jstring jSrc = env->NewStringUTF(std::to_string(static_cast<int>(c.source)).c_str());
+        jstring jTxt = env->NewStringUTF(c.text.c_str());
+        env->SetObjectArrayElement(out, idx++, jId);
+        env->SetObjectArrayElement(out, idx++, jSrc);
+        env->SetObjectArrayElement(out, idx++, jTxt);
+        env->DeleteLocalRef(jId);
+        env->DeleteLocalRef(jSrc);
+        env->DeleteLocalRef(jTxt);
+    }
+    env->DeleteLocalRef(stringCls);
+    return out;
+}
+
 
 // ============================================================================
 // Multi-frame voter (v2 Sequence D + G, tasks #52 / #54). The C++
@@ -397,17 +385,19 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeClassName(
 
 /**
  * Kotlin signature:
- *   external fun nativeVoterNew(maxVotes: Int): Long
+ *   external fun nativeVoterNew(maxVotes: Int, minVotes: Int): Long
  *
  * Returns a heap pointer cast to jlong, or 0 on allocation failure.
  */
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeVoterNew(
-        JNIEnv* /* env */, jobject /* thiz */, jint jMaxVotes) {
+        JNIEnv* /* env */, jobject /* thiz */, jint jMaxVotes, jint jMinVotes) {
     try {
         auto* v = new dlscan::FieldVoter(
             jMaxVotes > 0 ? static_cast<std::size_t>(jMaxVotes)
-                          : dlscan::FieldVoter::DEFAULT_MAX_VOTES);
+                          : dlscan::FieldVoter::DEFAULT_MAX_VOTES,
+            jMinVotes > 0 ? static_cast<std::size_t>(jMinVotes)
+                          : dlscan::FieldVoter::DEFAULT_MIN_VOTES);
         return reinterpret_cast<jlong>(v);
     } catch (const std::bad_alloc&) {
         return 0;
@@ -673,6 +663,133 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeClassNameToFieldId(
     auto id = dlscan::yolo::class_name_to_field_id(nameChars);
     env->ReleaseStringUTFChars(jName, nameChars);
     return static_cast<jint>(id);
+}
+
+// ---- Detector C-ABI bridge (JS-orchestrated fast-tflite path) --------------
+// The Kotlin side (HybridDlScanAndroid) calls these from preprocessFieldInput/
+// decodeFieldOutput/preprocessDocAlignerInput/decodeCorners, marshaling the
+// Nitro ArrayBuffer <-> primitive arrays. The actual math is the shared,
+// 282-test-validated detect_c C-ABI, marshaling the Nitro ArrayBuffer <->
+// primitive arrays with a jfloatArray in/out convention. UNVALIDATED against an
+// Android (JDK 21) build — to confirm on first gradle build.
+
+extern "C" JNIEXPORT jfloatArray JNICALL
+Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativePreprocessField(
+        JNIEnv* env, jobject /* thiz */, jbyteArray jRgb, jint w, jint h) {
+    const int size = 416;
+    const size_t need = static_cast<size_t>(3) * size * size;
+    if (jRgb == nullptr || w <= 0 || h <= 0) return env->NewFloatArray(0);
+    const jsize rgbLen = env->GetArrayLength(jRgb);
+    jbyte* rgb = env->GetByteArrayElements(jRgb, nullptr);
+    if (rgb == nullptr) return env->NewFloatArray(0);
+    std::vector<float> out(need);
+    float sx = 0, sy = 0;
+    size_t n = dlscan_preprocess_field(reinterpret_cast<const uint8_t*>(rgb),
+                                       static_cast<size_t>(rgbLen), w, h, size,
+                                       out.data(), need, &sx, &sy);
+    env->ReleaseByteArrayElements(jRgb, rgb, JNI_ABORT);
+    if (n != need) return env->NewFloatArray(0);
+    jfloatArray res = env->NewFloatArray(static_cast<jsize>(need));
+    if (res != nullptr) env->SetFloatArrayRegion(res, 0, static_cast<jsize>(need), out.data());
+    return res;
+}
+
+// nativeAugmentRgb — synthesize a TTA-augmented copy of an RGB8 image via the
+// shared C++ dlscan_augment_rgb. `mode` is one of DLSCAN_AUG_* (detect_c.hpp).
+// Returns a w*h*3 byte array, or an empty array on any error (null/short input,
+// non-positive dims, unknown mode). Used by runTtaVerification.
+extern "C" JNIEXPORT jbyteArray JNICALL
+Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeAugmentRgb(
+        JNIEnv* env, jobject /* thiz */, jbyteArray jRgb, jint w, jint h, jint mode) {
+    if (jRgb == nullptr || w <= 0 || h <= 0) return env->NewByteArray(0);
+    const size_t need = static_cast<size_t>(3) * static_cast<size_t>(w) * static_cast<size_t>(h);
+    const jsize rgbLen = env->GetArrayLength(jRgb);
+    jbyte* rgb = env->GetByteArrayElements(jRgb, nullptr);
+    if (rgb == nullptr) return env->NewByteArray(0);
+    std::vector<uint8_t> out(need);
+    size_t n = dlscan_augment_rgb(reinterpret_cast<const uint8_t*>(rgb),
+                                  static_cast<size_t>(rgbLen), w, h, mode,
+                                  out.data(), need);
+    env->ReleaseByteArrayElements(jRgb, rgb, JNI_ABORT);
+    if (n != need) return env->NewByteArray(0);
+    jbyteArray res = env->NewByteArray(static_cast<jsize>(need));
+    if (res != nullptr) {
+        env->SetByteArrayRegion(res, 0, static_cast<jsize>(need),
+                                reinterpret_cast<const jbyte*>(out.data()));
+    }
+    return res;
+}
+
+extern "C" JNIEXPORT jfloatArray JNICALL
+Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeDecodeField(
+        JNIEnv* env, jobject /* thiz */, jfloatArray jOut, jfloat scaleX, jfloat scaleY) {
+    if (jOut == nullptr) return env->NewFloatArray(0);
+    const jsize len = env->GetArrayLength(jOut);
+    jfloat* out = env->GetFloatArrayElements(jOut, nullptr);
+    if (out == nullptr) return env->NewFloatArray(0);
+    const size_t cap = 100;
+    std::vector<int> cls(cap);
+    std::vector<float> conf(cap), x1(cap), y1(cap), x2(cap), y2(cap);
+    size_t cnt = dlscan_decode_field(reinterpret_cast<const float*>(out),
+                                     static_cast<size_t>(len), scaleX, scaleY,
+                                     cls.data(), conf.data(), x1.data(), y1.data(),
+                                     x2.data(), y2.data(), cap);
+    env->ReleaseFloatArrayElements(jOut, out, JNI_ABORT);
+    const size_t w = std::min(cnt, cap);
+    const jsize outLen = static_cast<jsize>(w * 6);
+    jfloatArray res = env->NewFloatArray(outLen);
+    if (res == nullptr || outLen == 0) return res != nullptr ? res : env->NewFloatArray(0);
+    std::vector<jfloat> packed;
+    packed.reserve(w * 6);
+    for (size_t i = 0; i < w; ++i) {
+        packed.push_back(static_cast<jfloat>(cls[i]));
+        packed.push_back(conf[i]);
+        packed.push_back(x1[i]);
+        packed.push_back(y1[i]);
+        packed.push_back(x2[i]);
+        packed.push_back(y2[i]);
+    }
+    env->SetFloatArrayRegion(res, 0, outLen, packed.data());
+    return res;
+}
+
+extern "C" JNIEXPORT jfloatArray JNICALL
+Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativePreprocessDocAligner(
+        JNIEnv* env, jobject /* thiz */, jbyteArray jRgb, jint w, jint h) {
+    const int size = 256;
+    const size_t need = static_cast<size_t>(3) * size * size;
+    if (jRgb == nullptr || w <= 0 || h <= 0) return env->NewFloatArray(0);
+    const jsize rgbLen = env->GetArrayLength(jRgb);
+    jbyte* rgb = env->GetByteArrayElements(jRgb, nullptr);
+    if (rgb == nullptr) return env->NewFloatArray(0);
+    std::vector<float> out(need);
+    size_t n = dlscan_preprocess_docaligner(reinterpret_cast<const uint8_t*>(rgb),
+                                            static_cast<size_t>(rgbLen), w, h, size,
+                                            out.data(), need);
+    env->ReleaseByteArrayElements(jRgb, rgb, JNI_ABORT);
+    if (n != need) return env->NewFloatArray(0);
+    jfloatArray res = env->NewFloatArray(static_cast<jsize>(need));
+    if (res != nullptr) env->SetFloatArrayRegion(res, 0, static_cast<jsize>(need), out.data());
+    return res;
+}
+
+extern "C" JNIEXPORT jfloatArray JNICALL
+Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeDecodeCorners(
+        JNIEnv* env, jobject /* thiz */, jfloatArray jOut) {
+    if (jOut == nullptr) return env->NewFloatArray(0);
+    const jsize len = env->GetArrayLength(jOut);
+    jfloat* out = env->GetFloatArrayElements(jOut, nullptr);
+    if (out == nullptr) return env->NewFloatArray(0);
+    float xs[4] = {0}, ys[4] = {0};
+    int ok = dlscan_decode_corners(reinterpret_cast<const float*>(out),
+                                   static_cast<size_t>(len), xs, ys);
+    env->ReleaseFloatArrayElements(jOut, out, JNI_ABORT);
+    if (!ok) return env->NewFloatArray(0);
+    jfloatArray res = env->NewFloatArray(8);
+    if (res == nullptr) return env->NewFloatArray(0);
+    jfloat packed[8] = {xs[0], ys[0], xs[1], ys[1], xs[2], ys[2], xs[3], ys[3]};
+    env->SetFloatArrayRegion(res, 0, 8, packed);
+    return res;
 }
 
 // JNI entry point — fires once when System.loadLibrary("DlScan") completes

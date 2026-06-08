@@ -1,0 +1,38 @@
+{
+  "note": "Shared preprocessing contract for NanoDet field detector. Python goldens AND C++ must match.",
+  "input_size": [
+    416,
+    416
+  ],
+  "channel_order": "BGR",
+  "keep_ratio": false,
+  "resize": "stretch-to-square 416x416 (anisotropic per-axis; rectified ID-1 crop stretched to square, inverse-divide maps detections back to source space)",
+  "normalize": {
+    "mean_bgr": [
+      103.53,
+      116.28,
+      123.675
+    ],
+    "std_bgr": [
+      57.375,
+      57.12,
+      58.395
+    ],
+    "formula": "(pixel_bgr - mean) / std"
+  },
+  "layout": "NHWC float32",
+  "model": {
+    "arch": "NanoDet-Plus-m 1.0x",
+    "params_M": 4.23,
+    "strides": [
+      8,
+      16,
+      32,
+      64
+    ],
+    "reg_max": 7,
+    "num_classes": 30,
+    "output": "[1, num_anchors, 62] = [1, A, 30 cls + 4*(reg_max+1)]; A(416)=3598 (sigmoid baked into the 30 cls channels at export)"
+  },
+  "class_names_source": "cpp/yolo/field_classes.hpp order == yolo_fields/data.yaml names order"
+}

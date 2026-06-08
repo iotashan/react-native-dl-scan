@@ -16,7 +16,7 @@ import PackageDescription
 
 let package = Package(
   name: "DlScan",
-  platforms: [.iOS(.v16)],  // bumped for ML Program (.mlpackage) Core ML support
+  platforms: [.iOS(.v16)],  // Vision Camera v5 / Nitro Modules supported floor
   products: [
     .library(name: "DlScan", targets: ["DlScan"]),
     .library(name: "DlScanCxx", targets: ["DlScanCxx"]),
@@ -40,13 +40,10 @@ let package = Package(
       dependencies: ["DlScanCxx"],
       path: "ios",
       // The DlScan target lives at ios/, with its source restricted to the
-      // single Swift file. The compiled Core ML model is copied verbatim
-      // into the SPM resource bundle so it can be loaded at runtime via
-      // Bundle.module.url(forResource:withExtension:).
+      // single Swift file. No bundled Core ML model: field detection runs in
+      // JS via react-native-fast-tflite (NanoDet); the native layer only does
+      // Vision document-segmentation + text-recognition.
       sources: ["HybridDlScanIOS.swift"],
-      resources: [
-        .copy("Resources/DlScanFieldDetector.mlmodelc"),
-      ],
       swiftSettings: [
         // Enable bidirectional Swift <-> C++ interoperability so that
         // HybridDlScanIOS can import and call DlScanCxx (parse_aamva,

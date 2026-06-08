@@ -25,6 +25,7 @@ import {
 const OCR_LABEL = Platform.OS === 'ios' ? 'VisionKit' : 'MLKit';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { LicenseData, ConfidenceEntry } from 'react-native-dl-scan';
+import { formatTypedValue } from 'react-native-dl-scan';
 import {
   TIER_LABEL,
   TIER_RANK,
@@ -64,6 +65,7 @@ interface FieldDef {
 // detection-status chip.
 const REQUIRED_FIELDS: FieldDef[] = [
   { k: 'firstName', label: 'First', span: 1 },
+  { k: 'middleName', label: 'Middle', span: 1 },
   { k: 'lastName', label: 'Last', span: 1 },
   { k: 'street', label: 'Street', span: 2 },
   { k: 'city', label: 'City', span: 1 },
@@ -81,7 +83,6 @@ const REQUIRED_FIELDS: FieldDef[] = [
 // Extra fields — rendered after REQUIRED_FIELDS, but only if a value
 // was actually extracted (no "Not detected" for these).
 const ADDITIONAL_FIELDS: FieldDef[] = [
-  { k: 'middleName', label: 'Middle', span: 1 },
   { k: 'dateOfBirth', label: 'DOB', span: 1 },
   { k: 'weight', label: 'Weight', span: 1 },
   { k: 'licenseNumber', label: 'License №', span: 2 },
@@ -90,6 +91,31 @@ const ADDITIONAL_FIELDS: FieldDef[] = [
 ];
 
 const DROP_COLOR = '#ef4444';
+
+// The typed value-set fields (task #52) — their values are
+// `{ code } | { code: 'other', raw }` unions rather than plain strings.
+const TYPED_VALUE_FIELDS = new Set<keyof LicenseData>([
+  'sex',
+  'eyeColor',
+  'hairColor',
+]);
+
+// Render any LicenseData field for display. Plain string fields pass through;
+// the typed value-set fields format to their code, or "Other (raw)" so the
+// off-spec value the card carried is still visible to the user.
+function displayField(data: LicenseData, k: keyof LicenseData): string | null {
+  const v = data[k];
+  if (v == null) return null;
+  if (TYPED_VALUE_FIELDS.has(k)) {
+    const tv = v as Parameters<typeof formatTypedValue>[0];
+    if (tv != null && typeof tv === 'object' && 'code' in tv) {
+      // 'raw' is present only on the 'other' branch — show the original card
+      // value so an off-spec value is never silently hidden.
+      return 'raw' in tv ? `Other (${tv.raw})` : tv.code;
+    }
+  }
+  return typeof v === 'string' ? v : String(v);
+}
 
 export function ResultView({
   data,
@@ -116,36 +142,33 @@ export function ResultView({
         <SectionLabel t={t}>All fields</SectionLabel>
         <View style={styles.grid}>
           {REQUIRED_FIELDS.map((f) => {
-            const value = data[f.k] as string | null | undefined;
+            const value = displayField(data, f.k);
             const c = conf[f.k as string] ?? null;
-            const dropped = c != null && TIER_RANK[c.tier] < minRank;
+            const belowMin = c != null && TIER_RANK[c.tier] < minRank;
             return (
               <FieldChip
                 key={String(f.k)}
                 label={f.label}
-                value={value ?? null}
+                value={value}
                 conf={c}
-                dropped={dropped}
+                belowMin={belowMin}
                 span={f.span}
                 t={t}
               />
             );
           })}
           {ADDITIONAL_FIELDS.map((f) => {
-            const value = data[f.k as keyof LicenseData] as
-              | string
-              | null
-              | undefined;
+            const value = displayField(data, f.k as keyof LicenseData);
             if (value == null || value === '') return null;
             const c = conf[f.k as string] ?? null;
-            const dropped = c != null && TIER_RANK[c.tier] < minRank;
+            const belowMin = c != null && TIER_RANK[c.tier] < minRank;
             return (
               <FieldChip
                 key={String(f.k)}
                 label={f.label}
-                value={String(value)}
+                value={value}
                 conf={c}
-                dropped={dropped}
+                belowMin={belowMin}
                 span={f.span}
                 t={t}
               />
@@ -281,7 +304,9 @@ function LicenseHero({
               numberOfLines={2}
               ellipsizeMode="tail"
             >
-              {[data.firstName, data.lastName].filter(Boolean).join(' ')}
+              {[data.firstName, data.middleName, data.lastName]
+                .filter(Boolean)
+                .join(' ')}
             </Text>
           </View>
           <View style={styles.heroHeaderRight}>
@@ -337,8 +362,18 @@ function LicenseHero({
               colSpan={2}
             />
             <View style={styles.heroStatRow}>
-              <Stat t={t} isOnyx={isOnyx} label="SEX" v={data.sex} />
-              <Stat t={t} isOnyx={isOnyx} label="EYE" v={data.eyeColor} />
+              <Stat
+                t={t}
+                isOnyx={isOnyx}
+                label="SEX"
+                v={displayField(data, 'sex')}
+              />
+              <Stat
+                t={t}
+                isOnyx={isOnyx}
+                label="EYE"
+                v={displayField(data, 'eyeColor')}
+              />
             </View>
             <View style={styles.heroStatRow}>
               <Stat t={t} isOnyx={isOnyx} label="DOB" v={data.dateOfBirth} />
@@ -515,6 +550,7 @@ function ConfidenceRail({
   const counts: Record<ConfidenceTier, number> = {
     cross_validated: 0,
     all_gates_passed: 0,
+    marker_located: 0,
     shape_matched: 0,
     extracted_raw: 0,
   };
@@ -529,6 +565,7 @@ function ConfidenceRail({
   const order: ConfidenceTier[] = [
     'cross_validated',
     'all_gates_passed',
+    'marker_located',
     'shape_matched',
     'extracted_raw',
   ];
@@ -614,7 +651,7 @@ function FieldChip({
   label,
   value,
   conf,
-  dropped,
+  belowMin,
   span,
   t,
 }: {
@@ -622,18 +659,25 @@ function FieldChip({
   /** When null, the chip renders a "Not detected" placeholder. */
   value: string | null;
   conf: ConfidenceEntry | null;
-  dropped: boolean;
+  /** True when the field IS populated but its tier sits below the user's
+   *  minTier filter. Renders muted/neutral — NEVER red. */
+  belowMin: boolean;
   span: 1 | 2;
   t: ThemeTokens;
 }) {
   const isMissing = value == null || value === '';
-  // Suppress any leftover confidence entry / drop-styling when the
-  // value itself is missing — a 95% chip next to "Not detected" is
-  // contradictory, and the red "dropped" border equally so.
+  // Suppress any leftover confidence entry when the value itself is missing —
+  // a 95% chip next to "Not detected" is contradictory.
   const effectiveConf = isMissing ? null : conf;
-  const effectiveDropped = isMissing ? false : dropped;
   const tier = effectiveConf?.tier;
   const [fg] = tier ? tierColor(t, tier) : [t.ink3, t.surface2];
+  // RED is reserved for genuinely MISSING fields only — the one case the user
+  // must act on. A populated field, whatever its confidence band, is never
+  // painted red: a below-minTier populated field is merely DIMMED (the
+  // tier-tracking color still shows through at reduced emphasis), and an
+  // at/above-threshold field renders at full tier color. extracted_raw (amber)
+  // is informational, not an error.
+  const accent = isMissing ? DROP_COLOR : fg;
   return (
     <View
       style={[
@@ -641,8 +685,9 @@ function FieldChip({
         {
           flexBasis: span === 2 ? '100%' : '48%',
           backgroundColor: t.surface,
-          borderColor: effectiveDropped ? DROP_COLOR + '66' : t.hairline,
-          opacity: isMissing ? 0.55 : 1,
+          borderColor: isMissing ? DROP_COLOR + '66' : t.hairline,
+          // Missing → strong dim; populated-below-min → soft dim; else full.
+          opacity: isMissing ? 0.55 : belowMin ? 0.72 : 1,
         },
       ]}
     >
@@ -655,8 +700,10 @@ function FieldChip({
             left: 0,
             right: 0,
             height: 2,
-            backgroundColor: effectiveDropped ? DROP_COLOR : fg,
-            opacity: effectiveDropped ? 1 : tier === 'extracted_raw' ? 0.45 : 1,
+            backgroundColor: fg,
+            // Below-min or the lowest band reads at reduced emphasis; a
+            // full-trust field gets a solid halo.
+            opacity: belowMin || tier === 'extracted_raw' ? 0.45 : 1,
           }}
         />
       )}
@@ -668,7 +715,7 @@ function FieldChip({
             letterSpacing: 1.1,
             textTransform: 'uppercase',
             fontWeight: '600',
-            color: effectiveDropped ? DROP_COLOR : t.ink3,
+            color: isMissing ? DROP_COLOR : t.ink3,
           }}
         >
           {label}
@@ -679,7 +726,7 @@ function FieldChip({
               fontFamily: t.mono,
               fontSize: 9.5,
               fontWeight: '700',
-              color: effectiveDropped ? DROP_COLOR : fg,
+              color: accent,
             }}
           >
             {`${Math.round(effectiveConf.score * 100)}%`}

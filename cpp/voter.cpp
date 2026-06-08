@@ -4,7 +4,9 @@
 
 namespace dlscan {
 
-FieldVoter::FieldVoter(std::size_t maxVotes) : maxVotes_(maxVotes) {}
+FieldVoter::FieldVoter(std::size_t maxVotes, std::size_t minVotes)
+    : maxVotes_(maxVotes),
+      minVotes_(minVotes == 0 ? DEFAULT_MIN_VOTES : minVotes) {}
 
 void FieldVoter::accept(const std::vector<FieldCandidate>& frame) {
     std::lock_guard<std::mutex> g(m_);
@@ -50,7 +52,7 @@ std::vector<FieldCandidate> FieldVoter::consensus() const {
                 bestRecency = recency;
             }
         }
-        if (winner == nullptr) continue;
+        if (winner == nullptr || bestCount < minVotes_) continue;
         // Emit one FieldCandidate per bucket carrying the winning text
         // and the diagnostic metadata from the MOST RECENT vote with
         // that text (not the most recent overall — the metadata should

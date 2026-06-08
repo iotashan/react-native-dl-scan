@@ -15,6 +15,10 @@
 
 // Forward declaration of `LicenseDataSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { struct LicenseDataSpec; }
+// Forward declaration of `FieldDetectionSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct FieldDetectionSpec; }
+// Forward declaration of `RectifiedFrameSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct RectifiedFrameSpec; }
 // Forward declaration of `HybridFrameSpec` to properly resolve imports.
 namespace margelo::nitro::camera { class HybridFrameSpec; }
 
@@ -24,6 +28,9 @@ namespace margelo::nitro::camera { class HybridFrameSpec; }
 #include <variant>
 #include <NitroModules/Promise.hpp>
 #include <string>
+#include <NitroModules/ArrayBuffer.hpp>
+#include "FieldDetectionSpec.hpp"
+#include "RectifiedFrameSpec.hpp"
 #include <memory>
 #include <VisionCamera/HybridFrameSpec.hpp>
 
@@ -61,8 +68,14 @@ namespace margelo::nitro::dlscan {
     public:
       // Methods
       virtual std::shared_ptr<Promise<std::variant<nitro::NullType, LicenseDataSpec>>> parseBarcodeData(const std::string& barcodeData) = 0;
-      virtual std::variant<nitro::NullType, LicenseDataSpec> recognizeLicenseFields(const std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>& frame) = 0;
       virtual void resetLicenseFieldRecognition() = 0;
+      virtual std::shared_ptr<ArrayBuffer> preprocessFieldInput(const std::shared_ptr<ArrayBuffer>& rgb, double width, double height) = 0;
+      virtual std::vector<FieldDetectionSpec> decodeFieldOutput(const std::shared_ptr<ArrayBuffer>& output, double scaleX, double scaleY) = 0;
+      virtual std::shared_ptr<ArrayBuffer> preprocessDocAlignerInput(const std::shared_ptr<ArrayBuffer>& rgb, double width, double height) = 0;
+      virtual std::vector<double> decodeCorners(const std::shared_ptr<ArrayBuffer>& output) = 0;
+      virtual std::variant<nitro::NullType, RectifiedFrameSpec> rectifyFrame(const std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>& frame) = 0;
+      virtual std::variant<nitro::NullType, LicenseDataSpec> ocrExtractFields(double token, const std::vector<FieldDetectionSpec>& detections) = 0;
+      virtual std::variant<nitro::NullType, LicenseDataSpec> runTtaVerification(const std::vector<double>& modes) = 0;
 
     protected:
       // Hybrid Setup

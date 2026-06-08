@@ -5,59 +5,57 @@ model expects as input and what it produces as output**, on both iOS and
 Android. Anyone integrating the model into a new platform layer should read
 this before writing inference code.
 
-The model file is shipped in the package:
+The model file is shipped once and loaded the same way on both platforms:
 
-| Platform | Path inside package | Format | Size |
-|---|---|---|---|
-| iOS | `Resources/DlScanFieldDetector.mlmodelc/` (inside the `DlScan` resource bundle) | Compiled Core ML | ~4.1 MB |
-| Android | `assets/dl_scan_field_detector.tflite` | Full-integer-quantized TFLite | ~3.3 MB |
+| Path inside package | Format | Size |
+|---|---|---|
+| `models/nanodet_field_416.tflite` | LiteRT / TFLite, fp32 | 4.99 MB |
 
-The trained `.pt` source weights live at
-`model-training/runs/field_detector/run_mps_patched/weights/best.pt`
-(gitignored under `runs/`); they are not bundled with the npm package.
+A 3×-smaller dynamic-int8 variant exists
+(`model-training/nanodet/export_tflite/nanodet_field_416_dynint8.tflite`,
+~1.6 MB) but is **not shipped** — it needs on-device accuracy validation first.
+
+The model is loaded in **JS** via `react-native-fast-tflite` (not native Core ML
+or a native TFLite `Interpreter`). The trained `.pth` source weights live at
+`model-training/nanodet/workspace/dlscan-nanodet-416/model_best/nanodet_model_best.pth`
+(gitignored); they are not bundled with the npm package.
 
 ## Architecture
 
-YOLOv8n (axis-aligned, not OBB), trained on the
+NanoDet-Plus-m — ShuffleNetV2 1.0x backbone + GhostPAN neck + GFL/DFL detection
+head (`reg_max=7`), strides 8/16/32/64, ~4.2M params — trained on the
 [IDNet](https://huggingface.co/datasets/cactuslab/IDNet-2025) synthetic
 identity-document dataset. 30 output classes — see
-`cpp/yolo/field_classes.cpp` for the canonical class-index ordering.
+`cpp/detect/` (field-class ordering) for the canonical class-index ordering.
 
-Both exports were produced from the same `.pt` weights via Ultralytics
-`model.export(format=…, nms=False, …)` — meaning **NMS is NOT in the model
-graph**. The platform layer is responsible for running NMS on the raw output
-tensor; the shared C++ implementation at `cpp/yolo/yolo_postprocess.cpp`
-provides `decode_and_nms()` for both platforms.
+**NMS is NOT in the model graph.** The raw output is an anchor-major tensor of
+per-anchor class scores + DFL regression logits; the shared C++ decode at
+`cpp/detect/nanodet_decode.{hpp,cpp}` does center-prior + DFL integral +
+per-class NMS. JS loads the `.tflite` and calls `runSync`; the native side
+bridges preprocess + decode through the `detect_c` C-ABI (see `src/detector.ts`
+`runFieldDetection`).
 
 ## Input
 
 | Property | Value |
 |---|---|
-| Spatial size | **640 × 640** (square) |
-| Color space | RGB (NOT BGR) |
-| Channel order | NCHW (1, 3, 640, 640) for Core ML; NHWC (1, 640, 640, 3) for TFLite |
-| Pixel range | `[0.0, 1.0]` float32 for Core ML; INT8 with model-recorded scale/zero-point for full-int8 TFLite |
-| Resize semantics | **Anisotropic scale-fill** (NOT letterbox). The detector was trained on `cv2.warpPerspective(src=IDNet image corners, dst=640×640 square)` — a direct anisotropic stretch from the source aspect to 1:1, no padding. See `model-training/idnet/prepare_yolo_fields.py::rectify_document`. The runtime must do the same: stretch the rectified ID-1-aspect canvas (1280×807) anisotropically to 640×640. iOS uses `VNImageCropAndScaleOption.scaleFill`; Android uses `Bitmap.createScaledBitmap(target, target, true)`. |
+| Spatial size | **416 × 416** (square) |
+| Color space | **BGR** (NanoDet's cv2-loaded, ImageNet-BGR mean/std) |
+| Channel order | **NHWC** `(1, 416, 416, 3)` — the layout the shipped `.tflite` expects |
+| Pixel range | float32, normalized `(channel − mean) / std` per BGR channel: mean `[103.53, 116.28, 123.675]`, std `[57.375, 57.12, 58.395]` |
+| Resize semantics | **Stretch resize** (`keep_ratio = false`, NOT letterbox), half-pixel-center bilinear, anisotropic to 416×416. |
 
-The platform layer is responsible for the anisotropic stretch and the
-inverse projection on the output side. `decode_and_nms()` returns coordinates
-in 640×640 pixel space; the consumer must reverse the per-axis stretch
-(`x_out = x_640 / (640/srcW)`, `y_out = y_640 / (640/srcH)`) to map detections
-back to the original camera-frame coordinate system. There is NO padding
-math to reverse — see `ios/HybridDlScanIOS.swift::runYOLO` and
-`android/.../HybridDlScanAndroid.kt::ocrPipelineForEval` for reference.
+Preprocessing is done in the shared C++ core (`cpp/detect/preprocess.cpp`,
+exposed via `dlscan_preprocess_field` in `detect_c`), invoked from JS as
+`_hybrid.preprocessFieldInput(rgb, width, height)`. It emits the NHWC BGR
+mean/std tensor and records `scale_x = 416/srcW`, `scale_y = 416/srcH`.
 
-### Training-vs-runtime aspect drift (task #45 — wontfix)
-
-The training source aspect is `720/450 = 1.6000` (IDNet US California
-sample size); the runtime intermediate is ID-1's `1.5858`. The 0.87%
-drift composes through both pipelines harmlessly — the YOLO model is
-operating well within its training distribution. A compile-time
-`static_assert` in `cpp/constants.hpp` pins this drift at < 1%; if
-future changes widen the gap the assertion catches it before landing.
-Empirical evidence (iter-13 eval, 200 images, 10 states) shows YOLO
-detection is not the accuracy bottleneck — OCR is. A "true" fix would
-require retraining; not warranted for the current scope.
+On the output side, `decode_field` returns boxes in 416×416 model space; the
+inverse-stretch back to SOURCE pixel space is a per-axis divide
+(`x_src = x_416 / scale_x`, `y_src = y_416 / scale_y`), applied inside the C++
+decode (`cpp/detect/field_detector.cpp`). There is NO padding math to reverse.
+`src/detector.ts::runFieldDetection` returns detections already in source pixel
+space.
 
 ## Output
 
@@ -65,98 +63,99 @@ Raw output tensor produced by the model (before any NMS):
 
 | Property | Value |
 |---|---|
-| Logical shape | `(1, 4 + num_classes, num_anchors)` = `(1, 34, 8400)` |
+| Logical shape | `(1, 3598, 62)` = `(1, num_anchors, num_classes + 4·(reg_max+1))` |
 | Dtype | float32 |
-| Layout (Core ML) | Channel-major — `tensor[ch * num_anchors + a]` |
-| Layout (TFLite) | Channel-major — same as Core ML for this export pipeline |
+| Layout | **Anchor-major** — `tensor[a * 62 + ch]` |
 
-The 34 channels are:
-- Channels **0..3**: bounding box coordinates `(cx, cy, w, h)` in **640×640 pixel space**, already decoded from anchor offsets by the YOLOv8 head
-- Channels **4..33**: per-class scores in `[0, 1]`, sigmoid-applied at export time
+The 62 channels per anchor are:
+- Channels **0..29**: per-class scores in `[0, 1]`, **sigmoid baked in at
+  export** (the C++ decode reads them as probabilities directly).
+- Channels **30..61**: `4 × 8` DFL (Distribution Focal Loss) regression
+  **logits** — four box edges (left, top, right, bottom), each an 8-bin
+  distribution (`reg_max = 7` → 8 bins). The decode applies softmax + the
+  integral (expected value) × stride, then `distance2bbox` against the center
+  prior, then per-class NMS.
 
-The 8400 anchors come from three feature pyramid scales:
-80×80 (6400) + 40×40 (1600) + 20×20 (400) = 8400. The anchors are interleaved
-internally; the platform layer never has to know the breakdown.
-
-If a future TFLite export ever produces anchor-major layout
-(`tensor[a * (4 + num_classes) + ch]`), pass
-`NmsConfig{ .layout = TensorLayout::AnchorMajor }` to `decode_and_nms()`.
+The 3598 anchors come from four feature-pyramid strides (8/16/32/64) over the
+416×416 input: 52² + 26² + 13² + 7² = 2704 + 676 + 169 + 49 = 3598. The C++
+decode (`cpp/detect/nanodet_decode.cpp`) reconstructs the center priors; the
+platform/JS layer never has to know the breakdown.
 
 ## Confidence semantics
 
-There is **no separate objectness channel** in YOLOv8 axis-aligned. The
-maximum class score per anchor is the confidence directly. Defaults:
+There is no separate objectness channel. The (already-sigmoid) per-class score
+is the confidence directly. Defaults match NanoDet's `multiclass_nms`
+(`cpp/detect/nanodet_decode.hpp::NanoDetConfig`):
 
 | Knob | Default | Notes |
 |---|---|---|
-| `conf_threshold` | 0.25 | Anchors below this are dropped before NMS |
-| `iou_threshold` | 0.45 | Class-wise IoU pruning |
-| `max_detections` | 100 | Top-K cap by confidence after NMS |
+| `score_thr` | 0.05 | Anchors below this score are dropped before NMS |
+| `nms_iou` | 0.6 | Per-class IoU pruning |
+| `max_det` | 100 | Top-K cap by confidence after NMS |
 
 Per-class NMS (not class-agnostic) — different field classes legitimately
 produce overlapping bboxes (e.g., a city/state/zip line shares pixels with
 its parent address bbox).
 
-## Quantization
+## Accuracy
 
-| Platform | Method | Validated mAP@0.5 | Validated mAP@0.5:0.95 |
+| Variant | mAP@0.5:0.95 | AP@0.5 | AP@0.75 |
 |---|---|---|---|
-| Core ML | weight-only int8, asymmetric (`mode=linear`), per-channel, `weight_threshold=65536` (head convs stay FP16) | 0.9950 | 0.9942 |
-| TFLite | full-integer int8 (weights + activations), 600-image calibration | 0.9554 | 0.7338 |
-| FP32 .pt baseline | n/a | 0.9950 | 0.9950 |
+| `nanodet_field_416.tflite` (fp32, shipped) | 0.967 | 0.9996 | 0.994 |
 
-Test split: 12,035 held-out IDNet images, never seen during training.
-See `models/version.json` for the full export metadata.
+Validation split: 12,055 held-out IDNet images, never seen during training. A
+dynamic-int8 variant exists (~1.6 MB) but is not shipped and must be validated
+on-device before use. See `models/version.json` for the full export metadata.
 
-## Platform-layer responsibilities
+## JS-orchestrated pipeline responsibilities
 
-The shared C++ `decode_and_nms()` handles tensor decode and per-class NMS.
-Everything else is platform-specific:
+The shared C++ core handles preprocess + decode + per-class NMS. The flow is
+JS-orchestrated (worklet) with native bridges:
 
-1. **Rectify** the camera frame to ID-1 aspect (`OCR_RECTIFY_W × OCR_RECTIFY_H`
-   = 1280×807) using a 4-point perspective transform from DocAligner corners,
-   then **anisotropically scale** that buffer to 640×640 (no padding). The
-   anisotropic stretch matches the training contract — see the "Resize
-   semantics" row in the Input table above.
-2. **Run inference**: `VNCoreMLRequest` on iOS, `Interpreter.run` on Android.
-3. **Pass the raw output tensor** to `decode_and_nms()`.
-4. **Reverse the per-axis stretch** on returned bbox coordinates to land back
-   in the rectified-image (1280×807) coordinate system; then apply the
-   inverse perspective transform from DocAligner if you need camera-frame
-   pixel space.
-5. **Vendor OCR** the rectified card image (one call, not per crop).
-6. **IoU-match** OCR observations to YOLO bboxes — for each YOLO bbox, the
-   OCR observation(s) with highest IoU; concatenate top-to-bottom for the
-   multi-line classes `list_5`, `list_8f`, `list_8s`; max-IoU single
-   winner for everything else (per Q3 in the Phase 1 design review).
-7. **Build a `std::map<std::string, std::string>`** keyed by YOLO class
-   name (via `class_name_or_empty`).
-8. **Call `extract_fields_structured(map)`** to produce a `LicenseData`.
+1. **Rectify** the camera frame natively (`rectifyFrame` — doc-segmentation +
+   4-point perspective correct) to an RGB8 buffer; the heavy buffer is cached
+   natively under a `token` and marshaled to JS once.
+2. **Preprocess** in C++ via `_hybrid.preprocessFieldInput(rgb, w, h)` — stretch
+   resize to 416×416, NHWC BGR mean/std (see the Input table).
+3. **Run inference** in JS: `model.runSync([input])` via react-native-fast-tflite
+   (the `.tflite` is loaded in JS; delegates select ANE/GPU/NNAPI/CPU).
+4. **Decode** in C++ via `_hybrid.decodeFieldOutput(output, 416/w, 416/h)` —
+   center-prior + DFL integral + per-class NMS, with detections un-stretched
+   back to SOURCE pixel space. `src/detector.ts::runFieldDetection` returns these.
+5. **OCR + extract** natively via `ocrExtractFields(token, detections)` — fetches
+   the cached buffer, runs vendor OCR (VisionKit on iOS, ML Kit on Android),
+   IoU-matches OCR observations to detections (top-to-bottom concat for the
+   multi-line classes `list_5`, `list_8f`, `list_8s`; max-IoU single winner
+   otherwise), keys a `std::map` by class name (via `class_name_or_empty`), and
+   calls the C++ structured-field extractor to produce a `LicenseData`.
 
 ## Versioning
 
-This contract is tied to the bundled model files. If you re-train the
-field detector and bundle a new model, you must:
+This contract is tied to the shipped model file. If you re-train the field
+detector and bundle a new model, you must:
 
-1. Verify the class-index ordering still matches `cpp/yolo/field_classes.cpp`.
-   The class-name table is hard-coded; a re-trained model with a different
-   FIELD_CLASSES ordering will silently corrupt every detection.
-2. Verify the input size is still 640×640. If you change `imgsz` in
-   `train_field_detector_mps_patched.py`, every platform layer's
-   anisotropic-stretch code (and `YOLO_INPUT_W/H` in `cpp/constants.hpp`)
-   needs updating.
-3. Verify the output tensor shape is still `(1, 34, 8400)`. If you change
-   the number of classes, update both `cpp/yolo/field_classes.cpp` and
-   `kNumClasses` in `cpp/yolo/field_classes.hpp` together.
-4. Re-run the parity smoke test (Phase 5) before shipping.
+1. Verify the class-index ordering still matches `cpp/yolo/field_classes.cpp`
+   (the class-name table reused by `class_name_or_empty`). A re-trained model
+   with a different class ordering will silently corrupt every detection.
+2. Verify the input size is still 416×416. If you change `input_size` in
+   `configs/dlscan-nanodet-plus-m_416.yml`, update the preprocess target in
+   `cpp/detect/preprocess.cpp`, `FIELD_INPUT_SIZE` in `src/detector.ts`, and
+   the `strides`/center-prior assumptions in `cpp/detect/nanodet_decode`.
+3. Verify the output tensor shape is still `(1, 3598, 62)`. If you change the
+   number of classes or `reg_max`, update `NanoDetConfig` in
+   `cpp/detect/nanodet_decode.hpp` and the class-name table together.
+4. Re-run the C++ decode goldens + parity check before shipping.
 
 ## See also
 
-- `cpp/yolo/yolo_postprocess.hpp` — the C++ API used by both platforms
+- `cpp/detect/nanodet_decode.hpp` — the NanoDet decode + per-class NMS API
+- `cpp/detect/preprocess.hpp` — the shared preprocess (NHWC BGR mean/std)
+- `cpp/detect/field_detector.hpp` — preprocess → invoke → decode → source-space map
+- `cpp/detect/detect_c.hpp` — the C-ABI bridged to JS (`preprocessFieldInput` /
+  `decodeFieldOutput`)
+- `src/detector.ts` — JS runtime (`loadFieldModel`, `runFieldDetection`)
 - `cpp/yolo/field_classes.hpp` — the 30-class index ordering
-- `cpp/ocr/ocr_field_extractor.hpp` — the structured-field extractor that
-  consumes the platform layer's IoU-matched output
-- `model-training/idnet/prepare_yolo_fields.py` — the dataset pipeline that
-  defines `FIELD_CLASSES` (the source of truth for class ordering)
-- `models/version.json` — measured mAP and quantization parameters per export
+- `cpp/ocr/ocr_field_extractor.hpp` — the structured-field extractor
+- `model-training/nanodet/export_tflite/export_internal.py` — the litert-torch export
+- `models/version.json` — measured mAP and export metadata
 - `docs/EVALUATION.md` — full evaluation methodology and held-out test setup

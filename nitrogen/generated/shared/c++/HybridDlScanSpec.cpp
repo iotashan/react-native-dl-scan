@@ -18,8 +18,14 @@ namespace margelo::nitro::dlscan {
       prototype.registerHybridGetter("pipelineStage", &HybridDlScanSpec::getPipelineStage);
       prototype.registerHybridGetter("detectedCardCorners", &HybridDlScanSpec::getDetectedCardCorners);
       prototype.registerHybridMethod("parseBarcodeData", &HybridDlScanSpec::parseBarcodeData);
-      prototype.registerHybridMethod("recognizeLicenseFields", &HybridDlScanSpec::recognizeLicenseFields);
       prototype.registerHybridMethod("resetLicenseFieldRecognition", &HybridDlScanSpec::resetLicenseFieldRecognition);
+      prototype.registerHybridMethod("preprocessFieldInput", &HybridDlScanSpec::preprocessFieldInput);
+      prototype.registerHybridMethod("decodeFieldOutput", &HybridDlScanSpec::decodeFieldOutput);
+      prototype.registerHybridMethod("preprocessDocAlignerInput", &HybridDlScanSpec::preprocessDocAlignerInput);
+      prototype.registerHybridMethod("decodeCorners", &HybridDlScanSpec::decodeCorners);
+      prototype.registerHybridMethod("rectifyFrame", &HybridDlScanSpec::rectifyFrame);
+      prototype.registerHybridMethod("ocrExtractFields", &HybridDlScanSpec::ocrExtractFields);
+      prototype.registerHybridMethod("runTtaVerification", &HybridDlScanSpec::runTtaVerification);
     });
   }
 

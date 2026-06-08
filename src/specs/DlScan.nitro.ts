@@ -31,6 +31,29 @@ export interface MRZDataSpec {
 // Sex must be a named type (nitrogen cannot handle inline string-literal unions).
 export type Sex = 'M' | 'F' | 'X';
 
+// A field-detector detection in SOURCE image pixel space. Mirrors
+// dlscan::yolo::Detection; returned by decodeFieldOutput for JS-orchestrated
+// (react-native-fast-tflite) inference.
+export interface FieldDetectionSpec {
+  classId: number;
+  confidence: number;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+// A rectified (perspective-corrected) camera frame, returned by rectifyFrame for
+// JS-orchestrated field detection. `rgb` is row-major RGB8 (3 bytes/px). The
+// native side caches the matching pixel buffer under `token` so ocrExtractFields
+// can run OCR on it without re-marshaling the image back across the bridge.
+export interface RectifiedFrameSpec {
+  rgb: ArrayBuffer;
+  width: number;
+  height: number;
+  token: number;
+}
+
 // Mirrors src/types.ts LicenseData with nullable fields expressed as optional
 // (Nitro maps optional → std::optional on the native side).
 // Note: aamvaVersion is a number here; null/absent means not parsed.
@@ -62,11 +85,16 @@ export interface LicenseDataSpec {
    * Per-field confidence scores in [0, 1]. Keys are camelCase names
    * matching the fields above (e.g. "firstName", "state", "postalCode").
    * Tiers, as populated by the C++ structured extractor:
-   *   - 1.00 — content-shape + cross-validation (e.g. state code present
-   *           AND zip-prefix consistent with that state)
+   *   - 1.00 — cross-validated: two independent checks agree (e.g. state
+   *           code present AND zip-prefix consistent with that state, or a
+   *           strict-marker value agreeing with a regular path)
+   *   - 0.95 — all gates passed: the 4-gate strict demographic parser
+   *   - 0.88 — marker-located: a free-text value (name/street) read off its
+   *           authoritative AAMVA marker; provenance assured, no content-shape
+   *           check possible. Ranked above shape-matched.
    *   - 0.85 — content-shape only (date passed regex, state in lookup
    *           table, sex normalized to M/F/X, eye/hair in AAMVA whitelist)
-   *   - 0.50 — extracted raw; no structural validation available
+   *   - 0.50 — extracted raw; no structural validation and not marker-anchored
    *   - absent / 0.0 — field not populated
    * Surfaced as a JSON-encoded string because Nitro v0.35 generics on
    * Map<string, number> don't round-trip cleanly through the Cxx bridge
@@ -133,22 +161,6 @@ export interface DlScan extends HybridObject<{
   parseBarcodeData(barcodeData: string): Promise<LicenseDataSpec | null>;
 
   /**
-   * Synchronously called from a frame-processor worklet. Returns the latest
-   * cached OCR result, or null if no result is available yet.
-   *
-   * Behavior: each call submits a new VisionKit + extract_ocr_fields job on
-   * a serial queue (rate-limited internally to ~2 fps). The first non-null
-   * result becomes available a few frames after the first call. Once the
-   * caller has consumed a non-null result, they should stop calling this
-   * method (e.g., by setting hasResult.value = true in their worklet) — the
-   * cache is not auto-cleared.
-   *
-   * The Frame is consumed (not retained) within this call's pixel-buffer
-   * read; safe to call frame.dispose() immediately after.
-   */
-  recognizeLicenseFields(frame: Frame): LicenseDataSpec | null;
-
-  /**
    * Reset the OCR-mode field-recognition cache. Call from the JS side when
    * the consumer's scan session ends (e.g., after a successful read or when
    * `useLicenseScanner.reset()` runs) so that the next scan does NOT see a
@@ -157,4 +169,98 @@ export interface DlScan extends HybridObject<{
    * generation has changed by the time it lands.
    */
   resetLicenseFieldRecognition(): void;
+
+  // ---- Unified TFLite runtime (react-native-fast-tflite), JS-orchestrated ----
+  //
+  // The detector/doc-seg inference runs through react-native-fast-tflite in the
+  // JS/worklet layer (JS loads the models via loadTensorflowModel and calls
+  // model.runSync). These methods bridge the shared, tested C++ pre/post (the
+  // detect_c C-ABI) without referencing fast-tflite's c++-only TfliteModel type
+  // — which a 5-cycle iOS build proved cannot be passed into a Swift/Kotlin
+  // HybridObject (fails at both the <NitroTflite/...> C++ include and the Swift
+  // `any HybridTfliteModelSpec` type). See docs/.../2026-05-30-ios-build-findings.md.
+
+  /**
+   * Preprocess a rectified RGB8 image (row-major, 3 bytes/px) into the NanoDet
+   * field-detector input tensor: NHWC, BGR, ImageNet-BGR mean/std, 416. JS
+   * passes the result to the fast-tflite model's runSync.
+   */
+  preprocessFieldInput(
+    rgb: ArrayBuffer,
+    width: number,
+    height: number
+  ): ArrayBuffer;
+
+  /**
+   * Decode the NanoDet output tensor (anchor-major [A,62]) into detections in
+   * SOURCE pixel space. scaleX/scaleY are inputSize/width and inputSize/height
+   * (416/width, 416/height) from the preprocess stretch-resize.
+   */
+  decodeFieldOutput(
+    output: ArrayBuffer,
+    scaleX: number,
+    scaleY: number
+  ): FieldDetectionSpec[];
+
+  /**
+   * Preprocess a rectified RGB8 image into the DocAligner input tensor: NHWC,
+   * RGB, pixel/255, 256.
+   */
+  preprocessDocAlignerInput(
+    rgb: ArrayBuffer,
+    width: number,
+    height: number
+  ): ArrayBuffer;
+
+  /**
+   * Decode the DocAligner corner heatmap ([128,128,4] NHWC) into 4 corners as 8
+   * normalized floats [x0,y0,x1,y1,x2,y2,x3,y3] in order TL, TR, BR, BL.
+   */
+  decodeCorners(output: ArrayBuffer): number[];
+
+  /**
+   * Rectify a camera frame for JS-orchestrated field detection: doc-seg +
+   * perspective-correct, returning the rectified image as RGB8 bytes plus a
+   * `token`. The native side caches the rectified pixel buffer under `token`
+   * so ocrExtractFields can OCR it without re-marshaling. Returns null when no
+   * card is detected or the call is rate-limited / a job is in flight.
+   */
+  rectifyFrame(frame: Frame): RectifiedFrameSpec | null;
+
+  /**
+   * Run OCR + structured extraction on a previously-rectified frame (looked up
+   * by `token`) using JS-provided NanoDet field detections: per-region OCR,
+   * demographic parse, voting, C++ field extraction, and card/headshot capture,
+   * then free the token. Returns the LicenseDataSpec, or null on any stage
+   * failure / unknown token.
+   */
+  ocrExtractFields(
+    token: number,
+    detections: FieldDetectionSpec[]
+  ): LicenseDataSpec | null;
+
+  /**
+   * Test-time-augmentation (TTA) verification pass. ADDITIVE + opt-in: the JS
+   * hook only calls this when the consumer enables `completion.tta`, after the
+   * normal scan has reached completion. Re-OCRs the BEST captured card crop —
+   * the consensus rectified RGB buffer the pipeline already retains when it
+   * saved `cardImagePath` — under each requested augmentation, recovering small
+   * glyphs a single OCR pass misses (e.g. the standalone vehicle-class "D" on
+   * blue WI card stock).
+   *
+   * `modes` is a list of DLSCAN_AUG_* augmentation ints (see detect_c.hpp:
+   * 0 = blue-channel grayscale, 1 = per-channel contrast stretch). For each
+   * mode the native side synthesizes an augmented copy of the retained crop via
+   * the shared C++ `dlscan_augment_rgb`, runs the SAME whole-card OCR +
+   * AAMVA-demographic strict parse + C++ field extraction the normal path uses
+   * (whole-card only — no field detector), votes the augmented frames together
+   * with a FRESH voter, and returns the voted LicenseDataSpec.
+   *
+   * Returns null when no consensus crop is currently retained (e.g. the scan
+   * finalized best-effort with no card captured, or after
+   * resetLicenseFieldRecognition()), or when the augmented frames produce no
+   * extractable consensus. Does NOT mutate the live scan voter or re-save the
+   * card/headshot images.
+   */
+  runTtaVerification(modes: number[]): LicenseDataSpec | null;
 }

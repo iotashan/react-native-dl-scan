@@ -123,9 +123,12 @@ accuracy.
 
 Splits are stratified by document type. Random seed: **42**.
 
-The train/val/test split is applied by `prepare_yolo_obb.py` and
-`prepare_yolo_fields.py`; the same split boundary files are reused for all
-three models so the test set is identical across models.
+The field-detector split is applied by `prepare_yolo_fields.py`, then
+converted from YOLO to COCO format by `model-training/nanodet/yolo_to_coco.py`
+for the NanoDet (RangiLyu/nanodet) trainer. The realized NanoDet field-detector
+split is **95,490 train / 12,055 val** images. (`prepare_yolo_obb.py` produces
+the OBB doc-detector labels, which are preserved as scaffolding but not trained;
+see the OBB-labels note above.)
 
 ---
 
@@ -160,8 +163,9 @@ content, but sees no variation in perspective, scale, occlusion, or background
 clutter during training.
 
 Real-world camera frames will contain a document floating in a varied
-background. Data augmentation (random crop, affine, color jitter, mosaic —
-all enabled in the YOLO training config) partially compensates, but
+background. Data augmentation (random scale/stretch, translate, brightness,
+contrast, saturation — enabled in the NanoDet field-detector training config
+`configs/dlscan-nanodet-plus-m_416.yml`) partially compensates, but
 performance on documents at extreme angles or with significant background
 complexity may be lower than held-out test metrics suggest.
 

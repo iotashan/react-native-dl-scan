@@ -19,7 +19,11 @@ import {
   type CameraDevice,
 } from 'react-native-vision-camera';
 import * as Device from 'expo-device';
-import { useLicenseScanner, type LicenseData } from 'react-native-dl-scan';
+import {
+  useLicenseScanner,
+  type LicenseData,
+  type ScanCompletionPolicy,
+} from 'react-native-dl-scan';
 import { NitroModules } from 'react-native-nitro-modules';
 import type { Phase } from '../components/ScannerScreen';
 
@@ -28,12 +32,24 @@ const FIXTURE_SAMPLE =
   '@\nANSI 636014090002DL00410288ZC03290025DLDAQD12345678\n' +
   'DCSDOE\nDACJANE\nDBB01151990\nDBA01152030\nDBC2\nDAU064 IN\nDAYBLU\n';
 
+// JS-orchestrated OCR detector models (react-native-fast-tflite). Bundled as
+// assets; metro require() returns the asset id (a valid ModelSource). Supplying
+// these switches OCR mode to the NanoDet worklet path; omit for the legacy
+// native path.
+const OCR_MODELS = {
+  // Field detector only: the OCR worklet does doc-seg natively (DocAligner not
+  // needed in JS). See OcrModelSources.docAligner.
+  field: require('../assets/nanodet_field_416.tflite') as number,
+};
+
 export interface UseScannerInternalsArgs {
   mode: 'barcode' | 'ocr';
   phase: Phase;
   setPhase: (p: Phase) => void;
   onResult: (data: LicenseData) => void;
   showFixtureTweak: boolean;
+  /** OCR multi-frame completion policy (from the settings drawer). */
+  completion?: ScanCompletionPolicy;
 }
 
 export interface ScannerInternals {
@@ -61,6 +77,7 @@ export function useScannerInternals({
   setPhase,
   onResult,
   showFixtureTweak,
+  completion,
 }: UseScannerInternalsArgs): ScannerInternals {
   const { hasPermission, requestPermission, canRequestPermission, status } =
     useCameraPermission();
@@ -133,7 +150,7 @@ export function useScannerInternals({
     return Math.max(1, device.minZoom);
   })();
 
-  const scanner = useLicenseScanner(mode);
+  const scanner = useLicenseScanner(mode, OCR_MODELS, completion);
 
   // Scanner hook is fresh on mount — App.tsx re-keys ScannerScreen on
   // every new scan session (scanSessionId), guaranteeing the hook's
@@ -152,6 +169,25 @@ export function useScannerInternals({
       setPhase('captured');
     }
   }, [scanner.licenseData, scanner.isScanning, phase, setPhase, onResult]);
+
+  // Surface the multi-frame scan's inner state (pass number, accepted/pending
+  // required fields, validation phase) — drives the live UI and is logged for
+  // on-device diagnostics. Replace with a real overlay binding in the UI layer.
+  useEffect(() => {
+    const s = scanner.scanStatus;
+    console.log(
+      '[dl-scan/status]',
+      JSON.stringify({
+        phase: s.phase,
+        pass: `${s.passNumber}/${s.maxFrames}`,
+        accepted: s.acceptedRequired,
+        pending: s.pendingRequired,
+        optional: s.acceptedOptional,
+        frac: Number(s.fractionComplete.toFixed(2)),
+        validation: s.validation,
+      })
+    );
+  }, [scanner.scanStatus]);
 
   // Conditional outputs — pause semantics per Round 2. While
   // we're not in the scanning phase, the camera stays mounted (so the

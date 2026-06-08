@@ -23,6 +23,7 @@
 // persist later" guidance. Until then values reset on cold start.
 
 import { useState, useCallback } from 'react';
+import type { LicenseData, TtaMode } from 'react-native-dl-scan';
 import type {
   Direction,
   ThemePreference,
@@ -49,7 +50,47 @@ export interface Tweaks {
   minTier: ConfidenceTier;
   /** Fire a haptic on phase=captured. Default: true. */
   haptic: boolean;
+  /** OCR completion policy — fields that must all be read before the scan
+   *  finishes. The scan keeps accumulating passes until these are all present
+   *  (or `maxPasses` is hit). */
+  requiredFields: (keyof LicenseData)[];
+  /** Hard cap on OCR consensus passes (2..50). Default 30. */
+  maxPasses: number;
+  /** Require one extra confirming pass after the required set is met. Default true. */
+  validationPass: boolean;
+  /** Re-parse the best retained crop at finalization. Default true. */
+  ttaEnabled: boolean;
+  /** Best-crop re-parse augmentations to apply when `ttaEnabled`. Default: all three. */
+  ttaModes: TtaMode[];
 }
+
+/** Best-crop re-parse augmentation modes the settings UI lets the user toggle. */
+export const TTA_MODE_OPTIONS: TtaMode[] = [
+  'original',
+  'blueChannel',
+  'contrastStretch',
+];
+
+/** Fields the settings UI lets the user toggle into the required set. */
+export const TOGGLEABLE_REQUIRED_FIELDS: (keyof LicenseData)[] = [
+  'firstName',
+  'middleName',
+  'lastName',
+  'street',
+  'city',
+  'state',
+  'postalCode',
+  'sex',
+  'dateOfBirth',
+  'licenseNumber',
+  'height',
+  'weight',
+  'eyeColor',
+  'hairColor',
+  'vehicleClass',
+  'expirationDate',
+  'issueDate',
+];
 
 export const TWEAK_DEFAULTS: Tweaks = {
   direction: 'lumen',
@@ -60,6 +101,21 @@ export const TWEAK_DEFAULTS: Tweaks = {
   fallbackSec: 30,
   minTier: 'shape_matched',
   haptic: true,
+  requiredFields: [
+    'firstName',
+    'lastName',
+    'street',
+    'city',
+    'state',
+    'postalCode',
+    'dateOfBirth',
+    'licenseNumber',
+    'sex',
+  ],
+  maxPasses: 30,
+  validationPass: true,
+  ttaEnabled: true,
+  ttaModes: ['original', 'blueChannel', 'contrastStretch'],
 };
 
 /**

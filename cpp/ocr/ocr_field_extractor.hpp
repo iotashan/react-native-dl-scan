@@ -56,19 +56,27 @@ std::optional<LicenseData> extract_ocr_fields(
 ///     here — the platform layer should canonicalize before passing in.
 ///   - License number: internal whitespace stripped.
 ///   - list_8s: parsed for "city, STATE zip" structure into
-///     city/state/postalCode. Unparseable strings fall back to city only.
+///     city/state/postalCode. Unparseable strings leave all three empty
+///     (no raw-string fallback into city — a fabricated field is worse than
+///     an honest empty one; the separately-parsed `street` still carries the
+///     address).
 ///
-/// Returns std::nullopt if none of {firstName, lastName, licenseNumber}
-/// could be extracted (validity gate). All three are accepted: surname-only
-/// is normal for international IDs; firstName-only matches AAMVA legacy.
+/// Returns std::nullopt only when NO core identity field could be extracted —
+/// the validity gate accepts any of: a name (first or last), a license number,
+/// a date of birth, or an address (street, or city+state+postalCode). A
+/// surname-only read is normal for international IDs; a partial parse (e.g.
+/// DOB- or address-only) is surfaced and marked incomplete downstream rather
+/// than dropped.
 /// v2 candidate-evidence path. Accepts a vector of typed FieldCandidate
 /// values; the resolver buckets candidates by (FieldId, FieldSource) and
-/// applies tier resolution including the StrictAgrees → CrossValidated
-/// (1.00) upgrade when StrictTextPool and BboxIoU candidates converge on
-/// the same value (round-2 lock).
+/// applies tier resolution: shape-checkable fields earn StrictAgrees →
+/// CrossValidated (1.00) when StrictTextPool and BboxIoU candidates converge,
+/// while free-text fields (name/street) use a provenance ladder that caps
+/// corroboration at AllGatesPassed (0.95) — their content can't be
+/// shape-verified and the two paths can share input.
 ///
-/// Returns std::nullopt when the validity gate fails ({firstName,
-/// lastName, licenseNumber} all empty).
+/// Returns std::nullopt only when the validity gate fails — no name, license
+/// number, date of birth, or address could be extracted.
 ///
 /// Named alias for std::vector<FieldCandidate> so Swift Cxx-interop sees
 /// a single concrete type — Cxx struggles with the template form.
@@ -76,5 +84,50 @@ using FieldCandidateVector = std::vector<FieldCandidate>;
 
 std::optional<LicenseData> extract_fields_from_candidates(
     const FieldCandidateVector& candidates);
+
+/// Shared marker-anchored demographic parser (the 4-gate "strict text pool").
+///
+/// Single source of truth for the visible-field AAMVA-index parse that used
+/// to be duplicated in Swift (HybridDlScanIOS.parseAamvaDemographicFields)
+/// and Kotlin (HybridDlScanAndroid.parseAamvaDemographicFields). Both
+/// platforms now feed their OCR observation texts (in reading order) into
+/// this function and emit the returned candidates as FieldSource::
+/// StrictTextPool into the multi-frame voter, exactly as before. Moving the
+/// orchestration here lets it be unit-tested once and keeps iOS/Android in
+/// lock-step.
+///
+/// Input: `observations` is the OCR reading-order list of whole-card text
+/// lines (already ASCII-filtered, already split on AAMVA indices by the
+/// platform's splitObservationsByAamvaIndices). bbox geometry is NOT needed
+/// here — this parse is text-only.
+///
+/// Behaviour (the three device-observed fixes baked in):
+///   1. One-step LOOK-AHEAD: a bare marker observation (e.g. "4d" with no
+///      value, or a marker whose own value fails its domain) adopts the
+///      NEXT observation's text as its value when that next observation
+///      carries no AAMVA token of its own and matches the marker's domain.
+///      Recovers the WI licence number where "4d" and "J415-2208-5573-28"
+///      land on separate OCR lines.
+///   2. FUSED-ROW marker extraction: a row carrying several markers (e.g.
+///      "15 SEX M 18 HOT 5 - 04 17 WOT 160 0") is tokenised per marker and
+///      each value is shape-extracted (extract_field_shape) so the sex
+///      single-[MFX] is pulled cleanly out of the fused row.
+///   3. NAME marker-2 trailing-junk strip: index-2 ("MARCUS ANTOINE ON PA")
+///      has trailing non-name endorsement-line artifacts removed so the
+///      strict given-name candidate is clean before the resolver splits it
+///      into firstName / middleName.
+///
+/// All emitted candidates carry FieldSource::StrictTextPool. Returns an
+/// empty vector when nothing recovers (never nullopt — it is purely
+/// additive evidence for the voter).
+///
+/// Named alias for std::vector<std::string> so Swift Cxx-interop sees a
+/// single concrete type for the observation list (matches the
+/// FieldCandidateVector alias rationale above — Cxx struggles with the bare
+/// template form as a parameter type).
+using ObservationVector = std::vector<std::string>;
+
+FieldCandidateVector parse_aamva_demographic_fields(
+    const ObservationVector& observations);
 
 } // namespace dlscan

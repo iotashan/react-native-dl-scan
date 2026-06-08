@@ -18,8 +18,9 @@ Pod::Spec.new do |s|
   s.license      = package["license"]
   s.authors      = package["author"]
 
-  # iOS 16 floor: the bundled DlScanFieldDetector.mlmodelc uses the
-  # ML Program (mlprogram) Core ML format which requires iOS 16+ to load.
+  # iOS 16 floor: matches Vision Camera v5 / Nitro Modules' supported floor
+  # and the Vision document-segmentation + text-recognition APIs the OCR path
+  # relies on.
   s.platforms    = { :ios => "16.0" }
   s.source       = { :git => "https://github.com/iotashan/react-native-dl-scan.git", :tag => "#{s.version}" }
 
@@ -34,6 +35,7 @@ Pod::Spec.new do |s|
                    'cpp/mrz/*.{cpp,hpp}',
                    'cpp/ocr/*.{cpp,hpp}',
                    'cpp/yolo/*.{cpp,hpp}',
+                   'cpp/detect/*.{cpp,hpp}',
                    'cpp/errors/*.{cpp,hpp}'
   # Expose the cpp/ headers in the auto-generated DlScan-umbrella.h so the
   # `dlscan::LicenseData` C++ namespace (defined in cpp/license_data.hpp)
@@ -42,18 +44,13 @@ Pod::Spec.new do |s|
   s.public_header_files = 'cpp/**/*.hpp'
   s.private_header_files = "ios/**/*.h"
 
-  # Compiled Core ML model — packaged as a resource bundle. CocoaPods
-  # expands resource_bundles with include_dirs:true, preserving the .mlmodelc
-  # package-directory semantics that a flat s.resources glob would break.
-  # Loaded at runtime by HybridDlScanIOS via Bundle for(class:).
-  s.resource_bundles = {
-    'DlScan' => ['ios/Resources/DlScanFieldDetector.mlmodelc']
-  }
+  # No bundled Core ML model: field detection runs in JS via
+  # react-native-fast-tflite (NanoDet). The native layer only does Vision
+  # document-segmentation + text-recognition and bridges the shared C++ pre/post.
 
-  # CoreML framework is required to load and run the bundled .mlmodelc at
-  # runtime; Vision is required for VNCoreMLModel + VNDetectDocumentSegmentation;
+  # Vision is required for VNDetectDocumentSegmentation + VNRecognizeText;
   # CoreVideo for CVPixelBuffer manipulation.
-  s.frameworks   = ["Vision", "CoreML", "CoreVideo"]
+  s.frameworks   = ["Vision", "CoreVideo"]
   s.swift_version = "5.9"
 
   s.pod_target_xcconfig = {
@@ -78,6 +75,11 @@ Pod::Spec.new do |s|
 
   # VisionCamera — Pod-path consumers; SPM consumers resolve VC via their host package manifest
   s.dependency "VisionCamera"
+  # NOTE: no react-native-fast-tflite dependency — the unified TFLite runtime is
+  # driven from JS (the example app depends on it), and the native layer only
+  # bridges the detect_c C-ABI. This deliberately avoids the cross-module
+  # NitroTflite C++/Swift coupling that a 5-cycle iOS build proved unworkable
+  # (docs/superpowers/plans/2026-05-30-ios-build-findings.md).
 
   if defined?(install_modules_dependencies)
     install_modules_dependencies(s)

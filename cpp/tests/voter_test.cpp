@@ -37,14 +37,35 @@ const FieldCandidate* find(const std::vector<FieldCandidate>& v,
 // round-2 required test matrix for v2 Sequence D (task #52)
 // ============================================================================
 
-TEST(FieldVoter, SingleVoteWins) {
+TEST(FieldVoter, SingleVoteBelowDefaultFloorIsNotEmitted) {
     FieldVoter v;
+    v.accept({cand(FieldId::List1, "DOE", FieldSource::BboxIoU)});
+    auto c = v.consensus();
+    EXPECT_EQ(c.size(), 0u);
+    EXPECT_EQ(find(c, FieldId::List1, FieldSource::BboxIoU), nullptr);
+}
+
+TEST(FieldVoter, TwoVotesReachDefaultFloor) {
+    FieldVoter v;
+    v.accept({cand(FieldId::List1, "DOE", FieldSource::BboxIoU)});
     v.accept({cand(FieldId::List1, "DOE", FieldSource::BboxIoU)});
     auto c = v.consensus();
     ASSERT_EQ(c.size(), 1u);
     EXPECT_EQ(c[0].text, "DOE");
     EXPECT_EQ(c[0].id, FieldId::List1);
     EXPECT_EQ(c[0].source, FieldSource::BboxIoU);
+}
+
+TEST(FieldVoter, ConstructorMinVotesCanRaiseFloor) {
+    FieldVoter v(FieldVoter::DEFAULT_MAX_VOTES, 3);
+    v.accept({cand(FieldId::List1, "DOE", FieldSource::BboxIoU)});
+    v.accept({cand(FieldId::List1, "DOE", FieldSource::BboxIoU)});
+    EXPECT_EQ(v.consensus().size(), 0u);
+
+    v.accept({cand(FieldId::List1, "DOE", FieldSource::BboxIoU)});
+    auto c = v.consensus();
+    ASSERT_EQ(c.size(), 1u);
+    EXPECT_EQ(c[0].text, "DOE");
 }
 
 TEST(FieldVoter, MajorityWins) {
@@ -73,6 +94,7 @@ TEST(FieldVoter, EmptyTextSkipped) {
     FieldVoter v;
     v.accept({cand(FieldId::List1, "DOE", FieldSource::BboxIoU)});
     v.accept({cand(FieldId::List1, "",    FieldSource::BboxIoU)});
+    v.accept({cand(FieldId::List1, "DOE", FieldSource::BboxIoU)});
     auto c = v.consensus();
     ASSERT_EQ(c.size(), 1u);
     EXPECT_EQ(c[0].text, "DOE");
@@ -113,6 +135,10 @@ TEST(FieldVoter, MultipleFieldsInOneFrame) {
         cand(FieldId::List1, "DOE",  FieldSource::BboxIoU),
         cand(FieldId::List2, "JANE", FieldSource::BboxIoU),
     });
+    v.accept({
+        cand(FieldId::List1, "DOE",  FieldSource::BboxIoU),
+        cand(FieldId::List2, "JANE", FieldSource::BboxIoU),
+    });
     auto c = v.consensus();
     ASSERT_EQ(c.size(), 2u);
     EXPECT_NE(find(c, FieldId::List1, FieldSource::BboxIoU), nullptr);
@@ -135,6 +161,10 @@ TEST(FieldVoter, RegularAndStrictSameFieldSameFrameKeepSeparateBuckets) {
         cand(FieldId::List15, "M",  FieldSource::BboxIoU),
         cand(FieldId::List15, "M",  FieldSource::StrictTextPool),
     });
+    v.accept({
+        cand(FieldId::List15, "M",  FieldSource::BboxIoU),
+        cand(FieldId::List15, "M",  FieldSource::StrictTextPool),
+    });
     auto c = v.consensus();
     ASSERT_EQ(c.size(), 2u)
         << "(FieldId, FieldSource) keying must keep these separate";
@@ -144,9 +174,10 @@ TEST(FieldVoter, RegularAndStrictSameFieldSameFrameKeepSeparateBuckets) {
 
 TEST(FieldVoter, RegularAndStrictDisagreeBothEmitted) {
     FieldVoter v;
-    // bbox says "F" repeatedly, strict says "M" once.
+    // bbox says "F" repeatedly, strict says "M".
     for (int i = 0; i < 5; ++i)
         v.accept({cand(FieldId::List15, "F", FieldSource::BboxIoU)});
+    v.accept({cand(FieldId::List15, "M", FieldSource::StrictTextPool)});
     v.accept({cand(FieldId::List15, "M", FieldSource::StrictTextPool)});
     auto c = v.consensus();
     ASSERT_EQ(c.size(), 2u);
@@ -165,6 +196,11 @@ TEST(FieldVoter, ConsensusFeedsResolverForCrossValidatedUpgrade) {
     // preserves the v1 #43 StrictAgrees behavior.
     FieldVoter v;
     v.accept({cand(FieldId::List1,  "DOE", FieldSource::BboxIoU)});
+    v.accept({cand(FieldId::List1,  "DOE", FieldSource::BboxIoU)});
+    v.accept({
+        cand(FieldId::List15, "M", FieldSource::BboxIoU),
+        cand(FieldId::List15, "M", FieldSource::StrictTextPool),
+    });
     v.accept({
         cand(FieldId::List15, "M", FieldSource::BboxIoU),
         cand(FieldId::List15, "M", FieldSource::StrictTextPool),

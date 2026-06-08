@@ -17,10 +17,12 @@ namespace dlscan {
 ///
 /// Order matters: scores compare top-down so a score of exactly 0.85f
 /// returns "shape_matched" (the canonical tier) rather than falling
-/// through. Out-of-range scores collapse to the nearest tier.
+/// through, and exactly 0.88f returns "marker_located". Out-of-range
+/// scores collapse to the nearest tier.
 static const char* tier_name_for_score(float score) {
     if (score >= 1.0f)  return "cross_validated";
     if (score >= 0.95f) return "all_gates_passed";
+    if (score >= 0.88f) return "marker_located";
     if (score >= 0.85f) return "shape_matched";
     return "extracted_raw";
 }

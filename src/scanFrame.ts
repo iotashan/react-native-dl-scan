@@ -2,6 +2,8 @@ import type { Frame } from 'react-native-vision-camera';
 import type { BarcodeScanner } from 'react-native-vision-camera-barcode-scanner';
 import type { LicenseDataSpec } from './specs/DlScan.nitro';
 import { _hybrid } from './native';
+import { runFieldDetection } from './detector';
+import type { TfliteModel } from 'react-native-fast-tflite';
 import type { ScanMode } from './types';
 
 /**
@@ -41,22 +43,30 @@ export function scanFrameBarcode(
 }
 
 /**
- * OCR mode worklet. Calls the Nitro hybrid's recognizeLicenseFields
- * synchronously on the camera thread and returns the latest cached OCR
- * result, or null if no result is available yet (pixel buffer was just
- * queued; the actual VisionKit recognition runs asynchronously on the
- * native side and the result will be available a few frames later).
+ * JS-orchestrated OCR worklet (NanoDet via react-native-fast-tflite). Native
+ * rectifies the frame (doc-seg + perspective-correct) and returns the rectified
+ * RGB + a token; JS runs the NanoDet field detector via fast-tflite; native
+ * then OCRs + extracts using those detections (ocrExtractFields).
  *
- * Returns the raw LicenseDataSpec (Nitro shape with optional fields).
- * The caller (useLicenseScanner) is responsible for normalizing
- * undefined → null when it crosses the worklet → JS boundary.
+ * Returns the raw LicenseDataSpec (or null until a card + detections land). The
+ * caller normalizes undefined -> null at the worklet -> JS boundary.
  *
  * @worklet
  */
-export function scanFrameOcr(frame: Frame): LicenseDataSpec | null {
+export function scanFrameOcrNanodet(
+  frame: Frame,
+  fieldModel: TfliteModel
+): LicenseDataSpec | null {
   'worklet';
-  const result = _hybrid.recognizeLicenseFields(frame);
-  return result ?? null;
+  const rect = _hybrid.rectifyFrame(frame);
+  if (rect == null) return null;
+  const detections = runFieldDetection(
+    fieldModel,
+    rect.rgb,
+    rect.width,
+    rect.height
+  );
+  return _hybrid.ocrExtractFields(rect.token, detections) ?? null;
 }
 
 /**
@@ -68,15 +78,14 @@ export function scanFrameOcr(frame: Frame): LicenseDataSpec | null {
  * @worklet
  */
 export function scanFrame(
-  frame: Frame,
-  mode: ScanMode = 'barcode'
+  _frame: Frame,
+  _mode: ScanMode = 'barcode'
 ): LicenseDataSpec | null {
   'worklet';
-  if (mode === 'ocr') {
-    return scanFrameOcr(frame);
-  }
-  // Barcode detection in VC v5 requires a BarcodeScanner instance from
-  // useBarcodeScanner(). The standalone scanFrame worklet cannot perform
-  // barcode detection; use useLicenseScanner() for the complete pipeline.
+  // Both barcode and OCR detection require state owned by useLicenseScanner()
+  // (a BarcodeScanner instance from useBarcodeScanner() in VC v5, or the loaded
+  // NanoDet field model for the OCR path). The standalone scanFrame worklet
+  // cannot perform detection on its own; use useLicenseScanner() for the
+  // complete pipeline.
   return null;
 }

@@ -3180,6 +3180,7 @@ __metadata:
     react: 19.1.0
     react-native: 0.81.5
     react-native-dl-scan: "portal:.."
+    react-native-fast-tflite: ^3.0.0
     react-native-nitro-image: ^0.14.0
     react-native-nitro-modules: ^0.35.0
     react-native-reanimated: ~4.1.1
@@ -5417,8 +5418,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "react-native-dl-scan@portal:..::locator=example%40workspace%3A."
   peerDependencies:
-    react: "*"
-    react-native: "*"
+    react: ">=18.0.0"
+    react-native: ">=0.79.0"
+    react-native-fast-tflite: ^3.0.0
     react-native-nitro-image: ^0.14.0
     react-native-nitro-modules: ^0.35.0
     react-native-vision-camera: ^5.0.0
@@ -5427,6 +5429,17 @@ __metadata:
     react-native-worklets: ^0.8.0
   languageName: node
   linkType: soft
+
+"react-native-fast-tflite@npm:^3.0.0":
+  version: 3.0.1
+  resolution: "react-native-fast-tflite@npm:3.0.1"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-nitro-modules: "*"
+  checksum: 00dff8d46b067b343a5a1ce7c4c1ed3aaa1c233d138140db62f93f4c14ebf648c90ad66836760d1e64a57369363e09fde94b4f812fafb19798423489b3027be8
+  languageName: node
+  linkType: hard
 
 "react-native-is-edge-to-edge@npm:^1.2.1":
   version: 1.3.1

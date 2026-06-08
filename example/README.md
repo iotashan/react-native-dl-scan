@@ -27,7 +27,7 @@ This is the cleanest answer to the "close hold blurs at 4 inches" problem withou
 
 ### Multi-frame voter (library-side, surfaced in UI)
 
-The library accumulates `FieldCandidate` records into a per-instance C++ `FieldVoter` and emits the cross-frame consensus to JS only after every successful frame. The example reads `licenseData.dataConfidence` per frame and the result view groups fields by tier (`cross_validated` / `all_gates_passed` / `shape_matched` / `extracted_raw`) on the **ConfidenceRail** above the field grid.
+The library accumulates `FieldCandidate` records into a per-instance C++ `FieldVoter` and emits the cross-frame consensus to JS only after every successful frame. The example reads `licenseData.dataConfidence` per frame and the result view groups fields by tier (`cross_validated` / `all_gates_passed` / `marker_located` / `shape_matched` / `extracted_raw`) on the **ConfidenceRail** above the field grid. `marker_located` (0.88) is the free-text tier: a name/street value found at its authoritative AAMVA marker — ranked above `shape_matched` so a cleanly-read name is never shown as low-confidence.
 
 ### Confidence rail + tier-aware field chips
 

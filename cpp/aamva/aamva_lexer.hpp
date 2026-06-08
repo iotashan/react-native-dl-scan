@@ -15,7 +15,7 @@
 //  2. is_valid_boundary = pos == 0 OR preceding char is non-alphanumeric.
 //     Letter-preceded positions are rejected (covers R2D2 case).
 //  3. Trailing-char rule: matched index must NOT be immediately followed
-//     by another digit. Rejects "2" inside "2119", "18" inside "180".
+//     by another digit. Rejects "2" inside "2074", "18" inside "180".
 //  4. Value-boundary scan requires a label-peek on candidate splits —
 //     prevents "5'-04\"" being split at the leading '5'.
 //  5. WI 46→4d canonicalize alias is the only canonicalize rewrite.
