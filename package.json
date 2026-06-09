@@ -112,7 +112,8 @@
     "react-native-worklets": "^0.8.0"
   },
   "resolutions": {
-    "fast-uri": "^3.1.2"
+    "fast-uri": "^3.1.2",
+    "shell-quote": "^1.8.4"
   },
   "packageManager": "yarn@3.6.1",
   "prettier": {

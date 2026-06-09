@@ -42,7 +42,8 @@
   "resolutions": {
     "postcss": "^8.5.10",
     "ws": "^8",
-    "uuid": "^11"
+    "uuid": "^11",
+    "shell-quote": "^1.8.4"
   },
   "expo": {
     "autolinking": {
