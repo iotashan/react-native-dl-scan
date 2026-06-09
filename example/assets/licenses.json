@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-06-09T13:57:29.529Z",
-  "count": 484,
+  "generatedAt": "2026-06-09T14:29:48.259Z",
+  "count": 486,
   "licenseBreakdown": {
-    "MIT": 414,
+    "MIT": 416,
     "BSD-3-Clause": 7,
     "ISC": 25,
     "Python-2.0": 1,
@@ -2540,6 +2540,16 @@
       "licenseText": "The MIT License (MIT)\n\nCopyright (c) 2015-present 650 Industries, Inc. (aka Expo)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
     },
     {
+      "name": "expo-splash-screen",
+      "version": "56.0.10",
+      "description": "Provides a module to allow keeping the native Splash Screen visible until you choose to hide it.",
+      "license": "MIT",
+      "author": "650 Industries, Inc.",
+      "homepage": "https://docs.expo.dev/versions/latest/sdk/splash-screen/",
+      "repository": "https://github.com/expo/expo.git",
+      "licenseText": "The MIT License (MIT)\n\nCopyright (c) 2015-present 650 Industries, Inc. (aka Expo)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+    },
+    {
       "name": "expo-status-bar",
       "version": "56.0.4",
       "description": "Provides the same interface as the React Native StatusBar API, but with slightly different defaults to work great in Expo environments.",
@@ -3966,6 +3976,16 @@
       "license": "MIT",
       "author": "Marc Rousavy <me@mrousavy.com> (https://github.com/mrousavy)",
       "homepage": "https://visioncamera.margelo.com",
+      "repository": "git+https://github.com/mrousavy/react-native-vision-camera.git",
+      "licenseText": null
+    },
+    {
+      "name": "react-native-vision-camera-barcode-scanner",
+      "version": "5.0.11",
+      "description": "Barcode scanning plugin for react-native-vision-camera powered by ML Kit.",
+      "license": "MIT",
+      "author": "Marc Rousavy <me@mrousavy.com> (https://github.com/mrousavy)",
+      "homepage": "https://visioncamera.margelo.com/api/react-native-vision-camera-barcode-scanner",
       "repository": "git+https://github.com/mrousavy/react-native-vision-camera.git",
       "licenseText": null
     },
