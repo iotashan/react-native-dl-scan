@@ -88,7 +88,7 @@
     "nitrogen": "^0.35.6",
     "prettier": "^3.0.3",
     "react": "19.1.0",
-    "react-native": "0.81.5",
+    "react-native": "0.86.0",
     "react-native-builder-bob": "^0.40.12",
     "react-native-fast-tflite": "^3.0.0",
     "react-native-nitro-image": "^0.14.0",
