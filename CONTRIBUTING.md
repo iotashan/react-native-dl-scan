@@ -67,10 +67,12 @@ yarn ios
 yarn android
 ```
 
-For iOS Simulator testing of the camera pipeline, see the
-[SimCam](https://simcam.swmansion.com) workflow notes in the repo's internal
-docs — feeding a static image into the simulator camera is the only way to
-exercise the scanner without a physical card.
+For iOS Simulator testing of the camera pipeline — and the simulator's
+limitations around document segmentation and OCR — see
+[docs/SIMULATOR_TESTING.md](./docs/SIMULATOR_TESTING.md). Feeding a static
+image into the simulator camera (via SimCam) is the only way to exercise the
+scanner without a physical card, but accuracy verification always needs a
+physical device.
 
 ### Tests
 
