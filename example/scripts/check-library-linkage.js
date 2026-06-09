@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Guard against the "DlScan silently missing from the build" failure mode.
+// Guard against the "DLScan silently missing from the build" failure mode.
 //
 // The example consumes react-native-dl-scan via `portal:..`, which leaves no
 // node_modules entry under yarn 3. The library is made discoverable WITHOUT a
 // manual symlink by two cooperating pieces:
 //   1. example/react-native.config.js  -> native autolinking (iOS pod + Android
-//      DlScanPackage) via dependencies['react-native-dl-scan'].root, and
+//      DLScanPackage) via dependencies['react-native-dl-scan'].root, and
 //   2. example/metro.config.js         -> Metro JS resolution via
 //      resolver.extraNodeModules['react-native-dl-scan'] = workspaceRoot.
 //

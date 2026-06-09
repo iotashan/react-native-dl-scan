@@ -3,7 +3,7 @@
 // One-to-one mirror of `android/src/test/java/com/margelo/nitro/dlscan/
 // TightenersTest.kt`. Tests the Swift regex tighteners in
 // ProductionStrip.swift (which is a hand-kept copy of the production
-// iOS HybridDlScanIOS.swift tighteners — see header of that file).
+// iOS HybridDLScanIOS.swift tighteners — see header of that file).
 //
 // Where the two platforms have intentional behavior drift (the iOS
 // stripAamvaPrefixForClass uses VisionKit-misread aliases rather than
@@ -14,7 +14,7 @@
 // weight/height regex, state DL patterns) ARE byte-for-byte parity.
 
 import XCTest
-@testable import DlScanDebugCore
+@testable import DLScanDebugCore
 
 final class ProductionStripTests: XCTestCase {
 

@@ -1,7 +1,7 @@
 # Evaluation
 
 This document describes the held-out test methodology for the trained ML
-model in `react-native-dl-scan` (`DlScanFieldDetector`) and reports the
+model in `react-native-dl-scan` (`DLScanFieldDetector`) and reports the
 metrics measured post-training by
 `model-training/export/validate_quantization.py`.
 
@@ -33,7 +33,7 @@ included in any evaluation.
 
 ## Metrics
 
-### DlScanFieldDetector
+### DLScanFieldDetector
 
 Primary metric: **mAP@0.5** over all field classes on rectified 640×640 crops.
 
@@ -53,7 +53,7 @@ Targets are based on IDNet paper baselines and adjusted for int8 quantization:
 
 | Model | Metric | FP32 target | int8 target |
 |---|---|---|---|
-| DlScanFieldDetector | mAP@0.5 | ≥0.85 | ≥0.84 |
+| DLScanFieldDetector | mAP@0.5 | ≥0.85 | ≥0.84 |
 
 Quantization regression gate: **int8 mAP must be within 1% absolute of FP32
 baseline**. This gate is enforced by `validate_quantization.py`; the pipeline
@@ -67,7 +67,7 @@ The metrics below were measured post-training by `validate_quantization.py`
 (export run dated **2026-05-08**) and copied from the authoritative source for
 all measured numbers, **`models/version.json`**.
 
-### DlScanFieldDetector
+### DLScanFieldDetector
 
 | Metric | FP32 | Core ML int8 | TFLite int8 |
 |---|---|---|---|

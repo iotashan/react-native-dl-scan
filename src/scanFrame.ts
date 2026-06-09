@@ -1,6 +1,6 @@
 import type { Frame } from 'react-native-vision-camera';
 import type { BarcodeScanner } from 'react-native-vision-camera-barcode-scanner';
-import type { LicenseDataSpec } from './specs/DlScan.nitro';
+import type { LicenseDataSpec } from './specs/DLScan.nitro';
 import { _hybrid } from './native';
 import { runFieldDetection } from './detector';
 import type { TfliteModel } from 'react-native-fast-tflite';
@@ -11,7 +11,7 @@ import type { ScanMode } from './types';
  *
  * Calls `barcodeScanner.scanCodes(frame)` synchronously inside the worklet,
  * finds the first PDF417 barcode, and fires `onBarcodeString` (a runOnJS
- * boundary) so the caller can invoke `NativeDlScan.parseBarcodeData` on the
+ * boundary) so the caller can invoke `NativeDLScan.parseBarcodeData` on the
  * JS thread.
  *
  * The optional `onBeforeDispatch` callback is invoked synchronously in the

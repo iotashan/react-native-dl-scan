@@ -36,7 +36,7 @@ std::optional<LicenseData> extract_ocr_fields(
 ///     This split mirrors the responsibility boundary: platform owns geometry
 ///     and AAMVA index recognition; C++ owns field-value semantics.
 ///
-/// Keys MUST be YOLO class names from the trained DlScanFieldDetector
+/// Keys MUST be YOLO class names from the trained DLScanFieldDetector
 /// (see model-training/idnet/prepare_yolo_fields.py FIELD_CLASSES). The
 /// 30 supported keys include the AAMVA "list_*" series (list_1, list_2,
 /// list_3, list_4a, list_4b, list_4d, list_5, list_8f, list_8s, list_9,
@@ -88,8 +88,8 @@ std::optional<LicenseData> extract_fields_from_candidates(
 /// Shared marker-anchored demographic parser (the 4-gate "strict text pool").
 ///
 /// Single source of truth for the visible-field AAMVA-index parse that used
-/// to be duplicated in Swift (HybridDlScanIOS.parseAamvaDemographicFields)
-/// and Kotlin (HybridDlScanAndroid.parseAamvaDemographicFields). Both
+/// to be duplicated in Swift (HybridDLScanIOS.parseAamvaDemographicFields)
+/// and Kotlin (HybridDLScanAndroid.parseAamvaDemographicFields). Both
 /// platforms now feed their OCR observation texts (in reading order) into
 /// this function and emit the returned candidates as FieldSource::
 /// StrictTextPool into the multi-frame voter, exactly as before. Moving the

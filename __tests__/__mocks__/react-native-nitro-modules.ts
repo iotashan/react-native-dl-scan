@@ -4,7 +4,7 @@ export type HybridObject<T> = unknown;
 
 export const NitroModules = {
   createHybridObject: <T>(_name: string): T => {
-    // Mock the DlScan hybrid: parseBarcodeData returns a known LicenseDataSpec
+    // Mock the DLScan hybrid: parseBarcodeData returns a known LicenseDataSpec
     // that mirrors what the C++ core would produce for a canonical fixture.
     return {
       parseBarcodeData: async (barcodeData: string) => {

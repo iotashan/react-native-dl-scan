@@ -40,15 +40,15 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FIXTURE = REPO_ROOT / "__tests__" / "fixtures" / "sample_us_california_dl.jpg"
 DEFAULT_LABELS = REPO_ROOT / "__tests__" / "fixtures" / "sample_us_california_dl.txt"
 
-# Same model paths as referenced by HybridDlScanIOS / HybridDlScanAndroid.
+# Same model paths as referenced by HybridDLScanIOS / HybridDLScanAndroid.
 FP32_PT = (REPO_ROOT / "model-training" / "runs" / "field_detector"
            / "run" / "weights" / "best.pt")
 # Core ML: prefer the source .mlpackage from models/ (Ultralytics' YOLO()
 # loader rejects the compiled .mlmodelc bundle). The bundled .mlmodelc at
 # ios/Resources/ is byte-identical to the .mlpackage's compiled output —
 # this script runs the parity check against the .mlpackage as a stand-in.
-COREML_PKG = REPO_ROOT / "models" / "DlScanFieldDetector.mlpackage"
-COREML_BUNDLED = REPO_ROOT / "ios" / "Resources" / "DlScanFieldDetector.mlmodelc"
+COREML_PKG = REPO_ROOT / "models" / "DLScanFieldDetector.mlpackage"
+COREML_BUNDLED = REPO_ROOT / "ios" / "Resources" / "DLScanFieldDetector.mlmodelc"
 TFLITE_PATH = REPO_ROOT / "android" / "src" / "main" / "assets" / "dl_scan_field_detector.tflite"
 
 # Thresholds — see module doc-comment for rationale.

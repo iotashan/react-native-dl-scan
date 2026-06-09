@@ -41,7 +41,7 @@ import kotlin.math.min
 
 @DoNotStrip
 @Keep
-class HybridDlScanAndroid : HybridDlScanSpec() {
+class HybridDLScanAndroid : HybridDLScanSpec() {
 
     // Monotonic scan progress [0.0, 1.0]. Reset on resetLicenseFieldRecognition.
     @Volatile private var _scanProgress: Double = 0.0
@@ -61,7 +61,7 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
 
     // -------------------------------------------------------------------------
     // JNI bridge — implemented in src/main/cpp/dlscan_jni_bridge.cpp,
-    // compiled into libDlScan.so (loaded below in companion object).
+    // compiled into libDLScan.so (loaded below in companion object).
     // -------------------------------------------------------------------------
 
     @DoNotStrip
@@ -166,7 +166,7 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
      * than collapsing to a Map<FieldId, text>.
      *
      * Lifetime: handle allocated eagerly at construction, freed via [close].
-     * The host HybridDlScanAndroid object outlives all calls; we don't try
+     * The host HybridDLScanAndroid object outlives all calls; we don't try
      * to implement AutoCloseable because the JS side controls reset via
      * resetLicenseFieldRecognition() not destruction.
      */
@@ -477,8 +477,8 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
     // ─── Card image capture + headshot extraction (#92, #93) ─────────────
 
     private val cardImageDir: java.io.File by lazy {
-        val ctx = com.dlscan.DlScanPackage.appContext
-            ?: throw IllegalStateException("DlScanPackage.appContext is null")
+        val ctx = com.dlscan.DLScanPackage.appContext
+            ?: throw IllegalStateException("DLScanPackage.appContext is null")
         val dir = java.io.File(ctx.filesDir, "dlscan-cards")
         dir.mkdirs()
         dir
@@ -639,7 +639,7 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
         if (BuildConfig.DEBUG && !docSegRectifiedDumped) {
             docSegRectifiedDumped = true
             try {
-                val ctx = com.dlscan.DlScanPackage.appContext
+                val ctx = com.dlscan.DLScanPackage.appContext
                 val dir = ctx?.getExternalFilesDir(null)
                 if (dir != null) {
                     val f = java.io.File(dir, "dlscan-docseg-rectified.png")
@@ -666,8 +666,8 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
             if (docAlignerLoadAttempted) return null
             docAlignerLoadAttempted = true
 
-            val context = com.dlscan.DlScanPackage.appContext ?: run {
-                Log.e(TAG, "DlScanPackage.appContext is null; package not yet booted?")
+            val context = com.dlscan.DLScanPackage.appContext ?: run {
+                Log.e(TAG, "DLScanPackage.appContext is null; package not yet booted?")
                 docAlignerLoadAttempted = false
                 return null
             }
@@ -696,7 +696,7 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
     }
 
     // -------------------------------------------------------------------------
-    // Bbox-matching algorithm (mirrors HybridDlScanIOS.matchObservationsToFields).
+    // Bbox-matching algorithm (mirrors HybridDLScanIOS.matchObservationsToFields).
     // -------------------------------------------------------------------------
 
     /** YOLO classes whose values legitimately span multiple OCR observations. */
@@ -1836,7 +1836,7 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
     // -------------------------------------------------------------------------
 
     companion object {
-        private const val TAG = "DlScanAndroid"
+        private const val TAG = "DLScanAndroid"
 
         /**
          * Verbose diagnostic logging gate. These DEBUG/telemetry/IoU-trace
@@ -2428,16 +2428,16 @@ class HybridDlScanAndroid : HybridDlScanSpec() {
         init {
             // Task #41 — JVM unit tests (android/src/test/) exercise the
             // platform-layer regex tighteners on the host JVM where no
-            // libDlScan.so is loadable. Swallow UnsatisfiedLinkError so
+            // libDLScan.so is loadable. Swallow UnsatisfiedLinkError so
             // companion-object static-init completes; instance methods
             // that need JNI (parseBarcodeData, ocrExtractFields,
             // etc.) will hit the JNI bridge at first call and crash
             // there if the library actually failed to load on a real
             // device. The platform-layer regex helpers don't need JNI.
             try {
-                System.loadLibrary("DlScan")
+                System.loadLibrary("DLScan")
             } catch (e: UnsatisfiedLinkError) {
-                Log.w(TAG, "libDlScan.so not loadable (expected on JVM unit-test runner): " + e.message)
+                Log.w(TAG, "libDLScan.so not loadable (expected on JVM unit-test runner): " + e.message)
             }
         }
     }

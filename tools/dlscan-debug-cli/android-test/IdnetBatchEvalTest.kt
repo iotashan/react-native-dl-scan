@@ -3,7 +3,7 @@ package com.dlscan
 import android.graphics.BitmapFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.margelo.nitro.dlscan.HybridDlScanAndroid
+import com.margelo.nitro.dlscan.HybridDLScanAndroid
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
@@ -11,7 +11,7 @@ import java.io.PrintWriter
 
 /**
  * IDNet batch-eval test. Runs the production single-frame Android pipeline
- * (`HybridDlScanAndroid.ocrPipelineForEval`) against every .jpg / .png in
+ * (`HybridDLScanAndroid.ocrPipelineForEval`) against every .jpg / .png in
  * the test app's external files dir under `idnet/`, dumps per-image
  * per-yolo-class results to `results.tsv` in the same dir.
  *
@@ -33,15 +33,15 @@ import java.io.PrintWriter
 @RunWith(AndroidJUnit4::class)
 class IdnetBatchEvalTest {
 
-    private val instance = HybridDlScanAndroid()
+    private val instance = HybridDLScanAndroid()
 
     @Test
     fun batchEval_runsPipelineOnEveryImage_writesTsv() {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
-        // The library reads DlScanPackage.appContext to resolve assets;
+        // The library reads DLScanPackage.appContext to resolve assets;
         // RN bootstrapping normally sets this via createViewManagers/getModule.
         // The instrumented test doesn't boot RN, so set it manually now.
-        com.dlscan.DlScanPackage.setAppContextForTesting(ctx.applicationContext)
+        com.dlscan.DLScanPackage.setAppContextForTesting(ctx.applicationContext)
         val filesDir = ctx.getExternalFilesDir(null)
             ?: error("No external files dir for test app")
         val inputDir = File(filesDir, "idnet")
@@ -104,7 +104,7 @@ class IdnetBatchEvalTest {
     /**
      * Iter 7 D-lite probe (Android port of iOS `runVisionKitPerRegion`).
      * Runs the per-YOLO-bbox MLKit pipeline via
-     * [HybridDlScanAndroid.ocrPipelineRegionForEval] on the same image set
+     * [HybridDLScanAndroid.ocrPipelineRegionForEval] on the same image set
      * the production test above used. Writes a parallel `results-region.tsv`
      * so the host-side report can render PROD vs REGION side-by-side.
      *
@@ -116,7 +116,7 @@ class IdnetBatchEvalTest {
     @Test
     fun batchEval_region_runsPipelineOnEveryImage_writesTsv() {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
-        com.dlscan.DlScanPackage.setAppContextForTesting(ctx.applicationContext)
+        com.dlscan.DLScanPackage.setAppContextForTesting(ctx.applicationContext)
         val filesDir = ctx.getExternalFilesDir(null)
             ?: error("No external files dir for test app")
         val inputDir = File(filesDir, "idnet")

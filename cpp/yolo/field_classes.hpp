@@ -8,7 +8,7 @@
 namespace dlscan {
 namespace yolo {
 
-/// Class index ordering used by the trained DlScanFieldDetector model.
+/// Class index ordering used by the trained DLScanFieldDetector model.
 /// MUST mirror model-training/idnet/prepare_yolo_fields.py FIELD_CLASSES,
 /// which is a Python `sorted([...])` of the 30 class names. Changing this
 /// table without retraining the model breaks the class-id mapping silently.

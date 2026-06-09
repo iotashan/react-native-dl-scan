@@ -7,7 +7,7 @@ Loads the Ultralytics YOLOv8n-OBB weights from:
 Exports to:
     1. Core ML float32 (intermediate, for quantization input)
     2. Core ML int8 (weight-only, via coremltools.optimize.coreml.linear_quantize_weights)
-       → MODELS_OUTPUT/DlScanDocDetector.mlpackage  (compiled to .mlmodelc via xcrun)
+       → MODELS_OUTPUT/DLScanDocDetector.mlpackage  (compiled to .mlmodelc via xcrun)
     3. TFLite int8 (calibrated, via Ultralytics export + representative_dataset)
        → MODELS_OUTPUT/dl_scan_doc_detector.tflite
 
@@ -44,8 +44,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from utils.paths import YOLO_OBB_ROOT, RUNS_ROOT, MODELS_OUTPUT
 
 WEIGHTS_PATH = RUNS_ROOT / "doc_detector" / "run" / "weights" / "best.pt"
-COREML_PACKAGE = MODELS_OUTPUT / "DlScanDocDetector.mlpackage"
-COREML_COMPILED = MODELS_OUTPUT / "DlScanDocDetector.mlmodelc"
+COREML_PACKAGE = MODELS_OUTPUT / "DLScanDocDetector.mlpackage"
+COREML_COMPILED = MODELS_OUTPUT / "DLScanDocDetector.mlmodelc"
 TFLITE_PATH = MODELS_OUTPUT / "dl_scan_doc_detector.tflite"
 VERSION_JSON = MODELS_OUTPUT / "version.json"
 

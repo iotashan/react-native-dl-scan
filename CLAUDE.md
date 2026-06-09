@@ -12,7 +12,7 @@ Kotlin (`android/`); the Nitro codegen is committed under
 ## Architecture map
 
 - `src/` — TypeScript API: the `useLicenseScanner` hook, the Nitro spec at
-  `src/specs/DlScan.nitro.ts`, and per-platform barcode outputs under
+  `src/specs/DLScan.nitro.ts`, and per-platform barcode outputs under
   `src/scanner/`.
 - `ios/` — Swift Nitro hybrid object backed by Core ML.
 - `android/` — Kotlin Nitro hybrid object backed by TFLite.

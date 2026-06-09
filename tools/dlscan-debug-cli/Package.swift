@@ -9,14 +9,14 @@ import PackageDescription
 // Targets:
 //   - AamvaLexerC          (C++): wraps cpp/aamva/aamva_lexer.cpp via the
 //                          DLSCAN_AAMVA_STANDALONE C ABI.
-//   - DlScanDebugCore      (Swift library): AamvaLexer.swift +
+//   - DLScanDebugCore      (Swift library): AamvaLexer.swift +
 //                          ProductionStrip.swift — the pure-Swift
 //                          tightener helpers + the thin wrapper over
 //                          AamvaLexerC. Public surface tested by
-//                          DlScanDebugCoreTests.
+//                          DLScanDebugCoreTests.
 //   - dlscan-debug-cli     (Swift executable): main.swift only; depends
-//                          on DlScanDebugCore. Behaviour unchanged.
-//   - DlScanDebugCoreTests (Swift test): XCTest parity with
+//                          on DLScanDebugCore. Behaviour unchanged.
+//   - DLScanDebugCoreTests (Swift test): XCTest parity with
 //                          android/src/test/.../TightenersTest.kt.
 let package = Package(
     name: "dlscan-debug-cli",
@@ -33,9 +33,9 @@ let package = Package(
             ]
         ),
         .target(
-            name: "DlScanDebugCore",
+            name: "DLScanDebugCore",
             dependencies: ["AamvaLexerC"],
-            path: "Sources/DlScanDebugCore",
+            path: "Sources/DLScanDebugCore",
             swiftSettings: [
                 // Task #70: enable SE-0409 access-control-on-import syntax
                 // so `internal import AamvaLexerC` in AamvaLexer.swift parses
@@ -47,13 +47,13 @@ let package = Package(
         ),
         .executableTarget(
             name: "dlscan-debug-cli",
-            dependencies: ["DlScanDebugCore"],
+            dependencies: ["DLScanDebugCore"],
             path: "Sources/dlscan-debug-cli"
         ),
         .testTarget(
-            name: "DlScanDebugCoreTests",
-            dependencies: ["DlScanDebugCore"],
-            path: "Tests/DlScanDebugCoreTests"
+            name: "DLScanDebugCoreTests",
+            dependencies: ["DLScanDebugCore"],
+            path: "Tests/DLScanDebugCoreTests"
         )
     ],
     cxxLanguageStandard: .cxx20

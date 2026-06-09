@@ -9,7 +9,7 @@ not be known offline.
   `react-native-fast-tflite (3.0.1)` + `TensorFlowLiteC (2.17.0)` + VisionCamera.
   No monorepo-shadowing problem (the `react-native-dl-scan` → `..` node_modules
   symlink is required for autolinking; metro already documents it).
-- The DlScan pod autolinks and the Nitro cross-module bridge generates.
+- The DLScan pod autolinks and the Nitro cross-module bridge generates.
 - After adding `s.dependency "react-native-fast-tflite"` + the NitroTflite
   modulemap flag, the `<NitroTflite/HybridTfliteModelSpec.hpp>` include **does
   resolve** and Expo modules build — i.e. the model handoff compiles in principle.
@@ -17,7 +17,7 @@ not be known offline.
   (cpp/detect now in `source_files`).
 
 ## The BLOCKER (well-diagnosed; needs a decision)
-nitrogen emits, in the generated `HybridDlScanSpec.hpp`:
+nitrogen emits, in the generated `HybridDLScanSpec.hpp`:
 ```cpp
 #include <NitroTflite/HybridTfliteModelSpec.hpp>
 ```
@@ -62,9 +62,9 @@ With the C++ header resolved (symlink fast-tflite's headers under
 `Pods/Headers/Public/NitroTflite/`, like NitroImage does — no modulemap flag, no
 cascade), the build advanced all the way to compiling our own Swift and hit:
 ```
-ios/HybridDlScanIOS.swift:406: error: cannot find type 'HybridTfliteModelSpec' in scope
+ios/HybridDLScanIOS.swift:406: error: cannot find type 'HybridTfliteModelSpec' in scope
 ```
-Only the HAND-WRITTEN setter errors — nitrogen's *generated* `HybridDlScanSpec.swift`
+Only the HAND-WRITTEN setter errors — nitrogen's *generated* `HybridDLScanSpec.swift`
 uses the identical `(any HybridTfliteModelSpec)` and compiles. Root cause: fast-tflite
 is `HybridObject<{ios:'c++'}>`, so it ships **no Swift protocol** for `TfliteModel`
 (verified: no `protocol/typealias/class HybridTfliteModelSpec` anywhere in the
@@ -101,9 +101,9 @@ GONE. The build now fails earlier on an UNRELATED issue: `react-native-svg`'s Ob
 headers can't find `React/UIView+React.h` / `React/RCTConvert.h` (RN 0.81 prebuilt-React
 header layout). svg compiled fine in builds 1–5; the post-pivot Pods regen shuffled
 build ordering and exposed it. This is environmental (Expo SDK 54 / RN-svg / prebuilt
-React), NOT the DlScan refactor — DlScan wasn't even reached. Likely fixes: a clean
+React), NOT the DLScan refactor — DLScan wasn't even reached. Likely fixes: a clean
 `pod install`/DerivedData wipe, or pinning react-native-svg's React header search path.
-Once cleared, the build reaches DlScan and validates the Swift C-ABI impls (then the
+Once cleared, the build reaches DLScan and validates the Swift C-ABI impls (then the
 Kotlin JNI impls + a trained NanoDet `.tflite` remain to RUN the field detector).
 
 ## Current committed state

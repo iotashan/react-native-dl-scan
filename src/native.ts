@@ -9,9 +9,9 @@
 
 import { NitroModules } from 'react-native-nitro-modules';
 import type {
-  DlScan as DlScanSpec,
+  DLScan as DLScanSpec,
   LicenseDataSpec,
-} from './specs/DlScan.nitro';
+} from './specs/DLScan.nitro';
 import type {
   LicenseData,
   MRZData,
@@ -28,9 +28,9 @@ import { SEX_CODES, EYE_COLOR_CODES, HAIR_COLOR_CODES } from './types';
 export type { LicenseDataSpec };
 
 // Lazily initialised via the proxy from Nitro. Single instance shared by
-// the JS bridge surface (NativeDlScan) and the camera-thread worklets
+// the JS bridge surface (NativeDLScan) and the camera-thread worklets
 // (scanFrame.ts).
-export const _hybrid = NitroModules.createHybridObject<DlScanSpec>('DlScan');
+export const _hybrid = NitroModules.createHybridObject<DLScanSpec>('DLScan');
 
 // Nitro maps optional struct fields to `T | undefined` on the JS side, but
 // the public LicenseData contract uses `T | null`. Normalize here so
@@ -234,7 +234,7 @@ function safeParseConfidence(
   }
 }
 
-export const NativeDlScan = {
+export const NativeDLScan = {
   parseBarcodeData: async (
     barcodeData: string
   ): Promise<LicenseData | null> => {

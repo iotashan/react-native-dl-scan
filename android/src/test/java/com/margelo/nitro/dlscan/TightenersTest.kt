@@ -5,7 +5,7 @@ import org.junit.Test
 
 /**
  * Unit tests for the platform-layer regex tighteners that live in
- * `HybridDlScanAndroid.kt`'s companion object (task #41).
+ * `HybridDLScanAndroid.kt`'s companion object (task #41).
  *
  * Scope: tests `tightenByContentShape` (the public dispatch) and
  * `stripAamvaPrefixForClass` (also public) because together they cover
@@ -18,7 +18,7 @@ import org.junit.Test
  * candidates reach C++, while the C++ tests cover what happens AFTER.
  *
  * If a regex here drifts from the iOS Swift equivalent in
- * `HybridDlScanIOS.swift`, the iter-evaluation will catch it
+ * `HybridDLScanIOS.swift`, the iter-evaluation will catch it
  * empirically — but a unit-level mismatch is much cheaper to surface.
  * iOS XCTest port is a documented follow-up; see task #41 closure note.
  */
@@ -35,41 +35,41 @@ class TightenersTest {
     @Test
     fun extractDate_cleanDate_returnsCanonical() {
         assertEquals("08/05/2002",
-            HybridDlScanAndroid.tightenByContentShape("08/05/2002", "list_3"))
+            HybridDLScanAndroid.tightenByContentShape("08/05/2002", "list_3"))
     }
 
     @Test
     fun extractDate_ocrZeroSubstitution_canonicalizes() {
         assertEquals("08/05/2002",
-            HybridDlScanAndroid.tightenByContentShape("O8/O5/2OO2", "list_3"))
+            HybridDLScanAndroid.tightenByContentShape("O8/O5/2OO2", "list_3"))
     }
 
     @Test
     fun extractDate_ocrOneSubstitution_canonicalizes() {
         // "1" misread as "I" in month and "l" in year.
         assertEquals("11/03/2011",
-            HybridDlScanAndroid.tightenByContentShape("I1/03/20l1", "list_3"))
+            HybridDLScanAndroid.tightenByContentShape("I1/03/20l1", "list_3"))
     }
 
     @Test
     fun extractDate_ocrSeparatorMisread_canonicalizes() {
         // MLKit sometimes reads `/` as `I`. Our regex accepts both.
         assertEquals("11/03/2011",
-            HybridDlScanAndroid.tightenByContentShape("11I03I2011", "list_3"))
+            HybridDLScanAndroid.tightenByContentShape("11I03I2011", "list_3"))
     }
 
     @Test
     fun extractDate_invalidMonth_returnsOriginal() {
         // Month 13 fails validation (1..12). Falls through to original text.
         assertEquals("13/03/2011",
-            HybridDlScanAndroid.tightenByContentShape("13/03/2011", "list_3"))
+            HybridDLScanAndroid.tightenByContentShape("13/03/2011", "list_3"))
     }
 
     @Test
     fun extractDate_yearOutOfRange_returnsOriginal() {
         // Year 1899 fails validation (1900..2100).
         assertEquals("01/03/1899",
-            HybridDlScanAndroid.tightenByContentShape("01/03/1899", "list_3"))
+            HybridDLScanAndroid.tightenByContentShape("01/03/1899", "list_3"))
     }
 
     @Test
@@ -79,14 +79,14 @@ class TightenersTest {
         // EXP date, not the DOB. Critical for templates where MLKit
         // doesn't separate the two rows.
         assertEquals("05/12/2028",
-            HybridDlScanAndroid.tightenByContentShape(
+            HybridDLScanAndroid.tightenByContentShape(
                 "DOB 11/09/2000 4b EXP 05/12/2028", "list_4b"))
     }
 
     @Test
     fun extractDate_list_4a_preferFirst_picksIssueFromFusedString() {
         assertEquals("11/09/2000",
-            HybridDlScanAndroid.tightenByContentShape(
+            HybridDLScanAndroid.tightenByContentShape(
                 "11/09/2000 EXP 05/12/2028", "list_4a"))
     }
 
@@ -95,7 +95,7 @@ class TightenersTest {
         // Real-world OCR: "DOB1 1/03/1995" — space inside the date,
         // stripped by the regex's `replace(" ", "")` first.
         assertEquals("11/03/1995",
-            HybridDlScanAndroid.tightenByContentShape("DOB1 1/03/1995", "list_3"))
+            HybridDLScanAndroid.tightenByContentShape("DOB1 1/03/1995", "list_3"))
     }
 
     // -------------------------------------------------------------------------
@@ -110,19 +110,19 @@ class TightenersTest {
     @Test
     fun singleLetter_cleanValue_returnsLetter() {
         assertEquals("D",
-            HybridDlScanAndroid.tightenByContentShape("D", "list_9"))
+            HybridDLScanAndroid.tightenByContentShape("D", "list_9"))
     }
 
     @Test
     fun singleLetter_labelPrefix_stripped() {
         assertEquals("D",
-            HybridDlScanAndroid.tightenByContentShape("CLASS D", "list_9"))
+            HybridDLScanAndroid.tightenByContentShape("CLASS D", "list_9"))
     }
 
     @Test
     fun singleLetter_labelWithColon_stripped() {
         assertEquals("B",
-            HybridDlScanAndroid.tightenByContentShape("CLASS: B", "list_9"))
+            HybridDLScanAndroid.tightenByContentShape("CLASS: B", "list_9"))
     }
 
     @Test
@@ -131,21 +131,21 @@ class TightenersTest {
         // because MLKit doesn't separate. The dropTokens=["NONE"] for
         // list_9 strips NONE before scanning for the single letter.
         assertEquals("D",
-            HybridDlScanAndroid.tightenByContentShape("DNONE", "list_9"))
+            HybridDLScanAndroid.tightenByContentShape("DNONE", "list_9"))
     }
 
     @Test
     fun list_9a_emptyValue_returnsNoneVerbatim() {
         // For endorsements, "NONE" is a legitimate value, not a dropToken.
         assertEquals("NONE",
-            HybridDlScanAndroid.tightenByContentShape("NONE", "list_9a"))
+            HybridDLScanAndroid.tightenByContentShape("NONE", "list_9a"))
     }
 
     @Test
     fun list_12_emptyValue_returnsNoneVerbatim() {
         // For restrictions, "NONE" is a legitimate value too.
         assertEquals("NONE",
-            HybridDlScanAndroid.tightenByContentShape("NONE", "list_12"))
+            HybridDLScanAndroid.tightenByContentShape("NONE", "list_12"))
     }
 
     // -------------------------------------------------------------------------
@@ -159,7 +159,7 @@ class TightenersTest {
     @Test
     fun sex_cleanM_returnsM() {
         assertEquals("M",
-            HybridDlScanAndroid.tightenByContentShape("M", "list_15"))
+            HybridDLScanAndroid.tightenByContentShape("M", "list_15"))
     }
 
     @Test
@@ -167,13 +167,13 @@ class TightenersTest {
         // Lookbehind prevents matching the M inside a 3-letter token.
         // No isolated [MFX] = no match = return original.
         assertEquals("BLM",
-            HybridDlScanAndroid.tightenByContentShape("BLM", "list_15"))
+            HybridDLScanAndroid.tightenByContentShape("BLM", "list_15"))
     }
 
     @Test
     fun sex_withSurroundingNoise_extractsLetter() {
         assertEquals("F",
-            HybridDlScanAndroid.tightenByContentShape("SEX F", "list_15"))
+            HybridDLScanAndroid.tightenByContentShape("SEX F", "list_15"))
     }
 
     // -------------------------------------------------------------------------
@@ -186,37 +186,37 @@ class TightenersTest {
     @Test
     fun eye_canonicalCode_returns() {
         assertEquals("BRO",
-            HybridDlScanAndroid.tightenByContentShape("BRO", "list_18"))
+            HybridDLScanAndroid.tightenByContentShape("BRO", "list_18"))
     }
 
     @Test
     fun eye_withLabel_extractsCode() {
         assertEquals("BLU",
-            HybridDlScanAndroid.tightenByContentShape("EYES BLU", "list_18"))
+            HybridDLScanAndroid.tightenByContentShape("EYES BLU", "list_18"))
     }
 
     @Test
     fun eye_withTrailingNoise_extractsFirstAllowlistedToken() {
         assertEquals("BRO",
-            HybridDlScanAndroid.tightenByContentShape("EYES BRO RACE W", "list_18"))
+            HybridDLScanAndroid.tightenByContentShape("EYES BRO RACE W", "list_18"))
     }
 
     @Test
     fun eye_noAllowlistedToken_returnsOriginal() {
         assertEquals("BROWN",
-            HybridDlScanAndroid.tightenByContentShape("BROWN", "list_18"))
+            HybridDLScanAndroid.tightenByContentShape("BROWN", "list_18"))
     }
 
     @Test
     fun hair_canonicalCode_returns() {
         assertEquals("BLK",
-            HybridDlScanAndroid.tightenByContentShape("BLK", "list_19"))
+            HybridDLScanAndroid.tightenByContentShape("BLK", "list_19"))
     }
 
     @Test
     fun hair_withLabel_extractsCode() {
         assertEquals("RED",
-            HybridDlScanAndroid.tightenByContentShape("HAIR RED", "list_19"))
+            HybridDLScanAndroid.tightenByContentShape("HAIR RED", "list_19"))
     }
 
     // -------------------------------------------------------------------------
@@ -229,19 +229,19 @@ class TightenersTest {
     @Test
     fun weight_cleanLB_returnsCanonical() {
         assertEquals("165 LB",
-            HybridDlScanAndroid.tightenByContentShape("165 LB", "list_17"))
+            HybridDLScanAndroid.tightenByContentShape("165 LB", "list_17"))
     }
 
     @Test
     fun weight_lbsPlural_returnsCanonical() {
         assertEquals("180 LBS",
-            HybridDlScanAndroid.tightenByContentShape("180 LBS", "list_17"))
+            HybridDLScanAndroid.tightenByContentShape("180 LBS", "list_17"))
     }
 
     @Test
     fun weight_kg_returnsCanonical() {
         assertEquals("75 KG",
-            HybridDlScanAndroid.tightenByContentShape("75 KG", "list_17"))
+            HybridDLScanAndroid.tightenByContentShape("75 KG", "list_17"))
     }
 
     @Test
@@ -249,7 +249,7 @@ class TightenersTest {
         // MLKit OCR misreads "LB" as "IB" — the tightener swaps IB→LB
         // before applying the weight regex.
         assertEquals("220 LB",
-            HybridDlScanAndroid.tightenByContentShape("220 IB", "list_17"))
+            HybridDLScanAndroid.tightenByContentShape("220 IB", "list_17"))
     }
 
     // -------------------------------------------------------------------------
@@ -261,7 +261,7 @@ class TightenersTest {
     @Test
     fun height_quotedInches_returnsCanonical() {
         assertEquals("5'-10''",
-            HybridDlScanAndroid.tightenByContentShape("5'-10\"", "list_16"))
+            HybridDLScanAndroid.tightenByContentShape("5'-10\"", "list_16"))
     }
 
     @Test
@@ -269,7 +269,7 @@ class TightenersTest {
         // OCR may emit two single quotes instead of one double quote
         // ('' vs "). Regex accepts both.
         assertEquals("6'-02''",
-            HybridDlScanAndroid.tightenByContentShape("6'-02''", "list_16"))
+            HybridDLScanAndroid.tightenByContentShape("6'-02''", "list_16"))
     }
 
     // -------------------------------------------------------------------------
@@ -284,28 +284,28 @@ class TightenersTest {
         // AZ pattern: D + 8 digits. OCR substitutions inside the digit
         // portion are canonicalized.
         assertEquals("D38222471",
-            HybridDlScanAndroid.tightenByContentShape("D38222471", "list_4d", "AZ"))
+            HybridDLScanAndroid.tightenByContentShape("D38222471", "list_4d", "AZ"))
     }
 
     @Test
     fun list_4d_arizona_ocrSubstitution_canonicalizes() {
         // AZ: prefix='D' kept, then O→0 in the digits.
         assertEquals("D38000471",
-            HybridDlScanAndroid.tightenByContentShape("D38OOO471", "list_4d", "AZ"))
+            HybridDLScanAndroid.tightenByContentShape("D38OOO471", "list_4d", "AZ"))
     }
 
     @Test
     fun list_4d_california_appliesStatePattern() {
         // CA pattern: 1 letter + 7 digits.
         assertEquals("B1234567",
-            HybridDlScanAndroid.tightenByContentShape("B1234567", "list_4d", "CA"))
+            HybridDLScanAndroid.tightenByContentShape("B1234567", "list_4d", "CA"))
     }
 
     @Test
     fun list_4d_wisconsin_hyphenatedPattern() {
         // WI pattern: letter + 3 digits + - + 4 digits + - + 4 digits + - + 2 digits.
         assertEquals("D440-1234-5678-99",
-            HybridDlScanAndroid.tightenByContentShape(
+            HybridDLScanAndroid.tightenByContentShape(
                 "D440-1234-5678-99", "list_4d", "WI"))
     }
 
@@ -314,7 +314,7 @@ class TightenersTest {
         // The tightener strips "DLN", "DLN:", "DL", "DL:" prefixes
         // before applying the state regex. "DLN D38222471" → "D38222471".
         assertEquals("D38222471",
-            HybridDlScanAndroid.tightenByContentShape(
+            HybridDLScanAndroid.tightenByContentShape(
                 "DLN D38222471", "list_4d", "AZ"))
     }
 
@@ -324,7 +324,7 @@ class TightenersTest {
         // `^[A-Z0-9]+(?:-[A-Z0-9]+)*` pattern. Strips whitespace and
         // trailing noise.
         assertEquals("ABCD1234",
-            HybridDlScanAndroid.tightenByContentShape("ABCD1234", "list_4d"))
+            HybridDLScanAndroid.tightenByContentShape("ABCD1234", "list_4d"))
     }
 
     // -------------------------------------------------------------------------
@@ -344,7 +344,7 @@ class TightenersTest {
     fun platformStrip_list_4d_bareDigitAlias_recovered() {
         // OCR drops the 'd' in "4d" → "4". The bareDigitAlias path
         // strips just the digit + whitespace, leaving the value.
-        val r = HybridDlScanAndroid.stripPlatformPrefixes(
+        val r = HybridDLScanAndroid.stripPlatformPrefixes(
             "4 D38222471", "list_4d", "4d")
         assertEquals("D38222471", r?.text)
         assertEquals(null, r?.mismatchedFromIndex)
@@ -353,7 +353,7 @@ class TightenersTest {
     @Test
     fun platformStrip_list_4a_bareDigitAlias_recovered() {
         // Same alias works for list_4a (issue date) — "4 11/03/2020".
-        val r = HybridDlScanAndroid.stripPlatformPrefixes(
+        val r = HybridDLScanAndroid.stripPlatformPrefixes(
             "4 11/03/2020", "list_4a", "4a")
         assertEquals("11/03/2020", r?.text)
     }
@@ -361,7 +361,7 @@ class TightenersTest {
     @Test
     fun platformStrip_list_9a_bareDigitAlias_recovered() {
         // 9a's alias drops the 'a' → just "9 NONE".
-        val r = HybridDlScanAndroid.stripPlatformPrefixes(
+        val r = HybridDLScanAndroid.stripPlatformPrefixes(
             "9 NONE", "list_9a", "9a")
         assertEquals("NONE", r?.text)
     }
@@ -370,7 +370,7 @@ class TightenersTest {
     fun platformStrip_list_4d_aliasFailsOnNoSpace() {
         // The alias requires whitespace between digit and value.
         // "4D38222471" (no space) should NOT match.
-        val r = HybridDlScanAndroid.stripPlatformPrefixes(
+        val r = HybridDLScanAndroid.stripPlatformPrefixes(
             "4D38222471", "list_4d", "4d")
         assertEquals(null, r)
     }
@@ -379,7 +379,7 @@ class TightenersTest {
     fun platformStrip_list_1_noAliasForSingleDigitClass() {
         // list_1's expectedAamvaIndex is "1" (single char) — no alias.
         // bareDigitAlias only has multi-char entries.
-        val r = HybridDlScanAndroid.stripPlatformPrefixes(
+        val r = HybridDLScanAndroid.stripPlatformPrefixes(
             "1 DOEFORD", "list_1", "1")
         assertEquals(null, r)
     }
@@ -390,7 +390,7 @@ class TightenersTest {
         // index "8", but MLKit sometimes misreads it as "1" / "6" etc.
         // Strip ANY single leading digit if followed by the canonical
         // "house# street" shape.
-        val r = HybridDlScanAndroid.stripPlatformPrefixes(
+        val r = HybridDLScanAndroid.stripPlatformPrefixes(
             "1 4242 ASHWOOD LN", "list_8f", "8")
         assertEquals("4242 ASHWOOD LN", r?.text)
     }
@@ -400,7 +400,7 @@ class TightenersTest {
         // Same for list_8s (the second address row). The shape is
         // "house# street", not "city state zip", but the regex is the
         // SAME — only the YOLO class gates application.
-        val r = HybridDlScanAndroid.stripPlatformPrefixes(
+        val r = HybridDLScanAndroid.stripPlatformPrefixes(
             "6 1010 OAK BLVD", "list_8s", "8")
         assertEquals("1010 OAK BLVD", r?.text)
     }
@@ -409,7 +409,7 @@ class TightenersTest {
     fun platformStrip_list_8f_requiresHouseNumberShape() {
         // The trust-the-class regex requires `\d{2,5}\s+\D` AFTER the
         // single digit. "1 MAIN ST" has no house number, so don't strip.
-        val r = HybridDlScanAndroid.stripPlatformPrefixes(
+        val r = HybridDLScanAndroid.stripPlatformPrefixes(
             "1 MAIN ST", "list_8f", "8")
         assertEquals(null, r)
     }
@@ -419,7 +419,7 @@ class TightenersTest {
         // The regex requires the FIRST char to be a SINGLE digit
         // followed by whitespace. "4242 ASHWOOD LN" (no preceding
         // digit) → no match → returns null, preserving the value.
-        val r = HybridDlScanAndroid.stripPlatformPrefixes(
+        val r = HybridDLScanAndroid.stripPlatformPrefixes(
             "4242 ASHWOOD LN", "list_8f", "8")
         assertEquals(null, r)
     }
@@ -429,14 +429,14 @@ class TightenersTest {
         // list_1 (family name) is NOT in the trust-the-class allowlist.
         // Even if the text looks like an address, don't strip — names
         // can legitimately start with digits in some encodings.
-        val r = HybridDlScanAndroid.stripPlatformPrefixes(
+        val r = HybridDLScanAndroid.stripPlatformPrefixes(
             "1 4242 ASHWOOD LN", "list_1", "1")
         assertEquals(null, r)
     }
 
     @Test
     fun platformStrip_emptyText_returnsNull() {
-        val r = HybridDlScanAndroid.stripPlatformPrefixes(
+        val r = HybridDLScanAndroid.stripPlatformPrefixes(
             "", "list_4d", "4d")
         assertEquals(null, r)
     }
@@ -458,7 +458,7 @@ class TightenersTest {
 
     @Test fun scanForClass_extractsLowercaseClass() {
         // Real WI Pixel OCR-OBS string: "46 D440-1234-5678-99 cLASS D".
-        val cls = HybridDlScanAndroid.scanForClassText(listOf(
+        val cls = HybridDLScanAndroid.scanForClassText(listOf(
             "46 D440-1234-5678-99 cLASS D",
             "1 DOEFORD",
             "2 JOHN QUINCY",
@@ -467,14 +467,14 @@ class TightenersTest {
     }
 
     @Test fun scanForClass_extractsGlassMisread() {
-        val cls = HybridDlScanAndroid.scanForClassText(listOf(
+        val cls = HybridDLScanAndroid.scanForClassText(listOf(
             "D440-1234-5678-99 GLASS M",
         ))
         assertEquals("M", cls)
     }
 
     @Test fun scanForClass_returnsNullWhenAbsent() {
-        val cls = HybridDlScanAndroid.scanForClassText(listOf(
+        val cls = HybridDLScanAndroid.scanForClassText(listOf(
             "1 DOEFORD",
             "2 JOHN QUINCY",
             "8 4242 ASHWOOD LN",
@@ -484,14 +484,14 @@ class TightenersTest {
 
     @Test fun scanForClass_rejectsNoneAfterClass() {
         // "CLASS NONE" should not produce a class candidate.
-        val cls = HybridDlScanAndroid.scanForClassText(listOf(
+        val cls = HybridDLScanAndroid.scanForClassText(listOf(
             "CLASS NONE",
         ))
         assertEquals(null, cls)
     }
 
     @Test fun scanForClass_acceptsMultiCharClass() {
-        val cls = HybridDlScanAndroid.scanForClassText(listOf(
+        val cls = HybridDLScanAndroid.scanForClassText(listOf(
             "D440-1234-5678-99 CLASS CDL",
         ))
         assertEquals("CDL", cls)
@@ -499,7 +499,7 @@ class TightenersTest {
 
     @Test fun scanForDates_handlesSlashSeparator() {
         // WI canonical print form.
-        val dates = HybridDlScanAndroid.scanForDatesText(listOf(
+        val dates = HybridDLScanAndroid.scanForDatesText(listOf(
             "3 DOB 03/27/1976",
             "4a ISS 05/15/2024",
             "4b 03/27/2034",
@@ -508,13 +508,13 @@ class TightenersTest {
     }
 
     @Test fun scanForDates_handlesDashSeparator() {
-        val dates = HybridDlScanAndroid.scanForDatesText(listOf("DOB 03-27-1976"))
+        val dates = HybridDLScanAndroid.scanForDatesText(listOf("DOB 03-27-1976"))
         assertEquals(listOf("03/27/1976"), dates)
     }
 
     @Test fun scanForDates_sortsChronologically() {
         // Dates given in random order — output must be oldest first.
-        val dates = HybridDlScanAndroid.scanForDatesText(listOf(
+        val dates = HybridDLScanAndroid.scanForDatesText(listOf(
             "2034-03-27 EXP",  // 2031
             "1976-03-27 DOB",  // 1980 (but in this format won't parse)
             "03/27/1976",
@@ -527,7 +527,7 @@ class TightenersTest {
     }
 
     @Test fun scanForDates_dropsImpossibleValues() {
-        val dates = HybridDlScanAndroid.scanForDatesText(listOf(
+        val dates = HybridDLScanAndroid.scanForDatesText(listOf(
             "13/45/1900",      // bad month + day
             "01/32/2024",      // bad day
             "00/00/0000",      // bad year + others
@@ -540,7 +540,7 @@ class TightenersTest {
         // Same date appearing multiple times across different obs
         // (label-only "DOB" + value-only "03/27/1976" + the fused
         // "3 DOB 03/27/1976") should produce ONE entry.
-        val dates = HybridDlScanAndroid.scanForDatesText(listOf(
+        val dates = HybridDLScanAndroid.scanForDatesText(listOf(
             "03/27/1976",
             "DOB 03/27/1976",
             "DOB. 03/27/1976 .",
@@ -554,42 +554,42 @@ class TightenersTest {
         // "3 DOB 03/27/1976 ENB NONE" — lexer extracts everything after
         // "DOB", we need just the date.
         assertEquals("03/27/1976",
-            HybridDlScanAndroid.extractFieldShape("3", "03/27/1976 ea ENb NONE"))
+            HybridDLScanAndroid.extractFieldShape("3", "03/27/1976 ea ENb NONE"))
     }
 
     @Test fun extractFieldShape_heightStripsConcatenatedWeight() {
         // WI: "16 HGT 5'-04 17 WGT 160 lb" reads as one OCR line.
         // Lexer's HGT-bounded value is "5'-04 17 WGT 160 lb". Need 5'-04.
         assertEquals("5'-04",
-            HybridDlScanAndroid.extractFieldShape("16", "5'-04 17 WGT 160 lb"))
+            HybridDLScanAndroid.extractFieldShape("16", "5'-04 17 WGT 160 lb"))
     }
 
     @Test fun extractFieldShape_heightHyphenOnly() {
         // OCR may drop the apostrophe: "5-04 WGT 160".
         assertEquals("5-04",
-            HybridDlScanAndroid.extractFieldShape("16", "5-04 WGT 160"))
+            HybridDLScanAndroid.extractFieldShape("16", "5-04 WGT 160"))
     }
 
     @Test fun extractFieldShape_weightPrefersUnitMatch() {
         // "5-04 WGT 160 lb" — both "5-04" and "160 lb" present.
         // Weight extractor must pick the unit-suffixed one.
         assertEquals("160 lb",
-            HybridDlScanAndroid.extractFieldShape("17", "5-04 WGT 160 lb"))
+            HybridDLScanAndroid.extractFieldShape("17", "5-04 WGT 160 lb"))
     }
 
     @Test fun extractFieldShape_weightBareDigits() {
         // No unit visible — extract bare 2-3 digit number.
         assertEquals("160",
-            HybridDlScanAndroid.extractFieldShape("17", "WGT 160 b"))
+            HybridDLScanAndroid.extractFieldShape("17", "WGT 160 b"))
     }
 
     @Test fun extractFieldShape_restrictionsNoneFromJunk() {
         assertEquals("NONE",
-            HybridDlScanAndroid.extractFieldShape("12", "RESTR. NONE end junk"))
+            HybridDLScanAndroid.extractFieldShape("12", "RESTR. NONE end junk"))
     }
 
     @Test fun scanForDates_emptyOnNoDates() {
-        val dates = HybridDlScanAndroid.scanForDatesText(listOf(
+        val dates = HybridDLScanAndroid.scanForDatesText(listOf(
             "WISCONSIN DRIVER LICENSE",
             "JOHN QUINCY DOEFORD",
         ))

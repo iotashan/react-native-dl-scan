@@ -47,7 +47,7 @@ function isAamvaPayload(raw: string): boolean {
 export interface UseBarcodeOutputOptions {
   /** Called with the raw AAMVA payload when a PDF-417 scan decodes
    *  successfully and matches the AAMVA shape. The orchestrator
-   *  pipes this into `NativeDlScan.parseBarcodeData` (Nitro → C++).
+   *  pipes this into `NativeDLScan.parseBarcodeData` (Nitro → C++).
    *  The hook fires this once per matching frame; the orchestrator
    *  is responsible for de-duping (typically via a hasResult ref). */
   onAamvaString: (raw: string) => void;

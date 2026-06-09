@@ -12,7 +12,7 @@
 
 ## Context: current state and what moves
 
-**Current OCR-mode pipeline** (inside `HybridDlScanIOS.swift::recognizeLicenseFields` / `HybridDlScanAndroid.kt::recognizeLicenseFields`):
+**Current OCR-mode pipeline** (inside `HybridDLScanIOS.swift::recognizeLicenseFields` / `HybridDLScanAndroid.kt::recognizeLicenseFields`):
 
 ```
 rectified card image
@@ -39,11 +39,11 @@ The **barcode/PDF417 tier is untouched** — it never used the detector. OCR mod
 **Files that exist today (read these before starting):**
 - `cpp/yolo/yolo_postprocess.{hpp,cpp}` — current YOLOv8 decode (`decode_and_nms`, `iou`). KEEP `iou`; the YOLOv8 `decode_and_nms` becomes dead once NanoDet ships (remove in Phase 4).
 - `cpp/yolo/field_classes.{hpp,cpp}` — 30-class index↔FieldId table. Reused; re-sort only if NanoDet emits a different class order.
-- `ios/HybridDlScanIOS.swift` — `runYOLO()` (~line 694), `recognizeLicenseFields` pipeline (~line 399), `ensureYoloRequest`/`cachedYoloRequest` (~line 217).
-- `android/src/main/java/com/margelo/nitro/dlscan/HybridDlScanAndroid.kt` — `runYolo()` (~line 360), `recognizeLicenseFields`, TFLite `Interpreter` lifecycle (~line 133).
+- `ios/HybridDLScanIOS.swift` — `runYOLO()` (~line 694), `recognizeLicenseFields` pipeline (~line 399), `ensureYoloRequest`/`cachedYoloRequest` (~line 217).
+- `android/src/main/java/com/margelo/nitro/dlscan/HybridDLScanAndroid.kt` — `runYolo()` (~line 360), `recognizeLicenseFields`, TFLite `Interpreter` lifecycle (~line 133).
 - `cpp/CMakeLists.txt` — C++ build + GoogleTest wiring (this is where ORT links for tests).
 - `android/CMakeLists.txt` — Android NDK build (this is where ORT links for the app).
-- `DlScan.podspec` + `Package.swift` — iOS dependency declarations (this is where ORT links for the app).
+- `DLScan.podspec` + `Package.swift` — iOS dependency declarations (this is where ORT links for the app).
 - `model-training/` — 4 isolated uv projects (train / export-ios / export-android / disambig per memory `project_env_layout`). A NanoDet env is added; the two platform-export envs collapse to one ONNX export.
 - `models/version.json` — model metadata (currently records the AGPL YOLOv8 export).
 
@@ -386,7 +386,7 @@ Construct the `Ort::SessionOptions` from `opts_.provider` (CPU/XNNPACK by defaul
 
 **Files:**
 - Modify: `cpp/detect/field_detector.hpp` (ensure a C-ABI or Swift-C++-interop-friendly surface; Android uses it via the existing JNI bridge `android/src/main/cpp/`)
-- Modify: `ios/HybridDlScanIOS.swift`, `android/.../HybridDlScanAndroid.kt`
+- Modify: `ios/HybridDLScanIOS.swift`, `android/.../HybridDLScanAndroid.kt`
 
 - [ ] **Step 1:** iOS (Swift↔C++ interop): from `recognizeLicenseFields`, after doc-seg rectification, get the rectified image as a tightly-packed RGB buffer (convert the `CVPixelBuffer`/`CGImage` → RGB8 once) and call `FieldDetector::run`. Delete `runYOLO`, `ensureYoloRequest`, `cachedYoloRequest`, and the `VNCoreMLRequest` field-detector code. Construct one `FieldDetector` lazily (cache it) with the bundled ONNX bytes.
 - [ ] **Step 2:** Android (JNI): from `recognizeLicenseFields`, pass the rectified `Bitmap`'s RGB bytes to a new JNI method that calls `FieldDetector::run`. Delete the TFLite `Interpreter` field-detector lifecycle (`tfliteInterpreter`, `runYolo`, the ByteBuffer quantization). **Also** replace the DocAligner TFLite `Interpreter` with the ORT C++ `DocAligner` (Task 1.6) — DocAligner is folded into the unified runtime per the do-it-right scope; see the DocAligner section. (iOS doc-seg Apple-Vision-vs-DocAligner is the Phase-3 sub-decision.)
@@ -396,10 +396,10 @@ Construct the `Ort::SessionOptions` from `opts_.provider` (CPU/XNNPACK by defaul
 ### Task 2.2: Link ORT into the iOS app build (SPM + CocoaPods)
 
 **Files:**
-- Modify: `DlScan.podspec`, `Package.swift`
+- Modify: `DLScan.podspec`, `Package.swift`
 
 - [ ] **Step 1:** Add ORT as an iOS dependency. **Primary (SPM):** add an `onnxruntime` binary target — if ORT lacks a clean SPM package at the pinned version, vendor `onnxruntime.xcframework` as a `.binaryTarget(path:)`. **CocoaPods:** add `s.dependency 'onnxruntime-c'` (pin version) to the podspec. Confirm the bundled `.onnx` is listed as a resource in BOTH `Package.swift` (`.copy`) and the podspec `resource_bundles` (mirror how `.mlmodelc` was wired — then remove the `.mlmodelc` resource in Phase 4).
-- [ ] **Step 2: Verify** `pod lib lint DlScan.podspec --quick --allow-warnings` and `swift build` succeed (this is what CI's iOS job runs).
+- [ ] **Step 2: Verify** `pod lib lint DLScan.podspec --quick --allow-warnings` and `swift build` succeed (this is what CI's iOS job runs).
 - [ ] **Step 3:** Measure the iOS framework binary-size delta from adding ORT; record it. If > ~8 MB, switch to an ORT-minimal/reduced-ops build (custom ORT build including only the ops the NanoDet model uses — ORT's `--include_ops_by_config` from the model).
 - [ ] **Step 4:** Commit.
 
@@ -471,11 +471,11 @@ Construct the `Ort::SessionOptions` from `opts_.provider` (CPU/XNNPACK by defaul
 ### Task 4.2: Delete the AGPL YOLOv8 artifacts and dead code
 
 **Files:**
-- Delete: `ios/Resources/DlScanFieldDetector.mlmodelc`, `models/DlScanFieldDetector.mlmodelc`, `models/DlScanFieldDetector.mlpackage`, `android/src/main/assets/dl_scan_field_detector.tflite`
+- Delete: `ios/Resources/DLScanFieldDetector.mlmodelc`, `models/DLScanFieldDetector.mlmodelc`, `models/DLScanFieldDetector.mlpackage`, `android/src/main/assets/dl_scan_field_detector.tflite`
 - Delete: `cpp/yolo/yolo_postprocess.{hpp,cpp}` (the YOLOv8 `decode_and_nms`) IF no longer referenced — keep `iou`/`nms` by having moved them to a shared header in Task 1.3. Update `cpp/yolo/yolo_postprocess_test.cpp` accordingly (or delete + rely on `nanodet_decode_test`).
-- Modify: `DlScan.podspec`, `Package.swift`, `android` assets globs — drop the old model resources.
+- Modify: `DLScan.podspec`, `Package.swift`, `android` assets globs — drop the old model resources.
 
-- [ ] **Step 1:** Delete the files above. `git grep -i 'mlmodelc\|DlScanFieldDetector\|dl_scan_field_detector.tflite\|decode_and_nms'` → confirm zero live references remain (docs get updated in 4.3).
+- [ ] **Step 1:** Delete the files above. `git grep -i 'mlmodelc\|DLScanFieldDetector\|dl_scan_field_detector.tflite\|decode_and_nms'` → confirm zero live references remain (docs get updated in 4.3).
 - [ ] **Step 2: Verify** `yarn test:cpp`, `yarn typecheck`, `yarn lint`, `pod lib lint`, `swift build`, and a local Android `assembleDebug` all pass with the YOLOv8 artifacts gone.
 - [ ] **Step 3:** Confirm the AGPL blockers are resolved — **definitive check (review fix): pack and grep the tarball**, not just `strings`: `npm pack && mkdir -p /tmp/pkg && tar xf *.tgz -C /tmp/pkg && grep -rni 'agpl\|ultralytics\|/Volumes\|/Users/' /tmp/pkg` → must return nothing.
 - [ ] **Step 4:** Commit.

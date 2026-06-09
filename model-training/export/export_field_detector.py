@@ -6,7 +6,7 @@ Loads the Ultralytics YOLOv8n (axis-aligned) weights from:
 
 Exports to:
     1. Core ML int8 (weight-only, via coremltools.optimize.coreml.linear_quantize_weights)
-       → MODELS_OUTPUT/DlScanFieldDetector.mlpackage  (compiled to .mlmodelc via xcrun)
+       → MODELS_OUTPUT/DLScanFieldDetector.mlpackage  (compiled to .mlmodelc via xcrun)
     2. TFLite int8 (calibrated, via Ultralytics export + representative_dataset)
        → MODELS_OUTPUT/dl_scan_field_detector.tflite
 
@@ -40,8 +40,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from utils.paths import YOLO_FIELDS_ROOT, RUNS_ROOT, MODELS_OUTPUT
 
 WEIGHTS_PATH = RUNS_ROOT / "field_detector" / "run" / "weights" / "best.pt"
-COREML_PACKAGE = MODELS_OUTPUT / "DlScanFieldDetector.mlpackage"
-COREML_COMPILED = MODELS_OUTPUT / "DlScanFieldDetector.mlmodelc"
+COREML_PACKAGE = MODELS_OUTPUT / "DLScanFieldDetector.mlpackage"
+COREML_COMPILED = MODELS_OUTPUT / "DLScanFieldDetector.mlmodelc"
 TFLITE_PATH = MODELS_OUTPUT / "dl_scan_field_detector.tflite"
 VERSION_JSON = MODELS_OUTPUT / "version.json"
 

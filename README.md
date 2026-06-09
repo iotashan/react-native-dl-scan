@@ -90,7 +90,7 @@ Bundled ML model files add to your app's download size:
 
 | Platform | Models | Size |
 |---|---|---|
-| iOS | `DlScanFieldDetector.mlmodelc` (compiled Core ML) | ~4.3 MB |
+| iOS | `DLScanFieldDetector.mlmodelc` (compiled Core ML) | ~4.3 MB |
 | Android | `dl_scan_field_detector.tflite` + `docaligner_lcnet100.tflite` | ~5.7 MB |
 
 The TypeScript / native bridge code itself is small (< 1 MB). For most apps the model footprint is the dominant cost.
@@ -146,7 +146,7 @@ Alternatively, the package is added automatically through your app workspace's `
 cd ios && pod install
 ```
 
-> **CocoaPods sunset notice:** The `DlScan.podspec` is retained as a compatibility shim through **2026-12-02**, when CocoaPods Trunk goes permanently read-only. Plan your migration to SPM before that date — after it, only SPM is supported.
+> **CocoaPods sunset notice:** The `DLScan.podspec` is retained as a compatibility shim through **2026-12-02**, when CocoaPods Trunk goes permanently read-only. Plan your migration to SPM before that date — after it, only SPM is supported.
 
 ### Android
 
@@ -204,14 +204,14 @@ React hook for camera-based scanning. Returns:
 | `output` | `CameraOutput` | Pass to `<Camera outputs={[output]} />`. Internally resolved per mode and per platform — barcode mode uses AVFoundation `useObjectOutput` on iOS and `react-native-vision-camera-barcode-scanner` on Android; OCR mode is a worklet frame processor on both. |
 | `reset` | `() => void` | Clear `licenseData` / `error` / accumulated result and restart scanning |
 
-### `NativeDlScan.parseBarcodeData(rawAamvaString: string): Promise<LicenseData | null>`
+### `NativeDLScan.parseBarcodeData(rawAamvaString: string): Promise<LicenseData | null>`
 
 Direct parse for callers who already have a raw AAMVA barcode string — e.g., from a handheld scanner, an NFC read, or a test fixture — without needing a camera feed.
 
 ```ts
-import { NativeDlScan } from 'react-native-dl-scan';
+import { NativeDLScan } from 'react-native-dl-scan';
 
-const data = await NativeDlScan.parseBarcodeData(rawBarcodeString);
+const data = await NativeDLScan.parseBarcodeData(rawBarcodeString);
 if (data) {
   console.log(data.firstName, data.lastName);
 }
@@ -450,8 +450,8 @@ JavaScript / React
   (React hook, src/)
         │
         ▼
-  Nitro HybridObject  ◄──────── NativeDlScan.parseBarcodeData()
-  (DlScan hybrid)
+  Nitro HybridObject  ◄──────── NativeDLScan.parseBarcodeData()
+  (DLScan hybrid)
      │         │
      ▼         ▼
   iOS Swift   Android Kotlin
@@ -487,7 +487,7 @@ identity document dataset — no real PII in the training pipeline.
 
 | Component | Architecture | Purpose |
 |---|---|---|
-| `DlScanFieldDetector` | YOLOv8n (trained) | Locate individual text fields on the rectified document |
+| `DLScanFieldDetector` | YOLOv8n (trained) | Locate individual text fields on the rectified document |
 | Document segmentation | Platform vendor | Detect and rectify the ID card in the camera frame |
 | Text recognition (OCR) | Platform vendor | Read text from each cropped field region |
 

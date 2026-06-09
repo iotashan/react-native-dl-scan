@@ -275,7 +275,7 @@ Version 2.0. Copyright is held by the DocAligner project's contributors
 | Author / owner | RangiLyu and NanoDet contributors |
 | License | Apache License, Version 2.0 |
 
-The `DlScanFieldDetector` model is **trained by this project**, not a
+The `DLScanFieldDetector` model is **trained by this project**, not a
 redistributed third-party model. Its architecture and training framework are
 RangiLyu/nanodet (NanoDet-Plus-m), which is **Apache-2.0**. The architecture,
 the training code, and the resulting trained weights are therefore all

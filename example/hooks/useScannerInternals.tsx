@@ -27,7 +27,7 @@ import {
 import { NitroModules } from 'react-native-nitro-modules';
 import type { Phase } from '../components/ScannerScreen';
 
-const Hybrid = NitroModules.createHybridObject<any>('DlScan');
+const Hybrid = NitroModules.createHybridObject<any>('DLScan');
 const FIXTURE_SAMPLE =
   '@\nANSI 636014090002DL00410288ZC03290025DLDAQD12345678\n' +
   'DCSDOE\nDACJANE\nDBB01151990\nDBA01152030\nDBC2\nDAU064 IN\nDAYBLU\n';

@@ -7,7 +7,7 @@ import CoreImage.CIFilterBuiltins
 import VisionCamera
 import UIKit
 
-/// Swift implementation of the DlScan Nitro HybridObject.
+/// Swift implementation of the DLScan Nitro HybridObject.
 ///
 /// Two scan modes:
 ///   1. parseBarcodeData — AAMVA-encoded PDF417 string parsing. Delegates
@@ -29,8 +29,8 @@ import UIKit
 /// JS-orchestrated NanoDet path above.
 ///
 /// Registration is handled automatically by the auto-generated
-/// DlScanAutolinking.mm. Host apps do NOT call any registration function.
-class HybridDlScanIOS: HybridDlScanSpec {
+/// DLScanAutolinking.mm. Host apps do NOT call any registration function.
+class HybridDLScanIOS: HybridDLScanSpec {
 
   // MARK: - OCR / scan-session state
 
@@ -210,7 +210,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
   /// Cached CIContext for perspective-correction rendering. Created lazily.
   private let renderContext = CIContext()
 
-  // MARK: - HybridDlScanSpec
+  // MARK: - HybridDLScanSpec
 
   func parseBarcodeData(barcodeData: String) throws -> Promise<Variant_NullType_LicenseDataSpec> {
     return Promise.parallel {
@@ -222,7 +222,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
       guard let cppData = Optional(fromCxx: cppResult) else {
         return Variant_NullType_LicenseDataSpec.first(.null)
       }
-      let spec = HybridDlScanIOS.toLicenseDataSpec(cppData)
+      let spec = HybridDLScanIOS.toLicenseDataSpec(cppData)
       return Variant_NullType_LicenseDataSpec.second(spec)
     }
   }
@@ -627,7 +627,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
     do {
       try handler.perform([request])
     } catch {
-      NSLog("[DlScan] VNDetectDocumentSegmentationRequest threw: \(error)")
+      NSLog("[DLScan] VNDetectDocumentSegmentationRequest threw: \(error)")
       return nil
     }
     let allResults = request.results as? [VNRectangleObservation] ?? []
@@ -1058,7 +1058,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
   // MARK: - AAMVA prefix stripping & demographic text-pool parser
 
   /// Map from YOLO class to expected AAMVA D-20 index token. Mirrors
-  /// `HybridDlScanAndroid.expectedAamvaIndex`.
+  /// `HybridDLScanAndroid.expectedAamvaIndex`.
   private static let expectedAamvaIndex: [String: String] = [
     "surname":      "1",   // international class over the AAMVA family-name row
     "given_name":   "2",   // international class over the AAMVA given-name row
@@ -1084,7 +1084,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
 
   /// YOLO classes where a leading-prefix mismatch should DROP the field
   /// (rather than pass the wrong text through). Mirrors
-  /// `HybridDlScanAndroid.dropOnIndexMismatch`. The demographic/appearance
+  /// `HybridDLScanAndroid.dropOnIndexMismatch`. The demographic/appearance
   /// fields use this; name/address/license classes keep the legacy
   /// "return unchanged" behavior so legitimate cases like "12 MAIN ST"
   /// accidentally matched to list_8s aren't erased.
@@ -1141,7 +1141,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
     // OCR failure mode for that field.
     //
     // Test parity note: the regex pattern below is byte-for-byte the same
-    // string used by HybridDlScanAndroid.kt, where it IS covered by JVM
+    // string used by HybridDLScanAndroid.kt, where it IS covered by JVM
     // unit tests. NSRegularExpression (ICU) and Java/Kotlin Regex (ICU)
     // produce identical match results for this pattern when applied to
     // normalized ASCII AAMVA/OCR class values (the only domain we feed it).
@@ -1207,7 +1207,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
   ]
 
   /// Per-class content-shape tightener. Applied AFTER prefix stripping.
-  /// Mirrors `HybridDlScanAndroid.tightenByContentShape` with one review-
+  /// Mirrors `HybridDLScanAndroid.tightenByContentShape` with one review-
   /// flagged divergence: we `.uppercased()` first. The Android Kotlin
   /// regex is uppercase-only `[A-Z0-9]`, which silently passes through
   /// any all-lowercase OCR output (a real latent bug on that platform;
@@ -1518,7 +1518,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
 
   /// Split each observation containing multiple AAMVA tokens into per-field
   /// sub-observations via proportional bbox slicing. Mirrors
-  /// HybridDlScanAndroid.splitObservationByAamvaIndices.
+  /// HybridDLScanAndroid.splitObservationByAamvaIndices.
   static func splitObservationsByAamvaIndices(
     _ observations: [(text: String, bbox: CGRect)]
   ) -> [(text: String, bbox: CGRect)] {
@@ -1640,7 +1640,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
         // value span then includes trailing junk and the anchored dom
         // regex rejects it. Pull JUST the field-shape portion so
         // valueMatchesDomain sees a clean value. Mirrors
-        // HybridDlScanAndroid.extractFieldShape.
+        // HybridDLScanAndroid.extractFieldShape.
         cleaned = Self.extractFieldShape(index: token.index, value: cleaned)
         guard AamvaLexer.valueMatchesDomain(cleaned, domainKey: token.index) else { continue } // (c)
         candidatesByIndex[token.index, default: []].append((tok: token, cleaned: cleaned))
@@ -1650,7 +1650,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
     for (idx, entries) in candidatesByIndex {
       guard entries.count == 1, let fieldId = indexToFieldId[idx] else { continue }      // (d)
       // Emit JUST the lexer-bounded value (round-6 follow-on).
-      // See HybridDlScanAndroid for rationale; in short: the C++
+      // See HybridDLScanAndroid for rationale; in short: the C++
       // normalize functions need clean values, and label prefixes
       // become poison when the OCR-noise label isn't in the C++
       // strip-target list.
@@ -1689,7 +1689,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
     // survives, but if the 4d row itself is dropped (or the class lands on
     // a different observation) we still need a last resort. Scan every
     // observation for a `CLASS X` pattern; emit as StrictTextPool(List9).
-    // Mirrors HybridDlScanAndroid.scanForClass.
+    // Mirrors HybridDLScanAndroid.scanForClass.
     let emittedFieldIds = Set(out.map { $0.fieldId })
     if !emittedFieldIds.contains(9) {  // FieldId::List9
       if let cls = Self.scanForClass(observations) {
@@ -1723,7 +1723,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
   /// lb", "15 SEX M 16 HGT", "4d H200-...-07 CLASS D"); the lexer's value
   /// span includes the trailing junk and the anchored dom regex rejects
   /// it. This extracts JUST the field-shape portion so the dom gate sees a
-  /// clean value. Mirrors HybridDlScanAndroid.extractFieldShape (round-6
+  /// clean value. Mirrors HybridDLScanAndroid.extractFieldShape (round-6
   /// design). Returns the original value unchanged when no shape applies.
   static func extractFieldShape(index: String, value: String) -> String {
     switch index {
@@ -1780,7 +1780,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
   /// realistic is found. WI Pixel/Vision OCR fuses CLASS onto the DLN row
   /// and may misread the index "4d", so neither the lexer nor the
   /// bbox-IoU path produces a List9 candidate. This is the fallback.
-  /// Mirrors HybridDlScanAndroid.scanForClass / scanForClassText.
+  /// Mirrors HybridDLScanAndroid.scanForClass / scanForClassText.
   static func scanForClass(_ observations: [(text: String, bbox: CGRect)]) -> String? {
     let denylist: Set<String> = [
       "ST", "RD", "DR", "AVE", "BLVD", "LN", "CT", "CIR",
@@ -1893,7 +1893,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
   // MARK: - C++ <-> Swift bridging helpers
 
   /// Bridge a C++ std::optional<std::string> to Swift String?.
-  /// Uses the Nitro bridge helpers from DlScan-Swift-Cxx-Bridge.hpp for
+  /// Uses the Nitro bridge helpers from DLScan-Swift-Cxx-Bridge.hpp for
   /// consistency with Nitrogen's own generated accessor pattern.
   private static func optStr(
     _ opt: margelo.nitro.dlscan.bridge.swift.std__optional_std__string_
@@ -2071,7 +2071,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
       try data.write(to: url, options: .atomic)
       return url.absoluteString
     } catch {
-      NSLog("[DlScan] saveRectifiedCard failed: \(error)")
+      NSLog("[DLScan] saveRectifiedCard failed: \(error)")
       return nil
     }
   }
@@ -2116,7 +2116,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
         )
       }
     } catch {
-      NSLog("[DlScan] VNDetectFaceRectanglesRequest failed: \(error)")
+      NSLog("[DLScan] VNDetectFaceRectanglesRequest failed: \(error)")
     }
 
     // Fallback: YOLO "face" class bbox (class 0). The YOLO bbox is in
@@ -2156,7 +2156,7 @@ class HybridDlScanIOS: HybridDlScanSpec {
       try data.write(to: url, options: .atomic)
       return url.absoluteString
     } catch {
-      NSLog("[DlScan] extractHeadshot write failed: \(error)")
+      NSLog("[DLScan] extractHeadshot write failed: \(error)")
       return nil
     }
   }

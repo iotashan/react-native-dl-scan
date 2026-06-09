@@ -3,7 +3,7 @@
 // The field detector (NanoDet) and doc-segmenter (DocAligner) run through
 // react-native-fast-tflite in JS/worklet land: JS loads the .tflite models and
 // calls `model.runSync`, while the shared, tested C++ core does the
-// model-specific pre/post via the native C-ABI (exposed on the DlScan hybrid
+// model-specific pre/post via the native C-ABI (exposed on the DLScan hybrid
 // object as preprocessFieldInput/decodeFieldOutput/preprocessDocAlignerInput/
 // decodeCorners).
 //
@@ -22,7 +22,7 @@ import {
 } from 'react-native-fast-tflite';
 
 import { _hybrid } from './native';
-import type { FieldDetectionSpec } from './specs/DlScan.nitro';
+import type { FieldDetectionSpec } from './specs/DLScan.nitro';
 
 // The native preprocess emits the model-native input size; JS only needs these
 // to compute the inverse-stretch scale for decodeFieldOutput.

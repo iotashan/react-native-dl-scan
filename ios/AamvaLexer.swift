@@ -7,7 +7,7 @@ import Foundation
 // Task #70: `internal import` is the Swift 5.9+ replacement for
 // `@_implementationOnly` (SE-0409). The latter emits a deprecation
 // warning in any module not built with library-evolution mode, which
-// the DlScanDebugCore SwiftPM library target is not. The new attribute
+// the DLScanDebugCore SwiftPM library target is not. The new attribute
 // hides AamvaLexerC from this module's ABI without that caveat.
 // Compiler-version-gated for safety on older toolchains; the upcoming-
 // feature flag is also enabled in the SwiftPM target's swiftSettings.

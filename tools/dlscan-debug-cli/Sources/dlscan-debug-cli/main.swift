@@ -13,7 +13,7 @@
 // already-rectified buffer in and inspect the bbox-match output directly).
 
 import Foundation
-import DlScanDebugCore
+import DLScanDebugCore
 import Vision
 import CoreML
 import CoreImage
@@ -31,9 +31,9 @@ let kFieldClassNames: [String] = [
 ]
 
 // MARK: - YOLO NMS decode (Swift port of cpp/yolo/yolo_postprocess.cpp)
-// Note: `YoloDetection` struct + `iou` function moved to DlScanDebugCore
+// Note: `YoloDetection` struct + `iou` function moved to DLScanDebugCore
 // (task #68) so the library target's ProductionStrip.swift can also see
-// them. `import DlScanDebugCore` at the top of this file pulls them in.
+// them. `import DLScanDebugCore` at the top of this file pulls them in.
 
 func decodeAndNms(
     tensor: UnsafePointer<Float>,
@@ -94,7 +94,7 @@ func decodeAndNms(
     return kept
 }
 
-// `iou` moved to DlScanDebugCore/CommonTypes.swift (task #68).
+// `iou` moved to DLScanDebugCore/CommonTypes.swift (task #68).
 
 // MARK: - Pipeline
 
@@ -123,8 +123,8 @@ func loadYoloModel() throws -> VNCoreMLModel {
     //   1. iOS Resources (the source path, used for SPM dev)
     //   2. The current app bundle (when running inside a build)
     let candidates = [
-        URL(fileURLWithPath: "ios/Resources/DlScanFieldDetector.mlmodelc"),
-        URL(fileURLWithPath: "../../ios/Resources/DlScanFieldDetector.mlmodelc"),
+        URL(fileURLWithPath: "ios/Resources/DLScanFieldDetector.mlmodelc"),
+        URL(fileURLWithPath: "../../ios/Resources/DLScanFieldDetector.mlmodelc"),
     ]
     for c in candidates {
         if FileManager.default.fileExists(atPath: c.path) {
@@ -132,7 +132,7 @@ func loadYoloModel() throws -> VNCoreMLModel {
             return try VNCoreMLModel(for: mlModel)
         }
     }
-    fatalError("Could not find DlScanFieldDetector.mlmodelc")
+    fatalError("Could not find DLScanFieldDetector.mlmodelc")
 }
 
 func runYolo(buffer: CVPixelBuffer) throws -> [YoloDetection] {
@@ -418,10 +418,10 @@ func matchObservationsToFields(
     return out
 }
 
-// MARK: - Heuristics ported from Android (HybridDlScanAndroid.kt)
+// MARK: - Heuristics ported from Android (HybridDLScanAndroid.kt)
 
 /// Strip AAMVA prefix candidates from a raw OCR string for a given YOLO
-/// class. Mirrors stripAamvaPrefixForClass in HybridDlScanAndroid.
+/// class. Mirrors stripAamvaPrefixForClass in HybridDLScanAndroid.
 let kExpectedAamvaIndex: [String: String] = [
     "list_1":  "1", "list_2":  "2", "list_3":  "3",
     "list_4a": "4a", "list_4b": "4b", "list_4d": "4d",
@@ -517,7 +517,7 @@ func truncateByYoloBbox(text: String, obsBbox: CGRect, fieldBbox: CGRect, slop: 
     return String(text[text.startIndex..<e]).trimmingCharacters(in: .whitespaces)
 }
 
-/// Mirrors the production iOS HybridDlScanIOS.tightenByContentShape exactly.
+/// Mirrors the production iOS HybridDLScanIOS.tightenByContentShape exactly.
 /// Anchored at start, uppercase-only, minimum length 4.
 func tightenByContentShape(text: String, yoloClass: String) -> String {
     if text.isEmpty { return text }
