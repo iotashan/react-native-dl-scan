@@ -1,5 +1,9 @@
 // Metro config for the example app — consumes the parent react-native-dl-scan
-// package via portal:.. in package.json + a manual node_modules symlink.
+// package via portal:.. in package.json. portal: leaves NO
+// example/node_modules/react-native-dl-scan entry under yarn 3, so the import
+// is mapped straight to the library root via resolver.extraNodeModules below
+// (no manual symlink required). Native autolinking is handled separately by
+// example/react-native.config.js's dependencies[*].root override.
 //
 // Critical: forces React, RN, and the Nitro/VC/worklets families to ALWAYS
 // resolve to the example's node_modules. Without this, metro picks up the
@@ -114,6 +118,17 @@ config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
 ];
+
+// react-native-dl-scan is consumed via `portal:..`, which under yarn 3 +
+// nodeLinker:node-modules leaves NO example/node_modules/react-native-dl-scan
+// entry. Map it straight to the library root so Metro resolves the import
+// without depending on a manually-created symlink. The singletons
+// resolveRequest above redirects the import through the example's root entry;
+// this is the fallback that redirect actually resolves to.
+config.resolver.extraNodeModules = {
+  ...(config.resolver.extraNodeModules || {}),
+  'react-native-dl-scan': workspaceRoot,
+};
 
 // react-native-fast-tflite loads models bundled as assets via require(); metro
 // must treat .tflite as an asset, not a source module.
