@@ -1,14 +1,14 @@
-import { NativeDlScan } from '../src';
+import { NativeDLScan } from '../src';
 import type { LicenseData } from '../src';
 
-describe('NativeDlScan adapter (undefined → null normalization)', () => {
+describe('NativeDLScan adapter (undefined → null normalization)', () => {
   it('returns null when input has no AAMVA/ANSI marker', async () => {
-    const result = await NativeDlScan.parseBarcodeData('garbage');
+    const result = await NativeDLScan.parseBarcodeData('garbage');
     expect(result).toBeNull();
   });
 
   it('normalizes undefined fields to null in returned LicenseData', async () => {
-    const result = await NativeDlScan.parseBarcodeData(
+    const result = await NativeDLScan.parseBarcodeData(
       'ANSI 636000090002DLDAQ999888777DCSDOEDACJOHNDBB19900815'
     );
     expect(result).not.toBeNull();

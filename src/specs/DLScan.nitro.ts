@@ -117,7 +117,7 @@ export interface LicenseDataSpec {
   headshotImagePath?: string;
 }
 
-export interface DlScan extends HybridObject<{
+export interface DLScan extends HybridObject<{
   ios: 'swift';
   android: 'kotlin';
 }> {

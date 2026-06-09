@@ -6,7 +6,7 @@ import {
   type CameraOutput,
   CommonResolutions,
 } from 'react-native-vision-camera';
-import { NativeDlScan, normalizeLicenseData, _hybrid } from './native';
+import { NativeDLScan, normalizeLicenseData, _hybrid } from './native';
 // Platform-resolved barcode output. Metro picks the .ios.ts or
 // .android.ts variant per platform at bundle time. iOS uses Vision
 // Camera v5's built-in `useObjectOutput` (AVFoundation, no MLKit);
@@ -25,7 +25,7 @@ import type {
 } from 'react-native-fast-tflite';
 import type { LicenseData, ScanMode, ConfidenceEntry } from './types';
 import { formatTypedValue } from './types';
-import type { LicenseDataSpec } from './specs/DlScan.nitro';
+import type { LicenseDataSpec } from './specs/DLScan.nitro';
 
 // ===== OCR completion policy + UI-observable scan status =====
 
@@ -427,7 +427,7 @@ export const _decideScanOutcome = (input: ScanOutcomeInput): ScanOutcome => {
  *    `useObjectOutput` (AVFoundation, no MLKit on iOS); Android uses
  *    `useBarcodeScannerOutput` (MLKit). Both surface the same JS
  *    callback shape via `./scanner/barcodeOutput`. On a detection the
- *    raw AAMVA string routes through `NativeDlScan.parseBarcodeData`
+ *    raw AAMVA string routes through `NativeDLScan.parseBarcodeData`
  *    (JS → Nitro → C++ AAMVA).
  *
  *  - `'ocr'`: returns a frame-output worklet that runs the JS-orchestrated
@@ -538,7 +538,7 @@ export function useLicenseScanner(
   const handleBarcodeString = useCallback((raw: string) => {
     if (hasResultRef.current) return;
     hasResultRef.current = true;
-    NativeDlScan.parseBarcodeData(raw)
+    NativeDLScan.parseBarcodeData(raw)
       .then((data) => {
         if (data != null) {
           setLicenseData(data);

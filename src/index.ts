@@ -1,6 +1,6 @@
 // Public surface for react-native-dl-scan.
 //
-// Module-scope singletons (_hybrid, NativeDlScan, normalizeLicenseData,
+// Module-scope singletons (_hybrid, NativeDLScan, normalizeLicenseData,
 // undefinedToNull) live in ./native to keep both worklet code (scanFrame.ts)
 // and the React-side hook (useLicenseScanner.ts) able to import from a leaf
 // module — without the index <-> scanFrame / index <-> useLicenseScanner
@@ -8,7 +8,7 @@
 
 export {
   _hybrid,
-  NativeDlScan,
+  NativeDLScan,
   normalizeLicenseData,
   undefinedToNull,
   toTypedValue,

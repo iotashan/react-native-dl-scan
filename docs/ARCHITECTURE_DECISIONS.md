@@ -77,7 +77,7 @@ Drop the YOLOv8n-OBB doc detector training stage entirely.
 **Consequences**:
 
 Positive:
-- **Bundle size**: no self-trained `DlScanDocDetector.mlmodelc` or
+- **Bundle size**: no self-trained `DLScanDocDetector.mlmodelc` or
   `dl_scan_doc_detector.tflite` shipped with the package. iOS adds nothing
   (Apple Vision is part of the OS); Android bundles the pre-trained
   DocAligner `lcnet100` TFLite model (~2.4 MB) instead of a much larger
@@ -172,7 +172,7 @@ JS, orchestrated through `react-native-fast-tflite`.
   fp32 is the default; int8 needs on-device accuracy validation before use.
 - **Runtime.** JS loads the `.tflite` and calls `runSync` via
   `react-native-fast-tflite`; the native side bridges the shared, tested C++
-  preprocess + decode through the `detect_c` C-ABI (exposed on the DlScan
+  preprocess + decode through the `detect_c` C-ABI (exposed on the DLScan
   hybrid object; the new `rectifyFrame` + `ocrExtractFields` Nitro methods
   orchestrate doc-seg → field detection → OCR + extract). This **replaces** the
   former native Core ML (iOS) + native TFLite (Android) field-detector

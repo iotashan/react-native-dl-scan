@@ -44,8 +44,8 @@ jobs:
       - run: corepack enable
       - run: yarn install --immutable
       - run: swift package describe
-      - run: swift build --target DlScanCxx
-      - run: pod lib lint DlScan.podspec --quick --allow-warnings
+      - run: swift build --target DLScanCxx
+      - run: pod lib lint DLScan.podspec --quick --allow-warnings
 
   android:
     name: Android — script validation
@@ -74,7 +74,7 @@ jobs:
           test -f android/build.gradle
           test -f android/CMakeLists.txt
           test -f android/src/main/AndroidManifest.xml
-          test -f android/src/main/java/com/margelo/nitro/dlscan/HybridDlScanAndroid.kt
+          test -f android/src/main/java/com/margelo/nitro/dlscan/HybridDLScanAndroid.kt
           test -f android/src/main/cpp/dlscan_jni_bridge.cpp
           test -f android/src/main/assets/dl_scan_field_detector.tflite
 

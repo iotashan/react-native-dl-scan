@@ -16,7 +16,7 @@ Suggested benchmarks to implement:
 
 Usage (once implemented):
   python model-training/utils/benchmarks.py --benchmark gpu_fp16
-  python model-training/utils/benchmarks.py --benchmark ane_latency --model models/DlScanDocDetector.mlmodelc
+  python model-training/utils/benchmarks.py --benchmark ane_latency --model models/DLScanDocDetector.mlmodelc
 """
 
 import argparse

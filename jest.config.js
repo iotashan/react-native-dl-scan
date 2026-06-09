@@ -25,7 +25,7 @@ module.exports = {
     '^react-native-nitro-modules$':
       '<rootDir>/__tests__/__mocks__/react-native-nitro-modules.ts',
     // Stub out RN packages that ship ESM-only builds or require native modules.
-    // The integration test only exercises NativeDlScan (parseBarcodeData), which
+    // The integration test only exercises NativeDLScan (parseBarcodeData), which
     // does NOT depend on these at runtime — they come in via re-exports in index.ts.
     '^react-native$': '<rootDir>/__tests__/__mocks__/react-native.ts',
     '^react-native-worklets$':

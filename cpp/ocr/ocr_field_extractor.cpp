@@ -1615,8 +1615,8 @@ static const char* field_id_to_key(FieldId id) {
 // ============================================================================
 // Shared marker-anchored demographic parser (parse_aamva_demographic_fields).
 //
-// Ported from the duplicated Swift HybridDlScanIOS.parseAamvaDemographicFields
-// and Kotlin HybridDlScanAndroid.parseAamvaDemographicFields so the 4-gate
+// Ported from the duplicated Swift HybridDLScanIOS.parseAamvaDemographicFields
+// and Kotlin HybridDLScanAndroid.parseAamvaDemographicFields so the 4-gate
 // strict text-pool scan — including the device-observed look-ahead linkage,
 // fused-row marker extraction, and name-marker trailing-junk strip — lives in
 // ONE place with one regression test. The platforms now call through here.

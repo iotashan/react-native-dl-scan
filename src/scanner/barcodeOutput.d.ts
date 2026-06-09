@@ -12,7 +12,7 @@ import type { CameraOutput } from 'react-native-vision-camera';
 export interface UseBarcodeOutputOptions {
   /** Called with the raw AAMVA payload string when the scanner
    *  decodes a PDF-417 that starts with `@\nANSI ` (or `@\rANSI `).
-   *  The orchestrator pipes this through `NativeDlScan.parseBarcodeData`.
+   *  The orchestrator pipes this through `NativeDLScan.parseBarcodeData`.
    *  Fires once per decoded frame; the orchestrator de-duplicates
    *  via a result latch. */
   onAamvaString: (raw: string) => void;

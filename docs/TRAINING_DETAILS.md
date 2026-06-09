@@ -77,7 +77,7 @@ trained and exported with the NanoDet + litert-torch envs above.
 
 ---
 
-## Model 1: DlScanFieldDetector (NanoDet-Plus-m)
+## Model 1: DLScanFieldDetector (NanoDet-Plus-m)
 
 ### Architecture
 

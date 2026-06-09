@@ -8,7 +8,7 @@ attempt. The training data it produced is preserved (see "Data assets retained"
 below) and may be useful for future research, but the model itself is **not
 shipped** and the supporting code has been removed.
 
-The shipped product uses **only** the field detector (`DlScanFieldDetector`,
+The shipped product uses **only** the field detector (`DLScanFieldDetector`,
 YOLOv8n) plus platform-vendor OCR (VisionKit on iOS, ML Kit Text Recognition
 on Android) feeding the shared C++17 field extractor. There is no ML
 post-processing of OCR output.
@@ -126,7 +126,7 @@ the model itself is actually useful, which the architecture above is not.
 The shipped product accepts that platform-vendor OCR will make some errors
 and handles them downstream:
 
-- **Field detector** (`DlScanFieldDetector`) crops tight per-field regions
+- **Field detector** (`DLScanFieldDetector`) crops tight per-field regions
   before OCR, which substantially reduces text-recognition errors compared
   to running OCR on a whole-card image.
 - **C++17 field extractor** (`cpp/`) does line-pattern matching against

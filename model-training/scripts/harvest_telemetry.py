@@ -1,5 +1,5 @@
 """
-harvest_telemetry.py — turn DlScanAndroid TELEMETRY logcat lines into a
+harvest_telemetry.py — turn DLScanAndroid TELEMETRY logcat lines into a
 hard-negative-mining signal for the YOLO field-detector retrain pipeline.
 
 Pipeline:
@@ -42,11 +42,11 @@ import sys
 from collections import defaultdict
 from typing import Any
 
-# Pattern matches Android logcat lines that DlScanAndroid emits at the 2 s
+# Pattern matches Android logcat lines that DLScanAndroid emits at the 2 s
 # throttle. Example:
-#   05-10 17:28:43.538 31610 31920 I DlScanAndroid: TELEMETRY corner_cache=0h/0m last_cache_age_ms=-1 demo_gates=0ok/4idx/1lbl/2dom/0amb demo_seen=7 prefix_mismatch=[list_15:1,list_16:1]
+#   05-10 17:28:43.538 31610 31920 I DLScanAndroid: TELEMETRY corner_cache=0h/0m last_cache_age_ms=-1 demo_gates=0ok/4idx/1lbl/2dom/0amb demo_seen=7 prefix_mismatch=[list_15:1,list_16:1]
 TELEMETRY_RE = re.compile(
-    r"(?P<ts>\d{2}-\d{2}\s+[\d:.]+)\s+\d+\s+\d+\s+I\s+DlScanAndroid:\s+TELEMETRY\s+"
+    r"(?P<ts>\d{2}-\d{2}\s+[\d:.]+)\s+\d+\s+\d+\s+I\s+DLScanAndroid:\s+TELEMETRY\s+"
     r"corner_cache=(?P<hits>\d+)h/(?P<misses>\d+)m\s+"
     r"last_cache_age_ms=(?P<age>-?\d+)\s+"
     r"demo_gates=(?P<ok>\d+)ok/(?P<idx>\d+)idx/(?P<lbl>\d+)lbl/(?P<dom>\d+)dom/(?P<amb>\d+)amb\s+"
@@ -123,7 +123,7 @@ def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Parse DlScanAndroid TELEMETRY logcat lines into JSON.",
+        description="Parse DLScanAndroid TELEMETRY logcat lines into JSON.",
     )
     parser.add_argument(
         "--summary",

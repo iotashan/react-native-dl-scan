@@ -6,12 +6,12 @@ import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.module.model.ReactModuleInfoProvider
 import com.facebook.react.uimanager.ViewManager
-import com.margelo.nitro.dlscan.DlScanOnLoad
+import com.margelo.nitro.dlscan.DLScanOnLoad
 
-class DlScanPackage : BaseReactPackage() {
+class DLScanPackage : BaseReactPackage() {
 
   init {
-    // Constructor-level init: PackageList.getPackages() does `new DlScanPackage()`,
+    // Constructor-level init: PackageList.getPackages() does `new DLScanPackage()`,
     // which runs this block synchronously at autolinking time. The Kotlin
     // companion-object `init { }` we used previously is only triggered when
     // the companion class is first referenced — which never happened in a
@@ -40,8 +40,8 @@ class DlScanPackage : BaseReactPackage() {
 
   companion object {
     /**
-     * Captured at package boot. Read by HybridDlScanAndroid to locate the
-     * bundled DlScanFieldDetector.tflite under `assets/`. Volatile because
+     * Captured at package boot. Read by HybridDLScanAndroid to locate the
+     * bundled DLScanFieldDetector.tflite under `assets/`. Volatile because
      * one thread (RN bootstrapping) writes it and another (the OCR worker
      * thread) reads it. Null until the package's getModule or
      * createViewManagers has fired at least once.
@@ -57,7 +57,7 @@ class DlScanPackage : BaseReactPackage() {
     @Synchronized
     fun ensureNativeLoaded() {
       if (nativeLoaded) return
-      DlScanOnLoad.initializeNative()
+      DLScanOnLoad.initializeNative()
       nativeLoaded = true
     }
 

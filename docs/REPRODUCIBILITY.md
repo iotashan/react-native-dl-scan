@@ -226,7 +226,7 @@ platforms; there is no per-platform Core ML / native-TFLite split anymore. A
 `model-training/nanodet/export_tflite/` but is not shipped (validate on-device
 first).
 
-Note: no self-trained `DlScanDocDetector.mlmodelc` or
+Note: no self-trained `DLScanDocDetector.mlmodelc` or
 `dl_scan_doc_detector.tflite` is produced by this pipeline. At runtime, iOS
 document segmentation uses `VNDetectDocumentSegmentationRequest` (a platform
 vendor API, not bundled), and Android uses the pre-trained, third-party

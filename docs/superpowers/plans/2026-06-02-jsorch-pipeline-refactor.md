@@ -25,7 +25,7 @@ return _hybrid.ocrExtractFields(rect.token, dets)      // native: OCR(dets)+vote
 Native caches the rectified CVPixelBuffer/Bitmap under `token` (small ring, e.g. 4)
 so the heavy buffer is marshaled to JS once (as RGB) and reused natively for OCR.
 
-## New Nitro spec (src/specs/DlScan.nitro.ts) + nitrogen regen
+## New Nitro spec (src/specs/DLScan.nitro.ts) + nitrogen regen
 - `interface RectifiedFrameSpec { rgb: ArrayBuffer; width: number; height: number; token: number }`
 - `rectifyFrame(frame: Frame): RectifiedFrameSpec | null` — rate-limited (~3fps) +
   in-flight guard inside native; null on no-card / throttle. Reuses runDocSeg.
@@ -36,7 +36,7 @@ so the heavy buffer is marshaled to JS once (as RGB) and reused natively for OCR
 - Keep recognizeLicenseFields during migration (deprecate after parity), or remove +
   update the OCR worklet. Decision: remove (single path) once both platforms wired.
 
-## iOS (ios/HybridDlScanIOS.swift)
+## iOS (ios/HybridDLScanIOS.swift)
 - Add rectifyFrame: extract pixel buffer (existing code) -> runDocSeg -> render RGB8
   bytes into an ArrayBuffer + cache the rectified CVPixelBuffer in a [token: CVPixelBuffer]
   dict under a lock; return RectifiedFrameSpec. Keep the rate-limit/generation logic.
@@ -45,9 +45,9 @@ so the heavy buffer is marshaled to JS once (as RGB) and reused natively for OCR
   FieldDetectionSpec -> the internal Detection/yolo::Detection used by
   runVisionKitPerRegion + extractHeadshot). Remove runYOLO + cachedYoloRequest +
   the VNCoreMLRequest/Core ML model load.
-- DELETE the DlScanFieldDetector.mlmodelc/.mlpackage bundling (podspec resource_bundles).
+- DELETE the DLScanFieldDetector.mlmodelc/.mlpackage bundling (podspec resource_bundles).
 
-## Android (android/.../HybridDlScanAndroid.kt) — mirror
+## Android (android/.../HybridDLScanAndroid.kt) — mirror
 - rectifyFrame (MLKit/doc-seg + rectify -> RGB + token cache), ocrExtractFields
   (MLKit text per region + voter + extract). Remove the native TFLite YOLO interpreter
   + dl_scan_field_detector.tflite load from the OCR path.

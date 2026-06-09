@@ -15,7 +15,7 @@ yarn ios                          # builds + installs to a booted iOS device/sim
 yarn android                      # builds + installs to a connected Android device
 ```
 
-For physical iOS the project is signed with team `3VPB4NZTQS` by default — change `example/ios/DlScanExample.xcodeproj/project.pbxproj` `DEVELOPMENT_TEAM` if you're a different developer. For Android no signing config is needed for `assembleDebug`.
+For physical iOS the project is signed with team `3VPB4NZTQS` by default — change `example/ios/DLScanExample.xcodeproj/project.pbxproj` `DEVELOPMENT_TEAM` if you're a different developer. For Android no signing config is needed for `assembleDebug`.
 
 ## What it demonstrates
 

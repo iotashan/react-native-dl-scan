@@ -25,7 +25,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 // disable LogBox), but in dev it gets in the way of automation.
 LogBox.ignoreAllLogs(true);
 
-const TAG = '[DlScan]';
+const TAG = '[DLScan]';
 console.log(TAG, 'App module loaded', Platform.OS, Platform.Version);
 
 function writeScanResult(data: Record<string, unknown>, scanNum: number) {

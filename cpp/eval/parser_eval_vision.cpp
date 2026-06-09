@@ -12,7 +12,7 @@
 //
 // then scores the parsed fields against IDNet's ground truth, per (state,
 // field). This is the faithful "OCR + parser, no field detector" measurement
-// — exactly the candidate sourcing in HybridDlScanIOS.ocrExtractFields minus
+// — exactly the candidate sourcing in HybridDLScanIOS.ocrExtractFields minus
 // the bbox/field-detector candidates (which need the on-device YOLO model).
 //
 // Inputs:
@@ -250,7 +250,7 @@ int main(int argc, char** argv) {
         ++n_samples;
         ++per_state_samples[dt];
 
-        // ---- THE PIPELINE (faithful to HybridDlScanIOS.ocrExtractFields) ----
+        // ---- THE PIPELINE (faithful to HybridDLScanIOS.ocrExtractFields) ----
         // Raw whole-card observation texts (Vision reading order) -> shared
         // C++ demographic marker parser -> typed candidates -> extractor.
         dlscan::ObservationVector ov;

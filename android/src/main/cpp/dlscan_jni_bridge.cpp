@@ -2,10 +2,10 @@
  * dlscan_jni_bridge.cpp
  *
  * JNI entry points called by Kotlin's `external fun` declarations in
- * HybridDlScanAndroid.  The functions bridge between the Kotlin world and the
+ * HybridDLScanAndroid.  The functions bridge between the Kotlin world and the
  * shared C++ core (aamva_parser / ocr_field_extractor).
  *
- * Build: added to the DlScan shared library via CMakeLists.txt so it shares
+ * Build: added to the DLScan shared library via CMakeLists.txt so it shares
  * the same .so as the nitrogen-generated JNI bindings and the C++ core.
  *
  * Threading: Both functions are called from worker threads managed by the
@@ -156,11 +156,11 @@ static NitroSpec toNitroSpec(const dlscan::LicenseData& ld) {
 //   Java_<package_underscored>_<ClassName>_<methodName>
 //
 // Package:  com.margelo.nitro.dlscan
-// Class:    HybridDlScanAndroid
+// Class:    HybridDLScanAndroid
 // ---------------------------------------------------------------------------
 
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeParseBarcode(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativeParseBarcode(
         JNIEnv* env, jobject /* thiz */, jstring jBarcodeData) {
 
     if (jBarcodeData == nullptr) return nullptr;
@@ -186,7 +186,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeParseBarcode(
 }
 
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeExtractOcrFields(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativeExtractOcrFields(
         JNIEnv* env, jobject /* thiz */, jobjectArray jLines) {
 
     if (jLines == nullptr) return nullptr;
@@ -239,7 +239,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeExtractOcrFields(
  *                                                values: Array<String>): LicenseDataSpec?
  */
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeExtractFieldsCandidates(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativeExtractFieldsCandidates(
         JNIEnv* env, jobject /* thiz */,
         jintArray jFieldIds, jintArray jSources, jobjectArray jTexts) {
     // v2 Sequence G — typed FieldCandidate input. Replaces the legacy
@@ -301,7 +301,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeExtractFieldsCandidates(
  *   external fun nativeClassName(classId: Int): String
  */
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeClassName(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativeClassName(
         JNIEnv* env, jobject /* thiz */, jint jClassId) {
     const char* name = dlscan::yolo::class_name_or_empty(static_cast<int>(jClassId));
     return env->NewStringUTF(name != nullptr ? name : "");
@@ -316,7 +316,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeClassName(
  * (links a bare "4d" marker to its value on the next OCR observation), the
  * fused-row marker extraction (sex single-[MFX] out of "15 SEX M 18 HOT ..."),
  * and the name-marker-2 trailing-junk strip. Previously this orchestration was
- * duplicated in HybridDlScanAndroid.parseAamvaDemographicFields; it now lives
+ * duplicated in HybridDLScanAndroid.parseAamvaDemographicFields; it now lives
  * in C++ with one host-unit-test regression (cpp/tests/aamva_demographic_test).
  *
  * Input: Array<String> of OCR observation texts IN READING ORDER (already
@@ -331,7 +331,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeClassName(
  *   external fun nativeParseAamvaDemographicFields(texts: Array<String>): Array<String>?
  */
 extern "C" JNIEXPORT jobjectArray JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeParseAamvaDemographicFields(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativeParseAamvaDemographicFields(
         JNIEnv* env, jobject /* thiz */, jobjectArray jTexts) {
     if (jTexts == nullptr) return nullptr;
     const jsize n = env->GetArrayLength(jTexts);
@@ -390,7 +390,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeParseAamvaDemographicFie
  * Returns a heap pointer cast to jlong, or 0 on allocation failure.
  */
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeVoterNew(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativeVoterNew(
         JNIEnv* /* env */, jobject /* thiz */, jint jMaxVotes, jint jMinVotes) {
     try {
         auto* v = new dlscan::FieldVoter(
@@ -411,7 +411,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeVoterNew(
  * Safe on handle == 0 (no-op).
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeVoterDelete(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativeVoterDelete(
         JNIEnv* /* env */, jobject /* thiz */, jlong jHandle) {
     delete reinterpret_cast<dlscan::FieldVoter*>(jHandle);
 }
@@ -421,7 +421,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeVoterDelete(
  *   external fun nativeVoterReset(handle: Long)
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeVoterReset(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativeVoterReset(
         JNIEnv* /* env */, jobject /* thiz */, jlong jHandle) {
     auto* v = reinterpret_cast<dlscan::FieldVoter*>(jHandle);
     if (v != nullptr) v->reset();
@@ -440,7 +440,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeVoterReset(
  * v2 Sequence G — task #54. Replaces the v1 string-key wire shape.
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeVoterAccept(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativeVoterAccept(
         JNIEnv* env, jobject /* thiz */,
         jlong jHandle,
         jintArray jFieldIds, jintArray jSources, jobjectArray jTexts) {
@@ -494,7 +494,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeVoterAccept(
  * v2 Sequence G — task #54.
  */
 extern "C" JNIEXPORT jobjectArray JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeVoterConsensus(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativeVoterConsensus(
         JNIEnv* env, jobject /* thiz */, jlong jHandle) {
     auto* v = reinterpret_cast<dlscan::FieldVoter*>(jHandle);
     if (v == nullptr) return nullptr;
@@ -526,7 +526,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeVoterConsensus(
 // ===========================================================================
 // AAMVA visible-field lexer (v2 Sequence E — task #53). The C++ implementation
 // at cpp/aamva/aamva_lexer.{hpp,cpp} is the single source of truth; the
-// Kotlin AamvaLexer object delegates here via DlScanLexerBridge external funs.
+// Kotlin AamvaLexer object delegates here via DLScanLexerBridge external funs.
 // JNI is already C++, so we call dlscan:: namespace functions directly
 // without going through the C ABI (which exists for Swift Cxx interop).
 //
@@ -572,7 +572,7 @@ inline void push_token_to_array(JNIEnv* env,
 } // namespace
 
 extern "C" JNIEXPORT jobjectArray JNICALL
-Java_com_margelo_nitro_dlscan_DlScanLexerBridge_nativeFindAll(
+Java_com_margelo_nitro_dlscan_DLScanLexerBridge_nativeFindAll(
         JNIEnv* env, jobject /* thiz */, jstring jText) {
     if (jText == nullptr) return nullptr;
     const char* cstr = env->GetStringUTFChars(jText, nullptr);
@@ -595,7 +595,7 @@ Java_com_margelo_nitro_dlscan_DlScanLexerBridge_nativeFindAll(
 }
 
 extern "C" JNIEXPORT jobjectArray JNICALL
-Java_com_margelo_nitro_dlscan_DlScanLexerBridge_nativeFindOne(
+Java_com_margelo_nitro_dlscan_DLScanLexerBridge_nativeFindOne(
         JNIEnv* env, jobject /* thiz */, jstring jText, jint jStartIndex) {
     if (jText == nullptr) return nullptr;
     const char* cstr = env->GetStringUTFChars(jText, nullptr);
@@ -617,7 +617,7 @@ Java_com_margelo_nitro_dlscan_DlScanLexerBridge_nativeFindOne(
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_margelo_nitro_dlscan_DlScanLexerBridge_nativeIsCompatibleLabel(
+Java_com_margelo_nitro_dlscan_DLScanLexerBridge_nativeIsCompatibleLabel(
         JNIEnv* env, jobject /* thiz */, jstring jIndex, jstring jLabel) {
     if (jIndex == nullptr || jLabel == nullptr) return JNI_FALSE;
     const char* idx = env->GetStringUTFChars(jIndex, nullptr);
@@ -630,7 +630,7 @@ Java_com_margelo_nitro_dlscan_DlScanLexerBridge_nativeIsCompatibleLabel(
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_margelo_nitro_dlscan_DlScanLexerBridge_nativeValueMatchesDomain(
+Java_com_margelo_nitro_dlscan_DLScanLexerBridge_nativeValueMatchesDomain(
         JNIEnv* env, jobject /* thiz */, jstring jValue, jstring jIndex) {
     if (jValue == nullptr || jIndex == nullptr) return JNI_FALSE;
     const char* val = env->GetStringUTFChars(jValue, nullptr);
@@ -655,7 +655,7 @@ Java_com_margelo_nitro_dlscan_DlScanLexerBridge_nativeValueMatchesDomain(
  * (FieldId::Unknown) for null / unknown names. v2 Sequence G — task #54.
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeClassNameToFieldId(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativeClassNameToFieldId(
         JNIEnv* env, jobject /* thiz */, jstring jName) {
     if (jName == nullptr) return 0;
     const char* nameChars = env->GetStringUTFChars(jName, nullptr);
@@ -666,7 +666,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeClassNameToFieldId(
 }
 
 // ---- Detector C-ABI bridge (JS-orchestrated fast-tflite path) --------------
-// The Kotlin side (HybridDlScanAndroid) calls these from preprocessFieldInput/
+// The Kotlin side (HybridDLScanAndroid) calls these from preprocessFieldInput/
 // decodeFieldOutput/preprocessDocAlignerInput/decodeCorners, marshaling the
 // Nitro ArrayBuffer <-> primitive arrays. The actual math is the shared,
 // 282-test-validated detect_c C-ABI, marshaling the Nitro ArrayBuffer <->
@@ -674,7 +674,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeClassNameToFieldId(
 // Android (JDK 21) build — to confirm on first gradle build.
 
 extern "C" JNIEXPORT jfloatArray JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativePreprocessField(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativePreprocessField(
         JNIEnv* env, jobject /* thiz */, jbyteArray jRgb, jint w, jint h) {
     const int size = 416;
     const size_t need = static_cast<size_t>(3) * size * size;
@@ -699,7 +699,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativePreprocessField(
 // Returns a w*h*3 byte array, or an empty array on any error (null/short input,
 // non-positive dims, unknown mode). Used by runTtaVerification.
 extern "C" JNIEXPORT jbyteArray JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeAugmentRgb(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativeAugmentRgb(
         JNIEnv* env, jobject /* thiz */, jbyteArray jRgb, jint w, jint h, jint mode) {
     if (jRgb == nullptr || w <= 0 || h <= 0) return env->NewByteArray(0);
     const size_t need = static_cast<size_t>(3) * static_cast<size_t>(w) * static_cast<size_t>(h);
@@ -721,7 +721,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeAugmentRgb(
 }
 
 extern "C" JNIEXPORT jfloatArray JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeDecodeField(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativeDecodeField(
         JNIEnv* env, jobject /* thiz */, jfloatArray jOut, jfloat scaleX, jfloat scaleY) {
     if (jOut == nullptr) return env->NewFloatArray(0);
     const jsize len = env->GetArrayLength(jOut);
@@ -754,7 +754,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeDecodeField(
 }
 
 extern "C" JNIEXPORT jfloatArray JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativePreprocessDocAligner(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativePreprocessDocAligner(
         JNIEnv* env, jobject /* thiz */, jbyteArray jRgb, jint w, jint h) {
     const int size = 256;
     const size_t need = static_cast<size_t>(3) * size * size;
@@ -774,7 +774,7 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativePreprocessDocAligner(
 }
 
 extern "C" JNIEXPORT jfloatArray JNICALL
-Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeDecodeCorners(
+Java_com_margelo_nitro_dlscan_HybridDLScanAndroid_nativeDecodeCorners(
         JNIEnv* env, jobject /* thiz */, jfloatArray jOut) {
     if (jOut == nullptr) return env->NewFloatArray(0);
     const jsize len = env->GetArrayLength(jOut);
@@ -792,10 +792,10 @@ Java_com_margelo_nitro_dlscan_HybridDlScanAndroid_nativeDecodeCorners(
     return res;
 }
 
-// JNI entry point — fires once when System.loadLibrary("DlScan") completes
-// in DlScanOnLoad.kt. Delegates to the nitrogen-generated initialize() which
+// JNI entry point — fires once when System.loadLibrary("DLScan") completes
+// in DLScanOnLoad.kt. Delegates to the nitrogen-generated initialize() which
 // runs both fbjni's setup AND margelo::nitro::dlscan::registerAllNatives().
-#include "DlScanOnLoad.hpp"
+#include "DLScanOnLoad.hpp"
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* /* reserved */) {
   return ::margelo::nitro::dlscan::initialize(vm);
 }

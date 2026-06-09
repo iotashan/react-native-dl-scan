@@ -18,7 +18,7 @@ For the architectural decision that dropped the doc detector see [ARCHITECTURE_D
 | Property | Value |
 |---|---|
 | Model family | `react-native-dl-scan` v0.x |
-| Trained sub-models | DlScanFieldDetector; DocAligner (Android only) |
+| Trained sub-models | DLScanFieldDetector; DocAligner (Android only) |
 | Doc segmentation | Apple Vision `VNDetectDocumentSegmentationRequest` on iOS (vendor); DocAligner `lcnet100` TFLite FP16 on Android (bundled — Android has no equivalent free Vision API for corner-based rectification, see [ADR 001](ARCHITECTURE_DECISIONS.md)) |
 | Training date | 2026-05-30 |
 | Model version | NanoDet-Plus-m field detector (`nanodet_field_416.tflite`) |
@@ -32,7 +32,7 @@ For the architectural decision that dropped the doc detector see [ARCHITECTURE_D
 
 | Model | Architecture | Task | Input | Output |
 |---|---|---|---|---|
-| `DlScanFieldDetector` (NanoDet) | NanoDet-Plus-m (ShuffleNetV2 1.0x + GhostPAN + GFL/DFL head, reg_max=7) | Locate individual text fields on a rectified document crop | 416×416 NHWC RGB8 | `[1, 3598, 62]` anchor-major (30 sigmoid class scores + 4×8 DFL logits) |
+| `DLScanFieldDetector` (NanoDet) | NanoDet-Plus-m (ShuffleNetV2 1.0x + GhostPAN + GFL/DFL head, reg_max=7) | Locate individual text fields on a rectified document crop | 416×416 NHWC RGB8 | `[1, 3598, 62]` anchor-major (30 sigmoid class scores + 4×8 DFL logits) |
 
 ---
 
@@ -150,9 +150,9 @@ Source of record: [`models/version.json`](../models/version.json).
 
 | Model | Metric | Value (fp32 .tflite) |
 |---|---|---|
-| DlScanFieldDetector (NanoDet) | mAP@0.5:0.95 | 0.967 |
-| DlScanFieldDetector (NanoDet) | AP@0.5 | 0.9996 |
-| DlScanFieldDetector (NanoDet) | AP@0.75 | 0.994 |
+| DLScanFieldDetector (NanoDet) | mAP@0.5:0.95 | 0.967 |
+| DLScanFieldDetector (NanoDet) | AP@0.5 | 0.9996 |
+| DLScanFieldDetector (NanoDet) | AP@0.75 | 0.994 |
 | Document segmentation | — | iOS: Apple Vision (vendor-evaluated) · Android: DocAligner (bundled) |
 
 Target thresholds based on IDNet paper baselines:
@@ -245,7 +245,7 @@ and this repository.
 
 **Code** (npm package, training scripts, C++ parser): MIT. See [LICENSE](../LICENSE).
 
-**Model weights** (`DlScanFieldDetector`, NanoDet-Plus-m): Apache 2.0.
+**Model weights** (`DLScanFieldDetector`, NanoDet-Plus-m): Apache 2.0.
 
 Rationale for Apache 2.0 for weights:
 - The field detector is **fully Apache-2.0**: the NanoDet-Plus-m architecture,

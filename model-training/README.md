@@ -22,9 +22,9 @@ Local training pipeline for the single trained on-device ML model that powers
 
 | Model | Architecture | Purpose |
 |---|---|---|
-| `DlScanFieldDetector` | YOLOv8n (axis-aligned) | Locate individual text fields on the rectified document |
+| `DLScanFieldDetector` | YOLOv8n (axis-aligned) | Locate individual text fields on the rectified document |
 
-A Keras OCR-disambiguation model (`DlScanFieldDisambig`) was attempted and
+A Keras OCR-disambiguation model (`DLScanFieldDisambig`) was attempted and
 **removed from the product** after a held-out diagnostic showed it was
 net-negative on accuracy. v1 ships **no ML disambig**: platform-vendor OCR
 (VisionKit / ML Kit) feeds the shared C++ field extractor directly. The full
@@ -32,7 +32,7 @@ postmortem is at [idnet/DISAMBIG_POSTMORTEM.md](idnet/DISAMBIG_POSTMORTEM.md);
 the disambig training code has been removed and the stages below are marked
 inactive.
 
-Document segmentation (formerly `DlScanDocDetector`, YOLOv8n-OBB) is handled
+Document segmentation (formerly `DLScanDocDetector`, YOLOv8n-OBB) is handled
 at runtime by `VNDetectDocumentSegmentationRequest` (iOS) and a bundled
 DocAligner TFLite model (Android) — see the note above.
 
@@ -288,16 +288,16 @@ After export, the `models/` directory at repo root contains:
 
 ```
 models/
-  DlScanFieldDetector.mlpackage/   Core ML field detector (int8)
-  DlScanFieldDetector.mlmodelc/    Compiled for on-device deployment
+  DLScanFieldDetector.mlpackage/   Core ML field detector (int8)
+  DLScanFieldDetector.mlmodelc/    Compiled for on-device deployment
   dl_scan_field_detector.tflite    Android field detector (int8)
   version.json                     Training metadata + export timestamps
 ```
 
-Note: the disambig artifacts (`DlScanFieldDisambig.*`, `dl_scan_field_disambig.tflite`)
+Note: the disambig artifacts (`DLScanFieldDisambig.*`, `dl_scan_field_disambig.tflite`)
 are NOT produced — the disambig model was removed from the product.
 
-Note: `DlScanDocDetector.*` and `dl_scan_doc_detector.tflite` are NOT produced.
+Note: `DLScanDocDetector.*` and `dl_scan_doc_detector.tflite` are NOT produced.
 Document segmentation is handled at runtime by `VNDetectDocumentSegmentationRequest`
 (iOS) and a bundled DocAligner lcnet100 TFLite model on Android
 (`android/src/main/assets/docaligner_lcnet100.tflite`, loaded at runtime).

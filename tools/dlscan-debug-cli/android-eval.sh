@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run the IDNet batch eval against the connected Android device using the
-# production HybridDlScanAndroid.ocrPipelineForEval pipeline via an
+# production HybridDLScanAndroid.ocrPipelineForEval pipeline via an
 # instrumented test (IdnetBatchEvalTest).
 #
 # Usage:

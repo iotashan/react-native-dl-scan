@@ -1,4 +1,4 @@
-# DlScanFieldDetector — Runtime Contract
+# DLScanFieldDetector — Runtime Contract
 
 This document is the source of truth for **what the bundled field-detector
 model expects as input and what it produces as output**, on both iOS and

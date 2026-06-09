@@ -5,8 +5,8 @@ const path = require('path');
 // The example consumes react-native-dl-scan via `portal:..`, which under yarn 3
 // + nodeLinker:node-modules leaves NO example/node_modules/react-native-dl-scan
 // entry. Autolinking's recursive node_modules scan therefore never finds the
-// library and SILENTLY drops the native DlScan module — no iOS pod, no Android
-// DlScanPackage — so the app builds without the Nitro module and crashes on the
+// library and SILENTLY drops the native DLScan module — no iOS pod, no Android
+// DLScanPackage — so the app builds without the Nitro module and crashes on the
 // first scan. (It previously only worked via a manual, uncommitted symlink.)
 //
 // Expo SDK 54 autolinking loads this app-root config and resolves

@@ -296,7 +296,7 @@ def main() -> None:
 
         fp32_weights = RUNS_ROOT / "doc_detector" / "run" / "weights" / "best.pt"
         tflite_path = MODELS_OUTPUT / "dl_scan_doc_detector.tflite"
-        coreml_pkg = MODELS_OUTPUT / "DlScanDocDetector.mlpackage"
+        coreml_pkg = MODELS_OUTPUT / "DLScanDocDetector.mlpackage"
 
         if not fp32_weights.exists():
             logger.warning("FP32 weights not found: %s — skipping", fp32_weights)
@@ -357,7 +357,7 @@ def main() -> None:
 
         fp32_weights = RUNS_ROOT / "field_detector" / "run" / "weights" / "best.pt"
         tflite_path = MODELS_OUTPUT / "dl_scan_field_detector.tflite"
-        coreml_pkg = MODELS_OUTPUT / "DlScanFieldDetector.mlpackage"
+        coreml_pkg = MODELS_OUTPUT / "DLScanFieldDetector.mlpackage"
 
         if not fp32_weights.exists():
             logger.warning("FP32 weights not found: %s — skipping", fp32_weights)

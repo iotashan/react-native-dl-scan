@@ -39,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **BREAKING:** the native `recognizeLicenseFields` method and the legacy YOLO
-  detection path (Core ML `DlScanFieldDetector.mlmodelc` on iOS,
+  detection path (Core ML `DLScanFieldDetector.mlmodelc` on iOS,
   `dl_scan_field_detector.tflite` on Android). OCR mode now requires the
   field-detector model via the new `useLicenseScanner` `ocrModelSources` option:
   `useLicenseScanner('ocr', { field: require('react-native-dl-scan/models/nanodet_field_416.tflite') })`.

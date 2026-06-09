@@ -3,7 +3,7 @@ package com.dlscan
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.margelo.nitro.core.NullType
 import com.margelo.nitro.core.ArrayBuffer
-import com.margelo.nitro.dlscan.HybridDlScanAndroid
+import com.margelo.nitro.dlscan.HybridDLScanAndroid
 import com.margelo.nitro.dlscan.LicenseDataSpec
 import com.margelo.nitro.dlscan.Sex
 import com.margelo.nitro.dlscan.Variant_NullType_LicenseDataSpec
@@ -21,12 +21,12 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
-class HybridDlScanAndroidTest {
+class HybridDLScanAndroidTest {
 
-    private val instance = HybridDlScanAndroid()
+    private val instance = HybridDLScanAndroid()
 
     private fun invokeArrayBufferToBytes(buffer: ArrayBuffer): ByteArray {
-        val method = HybridDlScanAndroid::class.java.getDeclaredMethod(
+        val method = HybridDLScanAndroid::class.java.getDeclaredMethod(
             "arrayBufferToBytes",
             ArrayBuffer::class.java
         )
@@ -35,7 +35,7 @@ class HybridDlScanAndroidTest {
     }
 
     private fun invokeArrayBufferToFloats(buffer: ArrayBuffer): FloatArray {
-        val method = HybridDlScanAndroid::class.java.getDeclaredMethod(
+        val method = HybridDLScanAndroid::class.java.getDeclaredMethod(
             "arrayBufferToFloats",
             ArrayBuffer::class.java
         )
@@ -44,7 +44,7 @@ class HybridDlScanAndroidTest {
     }
 
     private fun invokeFloatsToArrayBuffer(floats: FloatArray): ArrayBuffer {
-        val method = HybridDlScanAndroid::class.java.getDeclaredMethod(
+        val method = HybridDLScanAndroid::class.java.getDeclaredMethod(
             "floatsToArrayBuffer",
             FloatArray::class.java
         )
@@ -53,7 +53,7 @@ class HybridDlScanAndroidTest {
     }
 
     private fun invokeBitmapToRGB8(bitmap: Bitmap): ArrayBuffer {
-        val method = HybridDlScanAndroid::class.java.getDeclaredMethod(
+        val method = HybridDLScanAndroid::class.java.getDeclaredMethod(
             "bitmapToRGB8",
             Bitmap::class.java
         )

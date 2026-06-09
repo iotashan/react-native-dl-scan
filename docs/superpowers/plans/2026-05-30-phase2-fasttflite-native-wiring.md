@@ -33,7 +33,7 @@ the field detector (DocAligner half can run as soon as it's built — its
   **Bridging breadcrumbs (verified by reading the generated code — do this in a
   build session where the cross-module types resolve):**
   - The injected model reaches Swift as `any HybridTfliteModelSpec`; Nitro's
-    generated `HybridDlScanSpec_cxx.swift` already shows the forward conversion
+    generated `HybridDLScanSpec_cxx.swift` already shows the forward conversion
     `HybridTfliteModelSpec_cxx.fromUnsafe(ptr).getHybridTfliteModelSpec()` from a
     `bridge.std__shared_ptr_margelo__nitro__tflite__HybridTfliteModelSpec_`. For
     the call site, go the reverse direction to get the C++ `shared_ptr` and pass
@@ -70,7 +70,7 @@ the field detector (DocAligner half can run as soon as it's built — its
 
 Inference moves to **react-native-fast-tflite** (Nitro HybridObject), one runtime
 on both platforms. Orchestration stays in the existing native Nitro object
-(`HybridDlScanIOS.swift` / `HybridDlScanAndroid.kt`):
+(`HybridDLScanIOS.swift` / `HybridDLScanAndroid.kt`):
 
 ```
 camera RGB ──▶ C++ dlscan_preprocess_field ──▶ Float32 ArrayBuffer
@@ -79,7 +79,7 @@ camera RGB ──▶ C++ dlscan_preprocess_field ──▶ Float32 ArrayBuffer
 ```
 Same shape for DocAligner via `dlscan_preprocess_docaligner` / `dlscan_decode_corners`.
 
-This **replaces**: iOS `VNCoreMLRequest` + `DlScanFieldDetector.mlmodelc`
+This **replaces**: iOS `VNCoreMLRequest` + `DLScanFieldDetector.mlmodelc`
 (`runYOLO`, `cachedYoloRequest`); Android `org.tensorflow.lite.Interpreter`
 (`tfliteInterpreter`, `docAlignerInterpreter`, `ensureTfliteInterpreter`,
 `runDocAligner`). And it **replaces the decode**: old YOLOv8 `(1,34,8400)`
@@ -100,7 +100,7 @@ Confirm input is NHWC `[1,416,416,3]` (preprocess already emits NHWC).
 ## Tasks
 
 ### 2.1 Nitro spec: receive fast-tflite model handles
-- `src/specs/DlScan.nitro.ts`: add a way for the native object to use the loaded
+- `src/specs/DLScan.nitro.ts`: add a way for the native object to use the loaded
   models. Preferred: a setter taking the fast-tflite model HybridObjects, e.g.
   `setModels(field: TensorflowModel, docAligner: TensorflowModel): void`, OR
   pass them per-call. (fast-tflite's `TfliteModel` is a Nitro HybridObject with a
@@ -114,16 +114,16 @@ Confirm input is NHWC `[1,416,416,3]` (preprocess already emits NHWC).
 - Models bundled as assets (metro `tflite` assetExt already set). Decide asset
   location (JS-require'd path vs the current android/ios native asset dirs).
 
-### 2.3 iOS Swift wiring (`ios/HybridDlScanIOS.swift`)
+### 2.3 iOS Swift wiring (`ios/HybridDLScanIOS.swift`)
 - Hold the injected `TfliteModel` handles.
 - Replace `runYOLO`: call `dlscan_preprocess_field` (Cxx interop) → `model.runSync`
   → `dlscan_decode_field`. Map detections exactly as today downstream.
 - Replace the iOS doc-seg step with `dlscan_preprocess_docaligner` + `runSync` +
   `dlscan_decode_corners`.
 - Delete `cachedYoloRequest`, the `VNCoreMLRequest` plumbing, and the
-  `DlScanFieldDetector.mlmodelc` resource.
+  `DLScanFieldDetector.mlmodelc` resource.
 
-### 2.4 Android Kotlin wiring (`android/src/main/java/.../HybridDlScanAndroid.kt`)
+### 2.4 Android Kotlin wiring (`android/src/main/java/.../HybridDLScanAndroid.kt`)
 - Hold the injected `TfliteModel` handles.
 - Replace `ensureTfliteInterpreter`/`runYOLO`-equivalent + `runDocAligner` with
   fast-tflite `runSync` around JNI calls to the `dlscan_*` C-ABI (add a thin

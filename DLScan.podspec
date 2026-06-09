@@ -10,8 +10,8 @@ require "json"
 package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 
 Pod::Spec.new do |s|
-  s.name         = "DlScan"
-  s.module_name  = 'DlScan'
+  s.name         = "DLScan"
+  s.module_name  = 'DLScan'
   s.version      = package["version"]
   s.summary      = package["description"]
   s.homepage     = package["homepage"]
@@ -26,8 +26,8 @@ Pod::Spec.new do |s|
 
   # Hand-written iOS + C++ sources. Nitro-generated glue is appended below by
   # `add_nitrogen_files(s)`, which also partitions public/private headers so
-  # the Cxx-Umbrella never ends up in the auto-generated DlScan-umbrella.h
-  # (otherwise Swift module emission tries to read DlScan-Swift.h before it
+  # the Cxx-Umbrella never ends up in the auto-generated DLScan-umbrella.h
+  # (otherwise Swift module emission tries to read DLScan-Swift.h before it
   # has been generated — chicken-and-egg).
   s.source_files = 'ios/**/*.{h,m,mm,swift}',
                    'cpp/*.{cpp,hpp}',
@@ -37,9 +37,9 @@ Pod::Spec.new do |s|
                    'cpp/yolo/*.{cpp,hpp}',
                    'cpp/detect/*.{cpp,hpp}',
                    'cpp/errors/*.{cpp,hpp}'
-  # Expose the cpp/ headers in the auto-generated DlScan-umbrella.h so the
+  # Expose the cpp/ headers in the auto-generated DLScan-umbrella.h so the
   # `dlscan::LicenseData` C++ namespace (defined in cpp/license_data.hpp)
-  # becomes reachable from HybridDlScanIOS.swift via -import-underlying-module
+  # becomes reachable from HybridDLScanIOS.swift via -import-underlying-module
   # + the Cxx-interop mode set by add_nitrogen_files below.
   s.public_header_files = 'cpp/**/*.hpp'
   s.private_header_files = "ios/**/*.h"
@@ -59,7 +59,7 @@ Pod::Spec.new do |s|
     # Lets cpp/aamva/*.{hpp,cpp} resolve `mrz/mrz_parser.hpp` and
     # `license_data.hpp` the same way the C++ test build (CMake) does.
     'HEADER_SEARCH_PATHS' => '"$(PODS_TARGET_SRCROOT)/cpp"',
-    # Enable Swift <-> C++ interop so HybridDlScanIOS.swift can reach
+    # Enable Swift <-> C++ interop so HybridDLScanIOS.swift can reach
     # `dlscan::LicenseData` / `dlscan::parse_aamva`. add_nitrogen_files
     # only sets SWIFT_OBJC_INTEROP_MODE=objcxx, which is ObjC++-bridge
     # only — the direct C++ namespace import requires this extra flag.
@@ -70,7 +70,7 @@ Pod::Spec.new do |s|
   # public/private header partitions, and merges in the Cxx-interop pod
   # xcconfig (SWIFT_OBJC_INTEROP_MODE, SWIFT_INSTALL_OBJC_HEADER=NO,
   # DEFINES_MODULE=YES, etc.). Mirrors the pattern used by react-native-nitro-image.
-  load 'nitrogen/generated/ios/DlScan+autolinking.rb'
+  load 'nitrogen/generated/ios/DLScan+autolinking.rb'
   add_nitrogen_files(s)
 
   # VisionCamera — Pod-path consumers; SPM consumers resolve VC via their host package manifest

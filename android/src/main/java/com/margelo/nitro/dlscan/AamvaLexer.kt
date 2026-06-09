@@ -7,7 +7,7 @@ import com.facebook.proguard.annotations.DoNotStrip
  * AAMVA D-20 / DL-AID-005-3 visible-field lexer — Kotlin wrapper.
  *
  * Forwards to the shared C++ lexer at `cpp/aamva/aamva_lexer.{hpp,cpp}`
- * via the [DlScanLexerBridge] JNI bridge. The C++ side is the single
+ * via the [DLScanLexerBridge] JNI bridge. The C++ side is the single
  * source of truth for token recognition; the round-5/6 invariants
  * (digits-only index, alphanumeric boundary, trailing-digit reject,
  * label-peek value-end scan, etc.) live there and are pinned by the
@@ -34,13 +34,13 @@ internal object AamvaLexer {
 
     /** Find the first AAMVA token at-or-after [startIndex] in [text]. */
     fun findAamvaToken(text: String, startIndex: Int = 0): AamvaToken? {
-        val flat = DlScanLexerBridge.nativeFindOne(text, startIndex) ?: return null
+        val flat = DLScanLexerBridge.nativeFindOne(text, startIndex) ?: return null
         return parseToken(flat, 0)
     }
 
     /** Find all AAMVA tokens in [text], in textual order. */
     fun findAllAamvaTokens(text: String): List<AamvaToken> {
-        val flat = DlScanLexerBridge.nativeFindAll(text) ?: return emptyList()
+        val flat = DLScanLexerBridge.nativeFindAll(text) ?: return emptyList()
         val n = flat.size / 6
         if (n == 0) return emptyList()
         val out = ArrayList<AamvaToken>(n)
@@ -53,12 +53,12 @@ internal object AamvaLexer {
     /** Gate (b) check used by the demographic parser. */
     fun isCompatibleLabel(canonicalIndex: String, label: String?): Boolean {
         if (label == null) return false
-        return DlScanLexerBridge.nativeIsCompatibleLabel(canonicalIndex, label)
+        return DLScanLexerBridge.nativeIsCompatibleLabel(canonicalIndex, label)
     }
 
     /** Gate (c) check used by the demographic parser. */
     fun valueMatchesDomain(value: String, canonicalIndex: String): Boolean {
-        return DlScanLexerBridge.nativeValueMatchesDomain(value, canonicalIndex)
+        return DLScanLexerBridge.nativeValueMatchesDomain(value, canonicalIndex)
     }
 
     /** Read 6 strings starting at [base] into an AamvaToken. */
@@ -82,13 +82,13 @@ internal object AamvaLexer {
 
 /**
  * JNI bridge for the shared C++ lexer. Declared as a standalone object
- * so the external-fun symbols don't collide with HybridDlScanAndroid's,
+ * so the external-fun symbols don't collide with HybridDLScanAndroid's,
  * and so callers don't have to instantiate Hybrid* just to lex text.
  *
- * Library is loaded by [HybridDlScanAndroid] (also via System.loadLibrary
+ * Library is loaded by [HybridDLScanAndroid] (also via System.loadLibrary
  * elsewhere); this object piggybacks on whichever loader fires first.
  * The JNI symbols are mangled as
- * `Java_com_margelo_nitro_dlscan_DlScanLexerBridge_native*`.
+ * `Java_com_margelo_nitro_dlscan_DLScanLexerBridge_native*`.
  *
  * Wire format (see cpp/dlscan_jni_bridge.cpp): each token is six
  * consecutive strings — index, rawIndex, label-or-empty, value,
@@ -96,7 +96,7 @@ internal object AamvaLexer {
  */
 @DoNotStrip
 @Keep
-internal object DlScanLexerBridge {
+internal object DLScanLexerBridge {
     @DoNotStrip @Keep external fun nativeFindAll(text: String): Array<String>?
     @DoNotStrip @Keep external fun nativeFindOne(text: String, startIndex: Int): Array<String>?
     @DoNotStrip @Keep external fun nativeIsCompatibleLabel(

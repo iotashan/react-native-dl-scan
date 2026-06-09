@@ -1,6 +1,6 @@
 // Production-equivalent AAMVA strip / parse logic for the CLI eval.
 //
-// These functions are COPIED from ios/HybridDlScanIOS.swift and must be
+// These functions are COPIED from ios/HybridDLScanIOS.swift and must be
 // kept in sync. The production file references Nitro-generated types
 // (FieldCandidate, FieldSource) that aren't available to the CLI's
 // SwiftPM build, so the CLI uses lightweight CGRect / tuple equivalents.
@@ -28,7 +28,7 @@ public struct ProdFieldCandidate {
     }
 }
 
-// MARK: - Class metadata (copied verbatim from HybridDlScanIOS.swift)
+// MARK: - Class metadata (copied verbatim from HybridDLScanIOS.swift)
 
 public let expectedAamvaIndex: [String: String] = [
     "list_1":  "1",
@@ -75,7 +75,7 @@ public let demographicYoloClass: [String: String] = [
 
 // MARK: - stripAamvaPrefixForClass (lexer-backed)
 
-/// Production-equivalent strip. Mirrors HybridDlScanIOS.stripAamvaPrefixForClass.
+/// Production-equivalent strip. Mirrors HybridDLScanIOS.stripAamvaPrefixForClass.
 public func prodStripAamvaPrefixForClass(text: String, yoloClass: String) -> String {
     // Trust-the-class rule for street (list_8f).
     if yoloClass == "list_8f" {
