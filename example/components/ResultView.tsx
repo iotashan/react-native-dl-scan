@@ -12,6 +12,7 @@
 // in one place. They aren't exported individually — there's no
 // reuse case outside ResultView.
 
+import { useState } from 'react';
 import {
   Image,
   ScrollView,
@@ -20,6 +21,7 @@ import {
   Pressable,
   StyleSheet,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 
 const OCR_LABEL = Platform.OS === 'ios' ? 'VisionKit' : 'MLKit';
@@ -255,11 +257,43 @@ function LicenseHero({
   // than running a CSS parser at runtime.
   const gradient = pickGradient(direction, t);
   const isOnyx = direction === 'onyx';
+  // Card sizing, per design review on real devices:
+  //   Phone (narrow column): full width, height hugs the content rows.
+  //   Tablet (wide column): keep a REAL card's CR-80 aspect (1.586:1) but
+  //   size it to the content — measure the content-driven height ONCE (at
+  //   the initial maxWidth) and latch width = height x 1.586. The latch is
+  //   deliberate: re-measuring after the resize oscillates (narrower card ->
+  //   text wraps -> taller content -> wider card -> un-wraps -> ...), which
+  //   showed up on the iPad as the card pulsing between wide and card-ratio.
+  //   The latch re-arms only when the scanned data changes.
+  const { width: windowWidth } = useWindowDimensions();
+  const wide = windowWidth >= 700;
+  const [cardHeight, setCardHeight] = useState<number | null>(null);
+  const [measuredFor, setMeasuredFor] = useState<LicenseData | null>(null);
+  if (measuredFor !== data) {
+    // Render-phase reset (the React-sanctioned alternative to a
+    // derived-state effect): new result -> re-measure once.
+    setMeasuredFor(data);
+    setCardHeight(null);
+  }
+  const cardWidth =
+    wide && cardHeight != null ? Math.round(cardHeight * 1.586) : null;
   return (
     <View style={styles.heroWrap}>
       <View
+        onLayout={
+          wide
+            ? (e) => {
+                const h = e.nativeEvent.layout.height;
+                // Latch: only the FIRST measurement (full-width layout)
+                // drives the card-ratio width; see comment above.
+                setCardHeight((prev) => (prev != null ? prev : h));
+              }
+            : undefined
+        }
         style={[
           styles.heroCard,
+          cardWidth != null ? { width: cardWidth } : null,
           {
             borderColor: t.hairline,
             shadowColor: '#000',
@@ -367,17 +401,31 @@ function LicenseHero({
                 isOnyx={isOnyx}
                 label="SEX"
                 v={displayField(data, 'sex')}
+                inline={!wide}
               />
               <Stat
                 t={t}
                 isOnyx={isOnyx}
                 label="EYE"
                 v={displayField(data, 'eyeColor')}
+                inline={!wide}
               />
             </View>
             <View style={styles.heroStatRow}>
-              <Stat t={t} isOnyx={isOnyx} label="DOB" v={data.dateOfBirth} />
-              <Stat t={t} isOnyx={isOnyx} label="HGT" v={data.height} />
+              <Stat
+                t={t}
+                isOnyx={isOnyx}
+                label="DOB"
+                v={data.dateOfBirth}
+                inline={!wide}
+              />
+              <Stat
+                t={t}
+                isOnyx={isOnyx}
+                label="HGT"
+                v={data.height}
+                inline={!wide}
+              />
             </View>
           </View>
         </View>
@@ -400,7 +448,12 @@ function LicenseHero({
       </View>
 
       {/* Under-card meta */}
-      <View style={styles.heroMeta}>
+      <View
+        style={[
+          styles.heroMeta,
+          cardWidth != null ? { width: cardWidth } : null,
+        ]}
+      >
         <View style={styles.heroMetaLeft}>
           <IconCheck c={t.tierCV} />
           <Text
@@ -447,14 +500,56 @@ function Stat({
   label,
   v,
   colSpan,
+  inline,
 }: {
   t: ThemeTokens;
   isOnyx: boolean;
   label: string;
   v: string | number | null | undefined;
   colSpan?: number;
+  /** Label and value on ONE line (narrow/phone cards) — used for the short
+   *  facts (SEX/EYE/DOB/HGT). DLN and ADDRESS keep the stacked layout. */
+  inline?: boolean;
 }) {
   if (v == null || v === '') return null;
+  if (inline) {
+    return (
+      <View
+        style={{
+          flex: colSpan === 2 ? undefined : 1,
+          width: colSpan === 2 ? '100%' : undefined,
+          paddingVertical: 1,
+          flexDirection: 'row',
+          alignItems: 'baseline',
+          gap: 6,
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 9,
+            letterSpacing: 1.1,
+            opacity: 0.55,
+            fontFamily: t.mono,
+            color: isOnyx ? '#fff' : t.ink,
+          }}
+        >
+          {label}
+        </Text>
+        <Text
+          numberOfLines={1}
+          style={{
+            fontWeight: '600',
+            fontSize: 11.5,
+            fontFamily: t.mono,
+            color: isOnyx ? '#fff' : t.ink,
+            flexShrink: 1,
+          }}
+        >
+          {String(v)}
+        </Text>
+      </View>
+    );
+  }
   return (
     <View
       style={{
@@ -822,7 +917,16 @@ const styles = StyleSheet.create({
     position: 'relative',
     borderRadius: 18,
     overflow: 'hidden',
-    aspectRatio: 1.586 / 1,
+    // Height is CONTENT-driven, not aspect-driven. A fixed CR-80 aspect
+    // (1.586:1) inflated the card on wide layouts (iPad: huge empty gradient
+    // below ~6 rows of content) and clipped it on narrow ones (Pixel: the
+    // DOB/HGT row collided with the absolutely-pinned barcode strip). The
+    // card now hugs its rows; maxWidth keeps it card-shaped instead of
+    // banner-shaped inside the wide tablet column.
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
+    minHeight: 200,
     padding: 18,
     borderWidth: StyleSheet.hairlineWidth,
   },
@@ -866,10 +970,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   heroBarcodeStrip: {
-    position: 'absolute',
-    left: 18,
-    right: 18,
-    bottom: 10,
+    // In normal flow as the card's footer (was absolutely pinned to the
+    // bottom edge, which overlapped the last stat row on narrow screens).
+    marginTop: 14,
     height: 14,
   },
   heroMeta: {
@@ -877,6 +980,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 10,
+    // Track the card's width cap so the meta line stays visually attached
+    // to the card on wide layouts instead of spanning the full column.
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
   },
   heroMetaLeft: {
     flexDirection: 'row',
