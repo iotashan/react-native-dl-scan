@@ -484,10 +484,20 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
         dir
     }
 
+    /**
+     * Saves the padded perspective-corrected card as JPEG and returns
+     * `(file:// path, per-line OCR observations over that EXACT image)`.
+     *
+     * #82: the in-pipeline whole-card OCR ran on a DIFFERENT rectification
+     * (unpadded corners), so its boxes do NOT live in the saved image's
+     * pixel space and cannot be reused — a dedicated pass runs here, once
+     * per scan. Observations are fail-soft: null on any OCR difficulty,
+     * never blocking the card save itself.
+     */
     private fun saveRectifiedCard(
         sourceFrame: Bitmap,
         corners: FloatArray
-    ): String? {
+    ): Pair<String, Array<OcrObservationSpec>?>? {
         return try {
             val padded = expandCorners(corners, sourceFrame.width, sourceFrame.height, 0.06f)
             val cardBitmap = rectifyBitmap(
@@ -498,10 +508,59 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
             java.io.FileOutputStream(file).use { out ->
                 cardBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
             }
+            val observations = cardImageObservations(cardBitmap)
             if (cardBitmap !== sourceFrame) cardBitmap.recycle()
-            "file://${file.absolutePath}"
+            Pair("file://${file.absolutePath}", observations)
         } catch (t: Throwable) {
             Log.w(TAG, "saveRectifiedCard failed", t)
+            null
+        }
+    }
+
+    /**
+     * #82: per-line OCR observations over the EXACT saved card bitmap, so
+     * the returned boxes share `cardImagePath`'s pixel space. MLKit
+     * `Text.Line.boundingBox` is in bitmap PIXELS with a top-left origin
+     * already — normalize by the bitmap dimensions to the spec's [0,1]
+     * top-left contract. Fail-soft: any error or empty OCR → null.
+     */
+    private fun cardImageObservations(bitmap: Bitmap): Array<OcrObservationSpec>? {
+        return try {
+            val w = bitmap.width.toDouble()
+            val h = bitmap.height.toDouble()
+            if (w <= 0.0 || h <= 0.0) return null
+            val visionResult = Tasks.await(
+                textRecognizer.process(InputImage.fromBitmap(bitmap, 0)),
+                5L,
+                java.util.concurrent.TimeUnit.SECONDS
+            )
+            val out = mutableListOf<OcrObservationSpec>()
+            for (block in visionResult.textBlocks) {
+                for (line in block.lines) {
+                    val box = line.boundingBox ?: continue
+                    if (line.text.isEmpty()) continue
+                    // MLKit boxes can extend slightly past the bitmap edges;
+                    // clamp edges first so the normalized box stays in [0,1]
+                    // and width/height stay consistent with the clamped x/y.
+                    val left = box.left.coerceIn(0, bitmap.width).toDouble()
+                    val top = box.top.coerceIn(0, bitmap.height).toDouble()
+                    val right = box.right.coerceIn(0, bitmap.width).toDouble()
+                    val bottom = box.bottom.coerceIn(0, bitmap.height).toDouble()
+                    if (right <= left || bottom <= top) continue
+                    out.add(
+                        OcrObservationSpec(
+                            text = line.text,
+                            x = left / w,
+                            y = top / h,
+                            width = (right - left) / w,
+                            height = (bottom - top) / h
+                        )
+                    )
+                }
+            }
+            if (out.isEmpty()) null else out.toTypedArray()
+        } catch (t: Throwable) {
+            Log.w(TAG, "cardImageObservations failed", t)
             null
         }
     }
@@ -1675,7 +1734,9 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
                 if (r != null && !cardCapturedThisSession) {
                     cardCapturedThisSession = true
                     _pipelineStage = 3.0
-                    val cardPath = saveRectifiedCard(entry.source, entry.corners)
+                    val saved = saveRectifiedCard(entry.source, entry.corners)
+                    val cardPath = saved?.first
+                    val cardObservations = saved?.second
                     _pipelineStage = 4.0
                     val headshotPath = extractHeadshot(ocrBitmap, dets, cardPath)
                     _pipelineStage = 5.0
@@ -1688,7 +1749,13 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
                         ttaRetainedWidth = ocrBitmap.width
                         ttaRetainedHeight = ocrBitmap.height
                     }
-                    return variantOf(r.copy(cardImagePath = cardPath, headshotImagePath = headshotPath))
+                    return variantOf(
+                        r.copy(
+                            cardImagePath = cardPath,
+                            ocrObservations = cardObservations,
+                            headshotImagePath = headshotPath
+                        )
+                    )
                 }
                 return variantOf(r)
             }
