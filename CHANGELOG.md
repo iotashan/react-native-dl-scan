@@ -46,6 +46,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`ocrObservations` on the scan result** — per-line OCR observations
+  (`text` + normalized bounding box) over the saved card image. Boxes are
+  normalized `[0,1]`, origin top-left, +y down, relative to the exact image
+  at `cardImagePath` (a dedicated whole-card OCR pass runs on the saved
+  image at capture time on both platforms). Optional and fail-soft: absent
+  on the barcode path or when the pass fails; never affects parsing.
+- **Example: Overlay | Original scanned-card view** — the result screen's
+  SCANNED CARD section gains a segmented toggle (Overlay default) that
+  renders each recognized string at its position/size over a translucent
+  scrim; falls back to the plain image (toggle disabled) when no
+  observations are available.
 - `loadDetectorModels` / `loadFieldModel` / `runFieldDetection` / `runDocAligner`
   and the `OcrModelSources` type for the JS-orchestrated detector path.
 - `STRICT_REQUIRED_FIELDS` — the default required set plus `sex`, for consumers
