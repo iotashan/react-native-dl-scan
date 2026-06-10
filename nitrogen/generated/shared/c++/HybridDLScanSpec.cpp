@@ -25,6 +25,7 @@ namespace margelo::nitro::dlscan {
       prototype.registerHybridMethod("decodeCorners", &HybridDLScanSpec::decodeCorners);
       prototype.registerHybridMethod("rectifyFrame", &HybridDLScanSpec::rectifyFrame);
       prototype.registerHybridMethod("ocrExtractFields", &HybridDLScanSpec::ocrExtractFields);
+      prototype.registerHybridMethod("captureFrontImages", &HybridDLScanSpec::captureFrontImages);
       prototype.registerHybridMethod("runTtaVerification", &HybridDLScanSpec::runTtaVerification);
     });
   }

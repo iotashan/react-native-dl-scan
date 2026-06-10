@@ -290,6 +290,25 @@ open class HybridDLScanSpec_cxx {
   }
   
   @inline(__always)
+  public final func captureFrontImages(token: Double, detections: bridge.std__vector_FieldDetectionSpec_) -> bridge.Result_std__variant_nitro__NullType__LicenseDataSpec__ {
+    do {
+      let __result = try self.__implementation.captureFrontImages(token: token, detections: detections.map({ __item in __item }))
+      let __resultCpp = { () -> bridge.std__variant_nitro__NullType__LicenseDataSpec_ in
+        switch __result {
+          case .first(let __value):
+            return bridge.create_std__variant_nitro__NullType__LicenseDataSpec_(margelo.nitro.NullType.null)
+          case .second(let __value):
+            return bridge.create_std__variant_nitro__NullType__LicenseDataSpec_(__value)
+        }
+      }().variant
+      return bridge.create_Result_std__variant_nitro__NullType__LicenseDataSpec__(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__variant_nitro__NullType__LicenseDataSpec__(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
   public final func runTtaVerification(modes: bridge.std__vector_double_) -> bridge.Result_std__variant_nitro__NullType__LicenseDataSpec__ {
     do {
       let __result = try self.__implementation.runTtaVerification(modes: modes.map({ __item in __item }))
