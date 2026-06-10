@@ -2,6 +2,7 @@ import Foundation
 import NitroModules
 import CxxStdlib
 import Vision
+import DataDetection
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import VisionCamera
@@ -68,6 +69,21 @@ class HybridDLScanIOS: HybridDLScanSpec {
     static let bboxIoU: Int32 = 2
     static let strictTextPool: Int32 = 3
     static let manual: Int32 = 4
+    /// iOS 26+ Vision RecognizeDocumentsRequest DataDetector hits (#124).
+    /// Finalization-pass-only; merged FILL-ONLY by the C++ resolver.
+    static let dataDetector: Int32 = 5
+  }
+
+  /// dlscan::FieldId raw values for the DataDetector-only external fields
+  /// (#124 — see cpp/license_data.hpp). street reuses List8f (81); the
+  /// date candidates are deliberately UNASSIGNED — the C++ merge applies
+  /// the spike-validated {DOB, ISS, EXP} ordering rule, fail-closed.
+  private enum ExternalFieldId {
+    static let street: Int32 = 81        // FieldId::List8f
+    static let city: Int32 = 110         // FieldId::City
+    static let state: Int32 = 111        // FieldId::State
+    static let postalCode: Int32 = 112   // FieldId::PostalCode
+    static let detectedDate: Int32 = 120 // FieldId::DetectedDate
   }
 
   final class FieldVoter {
@@ -607,9 +623,156 @@ class HybridDLScanIOS: HybridDLScanSpec {
     if !anyFrame { return .first(.null) }
     let consensus = ttaVoter.consensus()
     if consensus.isEmpty { return .first(.null) }
-    guard let cppData = Self.extractFromCandidates(consensus) else { return .first(.null) }
+    // #124: iOS 26+ DataDetector candidate source. ONE RecognizeDocuments-
+    // Request call on the SAME retained best crop — finalization only,
+    // never per-frame (spike measured ~400 ms), and only once the
+    // finalization parse actually has a consensus to enrich (the
+    // pair-review hardening: an auxiliary source must never create a scan
+    // result by itself; the C++ resolver enforces the same enrich-only
+    // rule). Availability-gated with the existing pipeline as the
+    // unchanged fallback. The candidates merge FILL-ONLY in the C++
+    // resolver (FieldSource::DataDetector): they fill empty fields at
+    // ShapeMatched or upgrade an agreeing populated field to
+    // CrossValidated, but never replace or delete. They deliberately
+    // bypass the voter — a single-shot source has nothing to vote on.
+    var ddCandidates: [FieldCandidate] = []
+    if #available(iOS 26.0, *) {
+      if let rdrBuffer = rgb8ToPixelBuffer(retained, width: w, height: h) {
+        ddCandidates = Self.runRecognizeDocumentsCandidates(on: rdrBuffer)
+      }
+    }
+    guard let cppData = Self.extractFromCandidates(consensus + ddCandidates) else {
+      return .first(.null)
+    }
     // No card/headshot re-capture — verification reuses the already-saved crop.
     return .second(Self.toLicenseDataSpec(cppData))
+  }
+
+  // MARK: - #124: iOS 26+ RecognizeDocumentsRequest DataDetector source
+
+  /// One-shot RecognizeDocumentsRequest over the retained best crop.
+  /// Synchronous wrapper: runTtaVerification is a sync Nitro method already
+  /// running off the JS thread, so blocking this thread on a semaphore while
+  /// the async Vision request runs on the global executor is acceptable —
+  /// the augmented re-OCR passes above it block for similar durations.
+  /// Returns [] on any failure (fail-closed: the scan result is then exactly
+  /// what the existing pipeline produced).
+  @available(iOS 26.0, *)
+  private static func runRecognizeDocumentsCandidates(
+    on buffer: CVPixelBuffer
+  ) -> [FieldCandidate] {
+    final class ResultBox: @unchecked Sendable {
+      var candidates: [FieldCandidate] = []
+    }
+    let box = ResultBox()
+    let semaphore = DispatchSemaphore(value: 0)
+    Task.detached(priority: .userInitiated) {
+      defer { semaphore.signal() }
+      var request = RecognizeDocumentsRequest()
+      // Parity with the whole-card OCR pass (and the #124 spike harness).
+      request.textRecognitionOptions.useLanguageCorrection = true
+      guard let observations = try? await request.perform(on: buffer),
+            let document = observations.first?.document else { return }
+      box.candidates = Self.dataDetectorCandidates(from: document)
+    }
+    semaphore.wait()
+    return box.candidates
+  }
+
+  /// Convert a recognized document's DataDetector matches into external
+  /// FieldCandidates for the C++ resolver:
+  ///   • every DEDUPED `.calendarEvent` date → FieldId::DetectedDate (120)
+  ///     as ISO yyyy-MM-dd, deliberately UNASSIGNED — the C++ merge applies
+  ///     the {DOB, ISS, EXP} ordering rule and skips unless exactly three
+  ///     distinct dates survive (fail-closed, no guessing).
+  ///   • every DEDUPED `.postalAddress` → its PRE-SPLIT sub-fields
+  ///     (street → List8f, city/state/postalCode → the DataDetector-only
+  ///     ids). Partial addresses emit only the sub-fields present; if
+  ///     multiple distinct addresses yield conflicting values for a
+  ///     sub-field, the C++ merge skips that sub-field.
+  @available(iOS 26.0, *)
+  static func dataDetectorCandidates(
+    from document: DocumentObservation.Container
+  ) -> [FieldCandidate] {
+    // Collect DataDetector matches from the doc-level text AND every
+    // paragraph / table-cell / list-item container. The spike found the
+    // same match reported under both the doc container and its owning
+    // paragraph (hence the dedupe), while container-scoped matches don't
+    // always surface at doc level.
+    var texts: [DocumentObservation.Container.Text] = [document.text]
+    texts.append(contentsOf: document.paragraphs)
+    for table in document.tables {
+      for row in table.rows {
+        for cell in row {
+          texts.append(cell.content.text)
+        }
+      }
+    }
+    for list in document.lists {
+      for item in list.items {
+        texts.append(item.content.text)
+      }
+    }
+
+    struct AddressParts: Hashable {
+      let street: String?
+      let city: String?
+      let state: String?
+      let postalCode: String?
+    }
+    // ISO yyyy-MM-dd in the CURRENT timezone. DataDetector anchors a printed
+    // card date ("04/15/1990") at local midnight, so formatting back in the
+    // local timezone round-trips the printed date (spike-verified; the UTC
+    // rendering shifts a day for timezones ahead of UTC). Per-call instance
+    // (pair-review): finalization runs once per scan, so the alloc is noise
+    // and there is zero shared mutable state to reason about.
+    let dateFormatter = DateFormatter()
+    dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+    dateFormatter.dateFormat = "yyyy-MM-dd"
+    var isoDates: [String] = []
+    var seenDates = Set<String>()
+    var addresses: [AddressParts] = []
+    var seenAddresses = Set<AddressParts>()
+    for text in texts {
+      for detected in text.detectedData {
+        switch detected.match.details {
+        case .calendarEvent(let event):
+          guard let date = event.startDate else { continue }
+          let iso = dateFormatter.string(from: date)
+          if seenDates.insert(iso).inserted { isoDates.append(iso) }
+        case .postalAddress(let address):
+          let parts = AddressParts(street: address.street,
+                                   city: address.city,
+                                   state: address.state,
+                                   postalCode: address.postalCode)
+          if seenAddresses.insert(parts).inserted { addresses.append(parts) }
+        default:
+          continue  // links / phones / money / etc. — not card fields
+        }
+      }
+    }
+
+    var out: [FieldCandidate] = []
+    for iso in isoDates {
+      out.append(FieldCandidate(fieldId: ExternalFieldId.detectedDate,
+                                source: FieldSource.dataDetector,
+                                text: iso))
+    }
+    for address in addresses {
+      let subfields: [(Int32, String?)] = [
+        (ExternalFieldId.street, address.street),
+        (ExternalFieldId.city, address.city),
+        (ExternalFieldId.state, address.state),
+        (ExternalFieldId.postalCode, address.postalCode),
+      ]
+      for (fieldId, value) in subfields {
+        guard let value, !value.isEmpty else { continue }
+        out.append(FieldCandidate(fieldId: fieldId,
+                                  source: FieldSource.dataDetector,
+                                  text: value))
+      }
+    }
+    return out
   }
 
   // MARK: - Detection pipeline
