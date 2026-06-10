@@ -927,7 +927,13 @@ export function useLicenseScanner(
           setLicenseData(finalData);
         }
         setScanStatus({
-          phase,
+          // A TTA-recovered field can complete the required set AFTER the
+          // decision computed its phase — publishing the stale 'incomplete'
+          // would contradict the recomputed accounting (observed live:
+          // pending=[] and frac=1 beside phase 'incomplete'). Upgrade only;
+          // never downgrade a 'complete' decision.
+          phase:
+            phase === 'incomplete' && fRequiredComplete ? 'complete' : phase,
           passNumber: passRef.current,
           maxFrames: cap,
           requiredFields: req,
