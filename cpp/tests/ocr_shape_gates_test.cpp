@@ -500,3 +500,127 @@ TEST(ShapeGate_Street, NoCszMeansNoStrip) {
     ASSERT_TRUE(r->street.has_value());
     EXPECT_EQ(*r->street, "4242 ASHWOOD LN");
 }
+
+// ─── min-length floors (final acceptance sweep) ────────────────────────────
+//
+// Field report: a live scan shipped licenseNumber "H200" — OCR shrapnel
+// that cleared every per-field shape gate. apply_min_length_gates is the
+// FINAL sweep over the free-form identity fields (see the floor table and
+// the WV floor-7 rationale at its definition). These tests pin the floors,
+// the alphanumeric-core counting rule, and confidence-entry erasure.
+
+TEST(ShapeGate_MinLength, LicenseNumber_RejectsShortCore) {
+    // The live bug verbatim: "H200" must never ship as a DLN.
+    FieldCandidateVector v{
+        cand(FieldId::List1, "DOEFORD"),
+        cand(FieldId::List4d, "H200"),
+    };
+    auto r = extract_fields_from_candidates(v);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_FALSE(r->licenseNumber.has_value());
+    EXPECT_EQ(r->fieldConfidence.count("licenseNumber"), 0u);
+}
+
+TEST(ShapeGate_MinLength, LicenseNumber_KeepsSevenCharCore) {
+    // Floor is 7, not 8: the West Virginia format is 1 letter + 6 digits
+    // (20/400 IDNet ground-truth licenses). A floor of 8 rejects real DLNs.
+    FieldCandidateVector v{
+        cand(FieldId::List1, "DOEFORD"),
+        cand(FieldId::List4d, "A123456"),
+    };
+    auto r = extract_fields_from_candidates(v);
+    ASSERT_TRUE(r.has_value());
+    ASSERT_TRUE(r->licenseNumber.has_value());
+    EXPECT_EQ(*r->licenseNumber, "A123456");
+}
+
+TEST(ShapeGate_MinLength, LicenseNumber_SeparatorsDoNotCount) {
+    // 7 characters but only 6 alphanumerics — the dash must not rescue it.
+    FieldCandidateVector v{
+        cand(FieldId::List1, "DOEFORD"),
+        cand(FieldId::List4d, "J415-22"),
+    };
+    auto r = extract_fields_from_candidates(v);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_FALSE(r->licenseNumber.has_value());
+}
+
+TEST(ShapeGate_MinLength, Names_RejectSingleCharFragments) {
+    // is_valid_name accepts any non-empty digit-free string, so a lone
+    // OCR-shrapnel letter used to ship as a name. The floor (2) stops it.
+    FieldCandidateVector v{
+        cand(FieldId::List1, "G"),
+        cand(FieldId::List2, "J"),
+        cand(FieldId::List4d, "J415-2208-5573-28"),
+    };
+    auto r = extract_fields_from_candidates(v);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_FALSE(r->lastName.has_value());
+    EXPECT_FALSE(r->firstName.has_value());
+    EXPECT_EQ(r->fieldConfidence.count("lastName"), 0u);
+    EXPECT_EQ(r->fieldConfidence.count("firstName"), 0u);
+    // The anchor field is untouched by the name floors.
+    ASSERT_TRUE(r->licenseNumber.has_value());
+}
+
+TEST(ShapeGate_MinLength, Street_RejectsShortFragment) {
+    // "7 AV" clears is_valid_street_shape (leading number + space) but its
+    // 3-char alphanumeric core is below the street floor (4).
+    FieldCandidateVector v{
+        cand(FieldId::List1, "DOEFORD"),
+        cand(FieldId::List8f, "7 AV"),
+    };
+    auto r = extract_fields_from_candidates(v);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_FALSE(r->street.has_value());
+}
+
+TEST(ShapeGate_MinLength, Street_KeepsRealAddress) {
+    FieldCandidateVector v{
+        cand(FieldId::List1, "DOEFORD"),
+        cand(FieldId::List8f, "742 EVERGREEN TER"),
+    };
+    auto r = extract_fields_from_candidates(v);
+    ASSERT_TRUE(r.has_value());
+    ASSERT_TRUE(r->street.has_value());
+    EXPECT_EQ(*r->street, "742 EVERGREEN TER");
+}
+
+TEST(ShapeGate_MinLength, CszFragments_NeverShip) {
+    // Contract pin across layers: whether the CSZ scanner or the final
+    // sweep rejects them, a 1-char state and a 4-digit zip must never
+    // reach the result.
+    FieldCandidateVector v{
+        cand(FieldId::List1, "DOEFORD"),
+        cand(FieldId::List8s, "SPRINGFIELD, W 5370"),
+    };
+    auto r = extract_fields_from_candidates(v);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_FALSE(r->state.has_value());
+    EXPECT_FALSE(r->postalCode.has_value());
+}
+
+TEST(ShapeGate_MinLength, ShrapnelOnlyAnchor_FailsWholeParse) {
+    // "H200" was the ONLY field satisfying the validity gate — after the
+    // sweep nulls it the parse holds no core identity field, so the
+    // result must be nullopt, not an empty-but-"valid" LicenseData.
+    FieldCandidateVector v{
+        cand(FieldId::List4d, "H200"),
+    };
+    auto r = extract_fields_from_candidates(v);
+    EXPECT_FALSE(r.has_value());
+}
+
+TEST(ShapeGate_MinLength, Names_CountUtf8CodePoints) {
+    // Vision OCR emits UTF-8. "ÖZ" is a real two-letter surname; byte-wise
+    // isalnum saw only "Z" (core 1) and rejected it. Code-point counting
+    // keeps it.
+    FieldCandidateVector v{
+        cand(FieldId::List1, "\xC3\x96Z"),
+        cand(FieldId::List4d, "J415-2208-5573-28"),
+    };
+    auto r = extract_fields_from_candidates(v);
+    ASSERT_TRUE(r.has_value());
+    ASSERT_TRUE(r->lastName.has_value());
+    EXPECT_EQ(*r->lastName, "\xC3\x96Z");
+}

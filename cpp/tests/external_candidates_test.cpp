@@ -410,3 +410,19 @@ TEST(ExternalCandidates, EmptyTextDataDetector_Ignored) {
     ASSERT_TRUE(r.has_value());
     EXPECT_FALSE(r->city.has_value());
 }
+
+TEST(ExternalCandidates, GatedShrapnelAnchor_CannotAuthorizeMerge) {
+    // ENRICH-ONLY closure (pair-review round 2): licenseNumber "H200" was
+    // the only field that satisfied the validity gate, and the min-length
+    // sweep rejects it. The gated parse is a FAILED parse — DataDetector
+    // address evidence must not turn it into a shipped result.
+    FieldCandidateVector v{
+        cand(FieldId::List4d, "H200", FieldSource::StrictTextPool),
+        dd(FieldId::List8f, "742 EVERGREEN TER"),
+        dd(FieldId::City, "SPRINGFIELD"),
+        dd(FieldId::State, "WI"),
+        dd(FieldId::PostalCode, "53703"),
+    };
+    auto r = extract_fields_from_candidates(v);
+    EXPECT_FALSE(r.has_value());
+}

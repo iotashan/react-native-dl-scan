@@ -1224,6 +1224,19 @@ static float tier_for_freetext(FieldProvenance prov) {
 // resolver and the _strict-suffix-driven tier upgrade logic in
 // read_strict_or_regular(). v2 Sequence G — task #54.
 using FieldsMap = std::map<std::string, std::string>;
+/// The validity gate's core-identity predicate, shared between the
+/// structured extractor's final check and the post-sweep re-check in
+/// extract_fields_from_candidates (a min-length-gated parse must satisfy
+/// it AGAIN, or it is a failed parse).
+static bool has_core_identity(const LicenseData& out) {
+    bool has_name = out.firstName.has_value() || out.lastName.has_value();
+    bool has_address = out.street.has_value() ||
+        (out.city.has_value() && out.state.has_value() &&
+         out.postalCode.has_value());
+    return has_name || out.licenseNumber.has_value() ||
+        out.dateOfBirth.has_value() || has_address;
+}
+
 static std::optional<LicenseData> extract_fields_structured(const FieldsMap& fields) {
     LicenseData out;
 
@@ -3168,6 +3181,54 @@ static void merge_external_candidates(LicenseData& out,
 
 } // anonymous namespace
 
+/// Minimum plausible lengths for the free-form identity fields — a value
+/// shorter than its floor is OCR shrapnel, never real data (field report: a
+/// live scan shipped licenseNumber "H200"). Applied as the FINAL acceptance
+/// sweep so every extraction path — marker parse, look-ahead, alphabetic
+/// labels, the bare-number scanner, and DataDetector fills — passes through
+/// the same gate; a rejected field returns to pending and later frames can
+/// fill it correctly.
+///
+/// Floors count the ALPHANUMERIC CORE (separators excluded) and are
+/// evidence-based: the license floor is 7, not the requested 8, because
+/// 20/400 IDNet ground-truth licenses (the West Virginia format) have a
+/// 7-char core — a floor of 8 would reject real DLNs and regress the
+/// cross-state guardrail. 7 still rejects every observed noise case.
+/// Fields with strict shape gates (dates, sex, eye/hair codes, height,
+/// weight, class) need no floor here; middle names legitimately run to a
+/// single initial.
+static void null_if_core_shorter(LicenseData& d,
+                                 std::optional<std::string>& slot,
+                                 const char* key, std::size_t min_core) {
+    if (!slot.has_value()) return;
+    std::size_t core = 0;
+    for (char ch : *slot) {
+        unsigned char c = static_cast<unsigned char>(ch);
+        if (c >= 0x80) {
+            // Vision OCR emits UTF-8; byte-wise isalnum would undercount
+            // diacritic letters ("ÖZ" → core 1) and reject real names.
+            // Count each non-ASCII code point once: lead bytes count,
+            // continuation bytes (10xxxxxx) don't.
+            if ((c & 0xC0) != 0x80) ++core;
+        } else if (std::isalnum(c)) {
+            ++core;
+        }
+    }
+    if (core >= min_core) return;
+    slot.reset();
+    d.fieldConfidence.erase(key);
+}
+
+static void apply_min_length_gates(LicenseData& d) {
+    null_if_core_shorter(d, d.licenseNumber, "licenseNumber", 7);
+    null_if_core_shorter(d, d.postalCode, "postalCode", 5);
+    null_if_core_shorter(d, d.state, "state", 2);
+    null_if_core_shorter(d, d.city, "city", 2);
+    null_if_core_shorter(d, d.street, "street", 4);
+    null_if_core_shorter(d, d.firstName, "firstName", 2);
+    null_if_core_shorter(d, d.lastName, "lastName", 2);
+}
+
 std::optional<LicenseData> extract_fields_from_candidates(
     const FieldCandidateVector& candidates) {
     FieldsMap merged;
@@ -3212,10 +3273,26 @@ std::optional<LicenseData> extract_fields_from_candidates(
     // can never create a scan result by itself. When the validity gate
     // failed, that verdict stands regardless of external evidence; an
     // auxiliary single-shot source must not resurrect a failed parse.
-    if (external.empty() || !base.has_value()) return base;
+    // The min-length sweep runs BEFORE the merge-eligibility decision
+    // (pair-review hardening): it can null the very field that satisfied
+    // the validity gate (licenseNumber "H200" as the only anchor), and a
+    // parse that no longer holds any core identity field is a FAILED
+    // parse — it must not ship, and it must not become the vessel that
+    // authorizes external fills either.
+    if (base.has_value()) {
+        apply_min_length_gates(*base);
+        if (!has_core_identity(*base)) base.reset();
+    }
+    if (external.empty() || !base.has_value()) {
+        return base;
+    }
 
     LicenseData out = *base;
     merge_external_candidates(out, external);
+    // Re-sweep after the merge: DataDetector city fills are the one
+    // external path that can introduce a fresh sub-floor fragment (its
+    // dates / zip / state are shape-checked before filling).
+    apply_min_length_gates(out);
     return out;
 }
 

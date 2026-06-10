@@ -262,11 +262,11 @@ TEST(StructuredExtractor, EmptyMapReturnsNullopt) {
 
 TEST(StructuredExtractor, OnlyLicenseNumberPasses) {
     const auto __cands = make_candidates({
-        {"list_4d", "X12345"},
+        {"list_4d", "X123456"},  // 7-char core — the min-length floor
     });
     auto r = extract_fields_from_candidates(__cands);
     ASSERT_TRUE(r.has_value()) << "license number alone is enough to parse";
-    EXPECT_EQ(sval(r->licenseNumber), "X12345");
+    EXPECT_EQ(sval(r->licenseNumber), "X123456");
 }
 
 TEST(StructuredExtractor, OnlyMiscFieldsReturnsNullopt) {
@@ -302,7 +302,7 @@ TEST(StructuredExtractor, DateAlreadyIsoPassesThroughValidated) {
 
 TEST(StructuredExtractor, SexNormalizationVariants) {
     auto check = [](const std::string& input, const std::string& expected) {
-        auto __cands = make_candidates({{"list_2", "X"}, {"list_15", input}});
+        auto __cands = make_candidates({{"list_2", "PAT"}, {"list_15", input}});
         auto r = extract_fields_from_candidates(__cands);
         ASSERT_TRUE(r.has_value()) << "input=" << input;
         EXPECT_EQ(sval(r->sex), expected) << "input=" << input;
@@ -643,7 +643,7 @@ TEST(StructuredExtractor, WeightStripsHyphenSeparator) {
     // (and `;`) along with the existing whitespace+`:,.` separators.
     auto weight_of = [](const std::string& v) {
         auto r = extract_fields_from_candidates(
-            make_candidates({{"list_1", "X"}, {"list_17", v}}));
+            make_candidates({{"list_1", "DOE"}, {"list_17", v}}));
         return r.has_value() ? r->weight : std::nullopt;
     };
     EXPECT_EQ(weight_of("WGT- 165 LB"), "165 LB");   // hyphen + space
@@ -659,7 +659,7 @@ TEST(StructuredExtractor, HeightStripsHyphenSeparator) {
     // truly shared, not regex-duplicated.
     auto height_of = [](const std::string& v) {
         auto r = extract_fields_from_candidates(
-            make_candidates({{"list_1", "X"}, {"list_16", v}}));
+            make_candidates({{"list_1", "DOE"}, {"list_16", v}}));
         return r.has_value() ? r->height : std::nullopt;
     };
     EXPECT_EQ(height_of("HGT- 5'-10\""), "5'-10\"");
@@ -779,7 +779,7 @@ TEST(StructuredExtractor, FreeTextStrictWinsValueButMarkerLocatedOnDisagreement)
 TEST(StructuredExtractor, HeightGateAcceptsFeetInchVariants) {
     // Any value containing a `'` (prime mark) is accepted as height-shaped.
     auto check = [](const std::string& v, const std::string& want_height) {
-        auto __cands = make_candidates({{"list_1", "X"}, {"list_16", v}});
+        auto __cands = make_candidates({{"list_1", "DOE"}, {"list_16", v}});
         auto r = extract_fields_from_candidates(__cands);
         ASSERT_TRUE(r.has_value()) << "input=" << v;
         if (want_height.empty()) {
@@ -809,7 +809,7 @@ TEST(StructuredExtractor, HeightGateAcceptsFeetInchVariants) {
 
 TEST(StructuredExtractor, WeightGateAcceptsLeadingDigitInRange) {
     auto check = [](const std::string& v, const std::string& want_weight) {
-        auto __cands = make_candidates({{"list_1", "X"}, {"list_17", v}});
+        auto __cands = make_candidates({{"list_1", "DOE"}, {"list_17", v}});
         auto r = extract_fields_from_candidates(__cands);
         ASSERT_TRUE(r.has_value()) << "input=" << v;
         if (want_weight.empty()) {
@@ -836,7 +836,7 @@ TEST(StructuredExtractor, WeightGateAcceptsLeadingDigitInRange) {
 
 TEST(StructuredExtractor, EyeColorAcceptsAlpha2Plus) {
     auto check = [](const std::string& v, const std::string& want) {
-        auto __cands = make_candidates({{"list_1", "X"}, {"list_18", v}});
+        auto __cands = make_candidates({{"list_1", "DOE"}, {"list_18", v}});
         auto r = extract_fields_from_candidates(__cands);
         ASSERT_TRUE(r.has_value()) << "input=" << v;
         if (want.empty()) {
@@ -903,7 +903,7 @@ TEST(StructuredExtractor, LicenseNumberShapeUpgradesToShapeMatched) {
     {
         const auto __cands = make_candidates({
             {"list_1",  "DOE"},
-            {"list_4d", "D12$3"},  // contains $ — fails shape
+            {"list_4d", "D12$34567"},  // contains $ — fails shape
         });
         auto r = extract_fields_from_candidates(__cands);
         ASSERT_TRUE(r.has_value());
@@ -914,11 +914,11 @@ TEST(StructuredExtractor, LicenseNumberShapeUpgradesToShapeMatched) {
         // before storage, so the shape match fires and we get 0.85.
         const auto __cands = make_candidates({
             {"list_1",  "DOE"},
-            {"list_4d", "d12345"},
+            {"list_4d", "d1234567"},
         });
         auto r = extract_fields_from_candidates(__cands);
         ASSERT_TRUE(r.has_value());
-        EXPECT_EQ(sval(r->licenseNumber), "D12345") << "must canonicalise to uppercase";
+        EXPECT_EQ(sval(r->licenseNumber), "D1234567") << "must canonicalise to uppercase";
         EXPECT_FLOAT_EQ(conf(*r, "licenseNumber"), 0.85f);
     }
 }
