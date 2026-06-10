@@ -888,7 +888,13 @@ function ScannedCardSection({
                     fontSize: Math.max(o.height * box.h * 0.72, 4),
                     lineHeight: Math.max(o.height * box.h, 5),
                     fontFamily: t.mono,
-                    color: t.ink,
+                    // High-contrast on ANY card region (design review): bright
+                    // green + a dark shadow halo, readable over both the light
+                    // and dark areas of the photo regardless of theme.
+                    color: '#00FF66',
+                    textShadowColor: 'rgba(0,0,0,0.9)',
+                    textShadowOffset: { width: 0, height: 1 },
+                    textShadowRadius: 2,
                   }}
                 >
                   {o.text}
