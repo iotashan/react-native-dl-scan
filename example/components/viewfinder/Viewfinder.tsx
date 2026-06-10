@@ -22,7 +22,13 @@
 // orchestrates which state we're in lives in App.tsx (Phase G).
 
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, type LayoutChangeEvent, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  type LayoutChangeEvent,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
 import { BlurView } from 'expo-blur';
 import type { ThemeTokens, Direction } from '../../theme/tokens';
 import {
@@ -135,6 +141,12 @@ export function Viewfinder({
   // layout. Render nothing-but-camera before measure to avoid a flash
   // of misaligned scrim on cold start.
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  // Device orientation drives the camera frame's display aspect (the
+  // corner-overlay mapping below needs it). The VIEW's own aspect can't
+  // stand in for this — e.g. the tablet split-column is a portrait-ish
+  // view on a device that may be in either orientation.
+  const { width: winW, height: winH } = useWindowDimensions();
+  const windowLandscape = winW > winH;
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     if (!size || size.w !== width || size.h !== height) {
@@ -165,18 +177,21 @@ export function Viewfinder({
   }, [size, mode, fillPct, onGeometryChange]);
 
   // Compute tracked cutout from detected card corners. Corners are
-  // normalized [0,1] in DISPLAY orientation (native rotates landscape
-  // sensor → portrait). Map to view pixel space accounting for
-  // aspect-fill crop (resizeMode='cover').
+  // normalized [0,1] in DISPLAY orientation (native rotates the sensor
+  // frame to match). Map to view pixel space accounting for aspect-fill
+  // crop (resizeMode='cover').
   //
-  // Frame is 4:3 portrait after rotation (aspect 0.75). View is narrower
-  // (phone portrait). Aspect-fill scales the frame to fill the view
-  // height, then crops horizontally.
+  // The 4:3 sensor frame follows the DEVICE orientation after rotation:
+  // portrait display → 3:4 (0.75), landscape display → 4:3 (1.333). The
+  // cover-crop math below is general (handles the frame being wider OR
+  // taller than the view), so orientation-correct frame aspect is the only
+  // device-specific input — this is what previously broke the overlay on
+  // tablets/landscape, where the old hardcoded 0.75 assumed phone-portrait.
   const trackedCutout = (() => {
     if (!size || !cutout || !detectedCorners || detectedCorners.length !== 8) {
       return null;
     }
-    const FRAME_ASPECT = 3 / 4; // 4:3 sensor rotated to portrait
+    const FRAME_ASPECT = windowLandscape ? 4 / 3 : 3 / 4;
     const viewAspect = size.w / size.h;
 
     let mapX: (nx: number) => number;

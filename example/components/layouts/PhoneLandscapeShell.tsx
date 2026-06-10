@@ -30,10 +30,9 @@
 //   (Wave 2B drops it).
 //
 // Corner overlay (Viewfinder's `detectedCorners` polygon overlay) is
-// disabled in landscape — the existing mapping assumes a 4:3 portrait
-// sensor and would render mis-aligned across the wider container. Pass
-// `detectedCorners={undefined}` so the overlay short-circuits. Spec
-// (review) calls this out as v2 polish.
+// ENABLED — Viewfinder's corner-to-view mapping is orientation-aware
+// (landscape display frame is 4:3, portrait is 3:4), so the tracked
+// bounding box renders correctly in this shell too.
 
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -122,11 +121,10 @@ export function PhoneLandscapeShell({
         cameraSlot={cameraSlot}
         fillPct={0.95}
         scanProgress={scanner.progress}
-        // Landscape: disable detected-corner overlay. The existing
-        // corner-to-view mapping assumes a portrait 4:3 sensor; in
-        // landscape the math would be inverted and render mis-aligned.
-        // spec constraint — re-enable in v2.
-        detectedCorners={undefined}
+        // Corner overlay re-enabled (was a v1 spec constraint):
+        // Viewfinder's mapping is now orientation-aware (landscape frame
+        // aspect 4:3), so the tracked bounding box renders correctly here.
+        detectedCorners={scanner.detectedCorners}
         licenseData={scanner.licenseData}
         fallbackRemaining={fallbackRemaining}
         fallbackTotal={tweaks.fallbackSec}

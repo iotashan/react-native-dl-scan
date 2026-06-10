@@ -167,12 +167,10 @@ export function TabletShell({
               cameraSlot={cameraSlot}
               fillPct={isLandscape ? 0.5 : 0.8}
               scanProgress={scanner.progress}
-              // Tablet (both orientations): disable detected-corner
-              // overlay. The existing mapping assumes a portrait 4:3
-              // sensor and the tablet container is wider — overlay
-              // would render mis-aligned. spec constraint;
-              // re-enable in v2.
-              detectedCorners={undefined}
+              // Corner overlay re-enabled (was a v1 spec constraint):
+              // Viewfinder's mapping is now orientation-aware, so the
+              // tracked bounding box works in the tablet column too.
+              detectedCorners={scanner.detectedCorners}
               licenseData={scanner.licenseData}
               fallbackRemaining={fallbackRemaining}
               fallbackTotal={tweaks.fallbackSec}
