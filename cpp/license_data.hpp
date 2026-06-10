@@ -165,6 +165,19 @@ enum class FieldId {
     PersonalNum= 104,
     Gender     = 105,
     Country    = 106,
+    // External-candidate sub-fields (issue #124 — iOS 26
+    // RecognizeDocumentsRequest DataDetector finalization pass).
+    // City / State / PostalCode carry the PRE-SPLIT `.postalAddress`
+    // payload sub-fields (street reuses List8f). DetectedDate carries one
+    // UNASSIGNED `.calendarEvent` date hit as ISO "YYYY-MM-DD" text — the
+    // resolver applies the spike-validated {DOB, ISS, EXP} ordering rule
+    // (DOB = oldest, EXP = latest, ISS = remaining; skip unless exactly
+    // three distinct dates). These ids are only meaningful with
+    // FieldSource::DataDetector; they never enter the FieldsMap path.
+    City        = 110,
+    State       = 111,
+    PostalCode  = 112,
+    DetectedDate= 120,
 };
 
 /// Where the value came from. The resolver uses this to pick the right
@@ -176,6 +189,16 @@ enum class FieldSource {
     BboxIoU        = 2,   // YOLO bbox matched to an OCR observation
     StrictTextPool = 3,   // 4-gate AAMVA demographic parser
     Manual         = 4,   // explicitly supplied by host app
+    // iOS 26+ Vision RecognizeDocumentsRequest DataDetector hits (issue
+    // #124). FINALIZATION-pass-only external evidence: candidates with
+    // this source are partitioned OUT of the FieldsMap resolver and
+    // merged FILL-ONLY after the deterministic parse — they can fill an
+    // empty field (at ShapeMatched, 0.85) or upgrade an agreeing
+    // populated field to CrossValidated (1.00), but NEVER overwrite or
+    // delete a populated value. Platform-neutral: Android never emits
+    // this source, and with zero DataDetector candidates the resolver is
+    // bit-identical to the pre-#124 behaviour.
+    DataDetector   = 5,
 };
 
 /// One candidate observation of one field. The resolver consumes a vector

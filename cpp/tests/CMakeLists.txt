@@ -180,3 +180,17 @@ target_link_libraries(aamva_demographic_test
     PRIVATE GTest::gtest_main
 )
 gtest_discover_tests(aamva_demographic_test)
+
+# External DataDetector candidate-merge tests (issue #124) — pins the
+# FieldSource::DataDetector fill-only / agreement-upgrade / ambiguity-skip
+# contract through the public extract_fields_from_candidates resolver,
+# including the {DOB, ISS, EXP} date-ordering rule and the pre-split
+# postal-address sub-field gates.
+add_executable(external_candidates_test
+    external_candidates_test.cpp
+)
+target_link_libraries(external_candidates_test
+    PRIVATE dlscan_core
+    PRIVATE GTest::gtest_main
+)
+gtest_discover_tests(external_candidates_test)

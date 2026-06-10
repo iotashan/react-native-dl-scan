@@ -1605,6 +1605,15 @@ static const char* field_id_to_key(FieldId id) {
         case FieldId::PersonalNum: return "personal_num";
         case FieldId::Gender:      return "gender";
         case FieldId::Country:     return "country";
+        // DataDetector-only sub-field ids (#124): meaningful exclusively
+        // with FieldSource::DataDetector, which is partitioned out before
+        // the FieldsMap is built — so they have NO legacy string key. A
+        // candidate carrying one of these ids under any other source is
+        // dropped here, exactly like an unknown YOLO class name.
+        case FieldId::City:        return nullptr;
+        case FieldId::State:       return nullptr;
+        case FieldId::PostalCode:  return nullptr;
+        case FieldId::DetectedDate:return nullptr;
         case FieldId::Unknown:     return nullptr;
     }
     return nullptr;
@@ -2977,15 +2986,179 @@ FieldCandidateVector parse_aamva_demographic_fields(
 // FieldsMap-internal path that extract_fields_from_candidates dispatches
 // to. Platform callers should use FieldId / FieldSource directly.
 
+// ============================================================================
+// External DataDetector candidate merge (issue #124).
+//
+// iOS 26+ runs Vision's RecognizeDocumentsRequest on the retained best crop
+// during the finalization pass and emits its DataDetector hits as
+// FieldSource::DataDetector candidates:
+//   • FieldId::DetectedDate — one candidate per DEDUPED `.calendarEvent`
+//     date, text = ISO "YYYY-MM-DD", deliberately UNASSIGNED (the detector
+//     has no notion of which date is which).
+//   • FieldId::List8f / City / State / PostalCode — the pre-split
+//     `.postalAddress` payload sub-fields.
+//
+// Merge contract (fail-closed everywhere):
+//   FILL-ONLY    — an empty LicenseData field is filled at ShapeMatched
+//                  (0.85): format-validated but single-source.
+//   AGREEMENT    — a DataDetector value that exactly agrees with an
+//                  already-populated field upgrades that field's confidence
+//                  to CrossValidated (1.00). Independent-source agreement is
+//                  precisely what the tier means (see license_data.hpp).
+//   DISAGREEMENT — nothing changes; the deterministic parse stays
+//                  authoritative. A DataDetector value can never overwrite
+//                  or delete existing data.
+//   AMBIGUITY    — skipped. Dates are assigned only when the deduped set is
+//                  exactly three distinct dates (the spike-validated
+//                  {DOB, ISS, EXP} rule: DOB = oldest, EXP = latest, ISS =
+//                  the remaining one; EXP > ISS holds by sort order). An
+//                  address sub-field with more than one distinct candidate
+//                  value is skipped; a partial address fills only the
+//                  sub-fields present.
+// ============================================================================
+
+namespace {
+
+/// Case-insensitive trimmed equality — "exact agreement" for the
+/// cross-validation upgrade. The OCR pipeline canonicalizes to upper-case;
+/// DataDetector returns the recognized text verbatim, so tolerate case-only
+/// drift while still requiring the same characters.
+static bool external_values_agree(const std::string& a, const std::string& b) {
+    return to_upper(trim_ws(a)) == to_upper(trim_ws(b));
+}
+
+/// City shape gate for DataDetector fills. parse_city_state_zip's city
+/// capture class, applied standalone: alphabetic start, then letters /
+/// spaces / period / apostrophe / hyphen only. Bounded length like
+/// is_valid_name.
+static bool is_valid_external_city(const std::string& s) {
+    static const std::regex kCityRe(R"(^[A-Za-z][A-Za-z .'\-]*$)",
+                                    std::regex::ECMAScript);
+    return !s.empty() && s.size() <= 40 && std::regex_match(s, kCityRe);
+}
+
+/// Fill-only / agreement-upgrade primitive shared by every external field.
+static void external_fill_or_upgrade(LicenseData& out,
+                                     std::optional<std::string>& slot,
+                                     const char* key,
+                                     const std::string& value) {
+    if (!slot.has_value()) {
+        slot = value;
+        record_confidence(out, key, CONFIDENCE_SHAPE_MATCH);
+        return;
+    }
+    if (external_values_agree(*slot, value)) {
+        // Two independent extraction mechanisms converged on the same
+        // value — the definition of CrossValidated. record_confidence is
+        // last-write-wins and 1.00 is the ceiling, so this can only raise.
+        record_confidence(out, key, CONFIDENCE_VALIDATED);
+    }
+    // Disagreement: deliberate no-op.
+}
+
+/// Merge FieldSource::DataDetector candidates into an already-resolved
+/// LicenseData. See the contract block above. Unknown / unsupported ids are
+/// ignored (only the date set and the four address sub-fields participate).
+static void merge_external_candidates(LicenseData& out,
+                                      const FieldCandidateVector& external) {
+    // Bucket distinct trimmed texts per id, preserving first-seen order.
+    std::map<FieldId, std::vector<std::string>> distinct;
+    for (const auto& c : external) {
+        std::string v = trim_ws(c.text);
+        if (v.empty()) continue;
+        auto& bucket = distinct[c.id];
+        bool seen = false;
+        for (const auto& existing : bucket) {
+            if (external_values_agree(existing, v)) { seen = true; break; }
+        }
+        if (!seen) bucket.push_back(std::move(v));
+    }
+
+    // Exactly-one-distinct-value accessor — 0 means absent, >1 means
+    // ambiguous; both skip the sub-field (fail-closed).
+    auto single = [&](FieldId id) -> std::optional<std::string> {
+        auto it = distinct.find(id);
+        if (it == distinct.end() || it->second.size() != 1)
+            return std::nullopt;
+        return it->second.front();
+    };
+
+    // --- Dates: the {DOB, ISS, EXP} ordering rule -------------------------
+    if (auto it = distinct.find(FieldId::DetectedDate);
+        it != distinct.end()) {
+        std::vector<std::string> dates;
+        for (const auto& raw : it->second) {
+            auto iso = normalize_date_field(raw);
+            if (!iso.has_value()) continue;  // unparseable — drop, don't guess
+            if (std::find(dates.begin(), dates.end(), *iso) == dates.end())
+                dates.push_back(*iso);
+        }
+        if (dates.size() == 3) {
+            // ISO strings sort chronologically. Three DISTINCT dates:
+            // oldest = DOB, newest = EXP, middle = ISS (EXP > ISS by
+            // construction). Any other count is ambiguous — skip all
+            // date assignment rather than guess.
+            std::sort(dates.begin(), dates.end());
+            external_fill_or_upgrade(out, out.dateOfBirth, "dateOfBirth",
+                                     dates[0]);
+            external_fill_or_upgrade(out, out.issueDate, "issueDate",
+                                     dates[1]);
+            external_fill_or_upgrade(out, out.expirationDate,
+                                     "expirationDate", dates[2]);
+        }
+    }
+
+    // --- Address: pre-split sub-fields, each independently gated ---------
+    if (auto street = single(FieldId::List8f)) {
+        if (is_valid_street_shape(*street)) {
+            external_fill_or_upgrade(out, out.street, "street", *street);
+        }
+    }
+    if (auto city = single(FieldId::City)) {
+        if (is_valid_external_city(*city)) {
+            external_fill_or_upgrade(out, out.city, "city", *city);
+        }
+    }
+    if (auto state = single(FieldId::State)) {
+        // lookup_state canonicalizes ("Wisconsin" → "WI") and rejects
+        // unknown tokens — the same gate parse_city_state_zip applies.
+        if (auto resolved = lookup_state(*state)) {
+            external_fill_or_upgrade(out, out.state, "state",
+                                     resolved->code);
+        }
+    }
+    if (auto zip = single(FieldId::PostalCode)) {
+        static const std::regex kZipRe(
+            std::string("^(?:") + kUsZipCodeRegex + "|" +
+                kCanadianPostalCodeRegex + ")$",
+            std::regex::ECMAScript);
+        if (std::regex_match(*zip, kZipRe)) {
+            external_fill_or_upgrade(out, out.postalCode, "postalCode",
+                                     *zip);
+        }
+    }
+}
+
+} // anonymous namespace
+
 std::optional<LicenseData> extract_fields_from_candidates(
     const FieldCandidateVector& candidates) {
     FieldsMap merged;
+    FieldCandidateVector external;
     for (const auto& c : candidates) {
         // round-2 hardening: drop FieldSource::Unknown so a buggy
         // caller passing source=0 isn't silently treated as BboxIoU
         // (the bare-key path). Both id and source must be valid for
         // the candidate to participate in the resolver.
         if (c.source == FieldSource::Unknown) continue;
+        // #124: DataDetector candidates NEVER enter the FieldsMap (a bare
+        // key write there could overwrite a bbox value — the opposite of
+        // the fill-only contract). They are partitioned out and merged
+        // after the deterministic parse.
+        if (c.source == FieldSource::DataDetector) {
+            if (!c.text.empty()) external.push_back(c);
+            continue;
+        }
         const char* key = field_id_to_key(c.id);
         if (key == nullptr) continue;
         // StrictTextPool emits under "<key>_strict" so the v1 provenance
@@ -3002,7 +3175,29 @@ std::optional<LicenseData> extract_fields_from_candidates(
         // responsible for any within-source dedup before passing in.
         merged[out_key] = c.text;
     }
-    return extract_fields_structured(merged);
+    auto base = extract_fields_structured(merged);
+    // No external candidates → bit-identical to the pre-#124 resolver.
+    // This is the platform-neutral no-op property: Android (and any iOS
+    // device below 26) never reaches the merge below.
+    if (external.empty()) return base;
+
+    LicenseData out = base.value_or(LicenseData{});
+    merge_external_candidates(out, external);
+    if (base.has_value()) return out;
+    // The deterministic parse failed its validity gate, but DataDetector
+    // fills may satisfy it now (same clauses as extract_fields_structured:
+    // a name, a license number, a DOB, or an address). A DataDetector-only
+    // partial parse (e.g. DOB + address) is a useful result — surfaced and
+    // marked incomplete downstream rather than dropped.
+    bool has_name = out.firstName.has_value() || out.lastName.has_value();
+    bool has_address = out.street.has_value() ||
+        (out.city.has_value() && out.state.has_value() &&
+         out.postalCode.has_value());
+    if (!has_name && !out.licenseNumber.has_value() &&
+        !out.dateOfBirth.has_value() && !has_address) {
+        return std::nullopt;
+    }
+    return out;
 }
 
 } // namespace dlscan
