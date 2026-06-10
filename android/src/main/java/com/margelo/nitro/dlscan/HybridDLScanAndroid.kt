@@ -619,24 +619,22 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
             Log.w(TAG, "MLKit FaceDetection failed, trying YOLO fallback", t)
         }
 
-        // 2. Fallback: YOLO "face" class bbox. YOLO bboxes are in 640x640
-        //    space; scale to ocrBitmap space.
+        // 2. Fallback: YOLO "face" class bbox. The JS-orchestrated detector
+        //    hands detections ALREADY in cardBitmap pixel space (same
+        //    contract as ocrExtractFields) — consume the bbox as-is, like
+        //    iOS does. The old 640→bitmap rescale double-transformed it
+        //    (#126): whenever MLKit missed, the fallback crop landed ~60%
+        //    right/down of the face (observed live as a DONOR-emblem crop).
         if (faceBounds == null) {
             val faceDetection = yoloDetections.firstOrNull { it.name == "face" }
             if (faceDetection != null) {
-                val scaleX = cardBitmap.width.toFloat() / YOLO_INPUT_SIZE.toFloat()
-                val scaleY = cardBitmap.height.toFloat() / YOLO_INPUT_SIZE.toFloat()
                 val bb = faceDetection.bbox
-                val l = (bb.left * scaleX).toInt()
-                val t = (bb.top * scaleY).toInt()
-                val r = (bb.right * scaleX).toInt()
-                val b = (bb.bottom * scaleY).toInt()
-                val margin = (maxOf(r - l, b - t) * 0.05f).toInt()
+                val bounds = faceFallbackBounds(
+                    bb.left, bb.top, bb.right, bb.bottom,
+                    cardBitmap.width, cardBitmap.height
+                )
                 faceBounds = android.graphics.Rect(
-                    maxOf(0, l - margin),
-                    maxOf(0, t - margin),
-                    minOf(cardBitmap.width, r + margin),
-                    minOf(cardBitmap.height, b + margin)
+                    bounds[0], bounds[1], bounds[2], bounds[3]
                 )
             }
         }
@@ -2376,6 +2374,32 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
             return null
         }
 
+        /**
+         * Pure geometry for the YOLO-face fallback headshot crop: 5%
+         * margin + clamp to the bitmap. Inputs are ALREADY in card-bitmap
+         * pixel space — there is deliberately NO model-space rescale here
+         * (#126: the old 640→bitmap rescale double-transformed the bbox
+         * and cropped card art instead of the face). Returns
+         * [left, top, right, bottom]. Exposed for the JVM unit tests.
+         */
+        @JvmStatic
+        internal fun faceFallbackBounds(
+            left: Float, top: Float, right: Float, bottom: Float,
+            bitmapWidth: Int, bitmapHeight: Int
+        ): IntArray {
+            val l = left.toInt()
+            val t = top.toInt()
+            val r = right.toInt()
+            val b = bottom.toInt()
+            val margin = (maxOf(r - l, b - t) * 0.05f).toInt()
+            return intArrayOf(
+                maxOf(0, l - margin),
+                maxOf(0, t - margin),
+                minOf(bitmapWidth, r + margin),
+                minOf(bitmapHeight, b + margin)
+            )
+        }
+
         fun tightenByContentShape(text: String, yoloClass: String,
                                   detectedState: String? = null): String {
             if (text.isEmpty()) return text
@@ -2524,9 +2548,6 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
             }
             return out
         }
-
-        /** Model input is fixed at 640x640 — see docs/MODEL_CONTRACT.md. */
-        private const val YOLO_INPUT_SIZE = 640
 
         /**
          * ML Kit OCR rectified-bitmap dimensions — ID-1 driver licence
