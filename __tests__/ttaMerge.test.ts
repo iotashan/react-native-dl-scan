@@ -73,7 +73,7 @@ describe('TTA merge wiring (_mergeAccumulated)', () => {
 
   it('overwrites only on STRICTLY higher confidence', () => {
     const accumulated = base({
-      licenseNumber: 'H200799802',
+      licenseNumber: 'J415220855',
       dataConfidence: {
         licenseNumber: { score: 0.5, tier: 'extracted_raw' },
       },

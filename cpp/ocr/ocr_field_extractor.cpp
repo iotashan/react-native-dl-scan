@@ -1331,7 +1331,7 @@ static std::optional<LicenseData> extract_fields_structured(const FieldsMap& fie
     //   ExtractedRaw (0.50) otherwise.
     // Prefer the STRICT whole-card "4d ..." index parse over the detector-bbox
     // crop: the per-region bbox OCR can clip the DLN's leading/trailing chars
-    // (observed on iOS: "H200-...-07" -> "200-...-0292"), whereas the visible-
+    // (observed on iOS: "J415-...-28" -> "415-...-5573"), whereas the visible-
     // field token parse reads the full row. Bbox classes remain the fallback.
     auto raw_license = read_first_field(fields,
         {"list_4d_strict", "personal_num", "list_4d", "card_num1"});
@@ -1341,7 +1341,7 @@ static std::optional<LicenseData> extract_fields_structured(const FieldsMap& fie
         // cLASS D" or "4d D440-...-07 CLASS D"). Peel the trailing
         // "(CLASS|CLAS|GLASS) X" off the DLN value into vehicleClass
         // before canonicalizing the DLN — leaving it attached would
-        // produce a "H200...07CLASSD" license number AND keep
+        // produce a "J415...28CLASSD" license number AND keep
         // vehicleClass empty. Task #82 follow-on.
         std::string before_canon = raw_license.value();
         static const std::regex kClassSuffix(
@@ -1760,7 +1760,7 @@ static std::string extract_4d_value(const std::string& raw) {
             continue;
         }
         // US-DLN length gate on the alphanumeric core (hyphens excluded from
-        // the count). Hyphen-formatted licences (WI "H200-...-07") run longer.
+        // the count). Hyphen-formatted licences (WI "J415-...-28") run longer.
         std::size_t alnum = 0;
         bool hyphen = false;
         for (char c : compact) {
