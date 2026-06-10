@@ -27,6 +27,7 @@ export type {
   ScanStatus,
   ScanPhase,
   TtaMode,
+  CaptureMode,
 } from './useLicenseScanner';
 
 // Unified TFLite runtime (react-native-fast-tflite), JS-orchestrated.
