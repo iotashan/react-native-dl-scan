@@ -528,11 +528,15 @@ class HybridDLScanIOS: HybridDLScanSpec {
     _pipelineStage = 2
 
     var cardPath: String? = nil
+    var cardObservations: [OcrObservationSpec]? = nil
     var headshotPath: String? = nil
     if !cardCapturedThisSession {
       cardCapturedThisSession = true
       _pipelineStage = 3
-      cardPath = Self.saveRectifiedCard(sourceBuffer: entry.source, orientation: entry.orientation)
+      if let saved = Self.saveRectifiedCard(sourceBuffer: entry.source, orientation: entry.orientation) {
+        cardPath = saved.path
+        cardObservations = saved.observations
+      }
       _pipelineStage = 4
       headshotPath = Self.extractHeadshot(from: rectified, yoloDetections: dets, cardImagePath: cardPath)
       _pipelineStage = 5
@@ -548,7 +552,10 @@ class HybridDLScanIOS: HybridDLScanSpec {
         rectifyLock.unlock()
       }
     }
-    let spec = Self.toLicenseDataSpec(cppData, cardImagePath: cardPath, headshotImagePath: headshotPath)
+    let spec = Self.toLicenseDataSpec(cppData,
+                                      cardImagePath: cardPath,
+                                      ocrObservations: cardObservations,
+                                      headshotImagePath: headshotPath)
     return .second(spec)
   }
 
@@ -2094,7 +2101,7 @@ class HybridDLScanIOS: HybridDLScanSpec {
   ///   - String fields → String? (via bridge helpers)
   ///   - `sex` → Sex? (Nitro-generated enum; Sex(fromString:) does the conversion)
   ///   - `aamvaVersion` → Double? (TS number maps to C++ double in Nitro)
-  static func toLicenseDataSpec(_ ld: dlscan.LicenseData, cardImagePath: String? = nil, headshotImagePath: String? = nil) -> LicenseDataSpec {
+  static func toLicenseDataSpec(_ ld: dlscan.LicenseData, cardImagePath: String? = nil, ocrObservations: [OcrObservationSpec]? = nil, headshotImagePath: String? = nil) -> LicenseDataSpec {
     // sex: std::optional<std::string> ("M"/"F"/"X") → Sex?
     let sexStr: String? = optStr(ld.sex)
     let sexValue: Sex? = sexStr.flatMap { Sex(fromString: $0) }
@@ -2178,6 +2185,7 @@ class HybridDLScanIOS: HybridDLScanSpec {
       mrz:            mrzValue,
       dataConfidenceJson: dataConfJson,
       cardImagePath:  cardImagePath,
+      ocrObservations: ocrObservations,
       headshotImagePath: headshotImagePath
     )
   }
@@ -2194,10 +2202,17 @@ class HybridDLScanIOS: HybridDLScanSpec {
   /// Re-run doc-seg on the original frame, expand corners by 6%, and save
   /// the padded perspective-corrected card as JPEG. The slight re-run cost
   /// (~5ms on ANE) is acceptable since this fires only once per scan.
+  ///
+  /// #82: also runs a whole-card OCR pass over the EXACT image being saved
+  /// and returns the per-line observations alongside the path. The in-
+  /// pipeline OCR ran on a DIFFERENT rectification (unpadded corners from
+  /// an independent doc-seg pass), so its boxes do NOT live in this image's
+  /// pixel space and cannot be reused. Observations are fail-soft: nil on
+  /// any OCR difficulty, never blocking the card save itself.
   private static func saveRectifiedCard(
     sourceBuffer: CVPixelBuffer,
     orientation: CGImagePropertyOrientation
-  ) -> String? {
+  ) -> (path: String, observations: [OcrObservationSpec]?)? {
     let request = VNDetectDocumentSegmentationRequest()
     let handler = VNImageRequestHandler(cvPixelBuffer: sourceBuffer,
                                          orientation: orientation, options: [:])
@@ -2249,11 +2264,46 @@ class HybridDLScanIOS: HybridDLScanSpec {
     let url = cardImageDir.appendingPathComponent("\(id)-card.jpg")
     do {
       try data.write(to: url, options: .atomic)
-      return url.absoluteString
     } catch {
       NSLog("[DLScan] saveRectifiedCard failed: \(error)")
       return nil
     }
+    return (path: url.absoluteString,
+            observations: cardImageObservations(on: cgImage))
+  }
+
+  /// #82: per-line OCR observations over the EXACT saved card image, so the
+  /// returned boxes share `cardImagePath`'s pixel space. Boxes are normalized
+  /// [0,1], origin TOP-LEFT, +y down (Vision reports bottom-left origin —
+  /// flipped here). Fires once per scan, immediately after the card JPEG is
+  /// written. Fail-soft: any error or empty OCR → nil.
+  private static func cardImageObservations(on cgImage: CGImage) -> [OcrObservationSpec]? {
+    var results: [OcrObservationSpec] = []
+    let request = VNRecognizeTextRequest { request, error in
+      guard error == nil,
+            let observations = request.results as? [VNRecognizedTextObservation] else {
+        return
+      }
+      for observation in observations {
+        guard let candidate = observation.topCandidates(1).first,
+              candidate.confidence >= 0.3 else { continue }
+        // VNRectangleObservation.boundingBox is normalized [0,1] with a
+        // BOTTOM-LEFT origin; the spec contract is top-left, +y down.
+        let bb = observation.boundingBox
+        results.append(OcrObservationSpec(
+          text: candidate.string,
+          x: Double(bb.origin.x),
+          y: Double(1.0 - bb.origin.y - bb.height),
+          width: Double(bb.width),
+          height: Double(bb.height)
+        ))
+      }
+    }
+    request.recognitionLevel = .accurate
+    request.usesLanguageCorrection = true
+    let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+    do { try handler.perform([request]) } catch { return nil }
+    return results.isEmpty ? nil : results
   }
 
   /// Extract a headshot from the rectified card image.
