@@ -138,13 +138,17 @@ export function ResultView({
 
   return (
     <View style={styles.host}>
-      <LicenseHero data={data} t={t} direction={direction} mode={mode} />
-      <ConfidenceRail conf={conf} t={t} />
+      {/* EVERYTHING scrolls — hero card and confidence rail included. With
+          them outside the ScrollView the scrollable region was too short on
+          phones to ever reveal the full scanned-card photo. Only the footer
+          actions stay fixed. */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollBody}
         showsVerticalScrollIndicator={false}
       >
+        <LicenseHero data={data} t={t} direction={direction} mode={mode} />
+        <ConfidenceRail conf={conf} t={t} />
         <SectionLabel t={t}>All fields</SectionLabel>
         <View style={styles.grid}>
           {REQUIRED_FIELDS.map((f) => {
