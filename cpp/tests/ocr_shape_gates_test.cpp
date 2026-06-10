@@ -624,3 +624,32 @@ TEST(ShapeGate_MinLength, Names_CountUtf8CodePoints) {
     ASSERT_TRUE(r->lastName.has_value());
     EXPECT_EQ(*r->lastName, "\xC3\x96Z");
 }
+
+TEST(ShapeGate_DateSanity, IssueDateEqualToDobDropsFailClosed) {
+    // Live 3-frame scan shipped issueDate == dateOfBirth — DOB leaked
+    // into the ISS slot. Exact equality is the contamination signature
+    // (a real issued-on-birthday renewal differs in the year).
+    FieldCandidateVector v{
+        cand(FieldId::List1, "DOEFORD"),
+        cand(FieldId::List3, "08/12/1980", FieldSource::StrictTextPool),
+        cand(FieldId::List4a, "08/12/1980", FieldSource::StrictTextPool),
+        cand(FieldId::List4b, "08/12/2031", FieldSource::StrictTextPool),
+    };
+    auto r = extract_fields_from_candidates(v);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_EQ(r->dateOfBirth.value_or(""), "1980-08-12");
+    EXPECT_FALSE(r->issueDate.has_value());
+    EXPECT_EQ(r->fieldConfidence.count("issueDate"), 0u);
+    ASSERT_TRUE(r->expirationDate.has_value());
+}
+
+TEST(ShapeGate_DateSanity, DistinctIssueDateKept) {
+    FieldCandidateVector v{
+        cand(FieldId::List1, "DOEFORD"),
+        cand(FieldId::List3, "08/12/1980", FieldSource::StrictTextPool),
+        cand(FieldId::List4a, "06/07/2023", FieldSource::StrictTextPool),
+    };
+    auto r = extract_fields_from_candidates(v);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_EQ(r->issueDate.value_or(""), "2023-06-07");
+}

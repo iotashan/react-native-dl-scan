@@ -3225,6 +3225,20 @@ static void null_if_core_shorter(LicenseData& d,
     d.fieldConfidence.erase(key);
 }
 
+/// An issue date EXACTLY equal to the birth date is the signature of
+/// cross-field date contamination (a card cannot be issued the day its
+/// holder was born; a legitimate issued-on-birthday renewal differs in
+/// the year). Observed live on a 3-frame scan: the DOB leaked into the
+/// ISS slot at ShapeMatched. Fail closed — drop the issue date; later
+/// frames or the finalize re-parse can fill it correctly.
+static void apply_date_sanity_gates(LicenseData& d) {
+    if (d.issueDate.has_value() && d.dateOfBirth.has_value() &&
+        *d.issueDate == *d.dateOfBirth) {
+        d.issueDate.reset();
+        d.fieldConfidence.erase("issueDate");
+    }
+}
+
 static void apply_min_length_gates(LicenseData& d) {
     null_if_core_shorter(d, d.licenseNumber, "licenseNumber", 7);
     null_if_core_shorter(d, d.postalCode, "postalCode", 5);
@@ -3287,6 +3301,7 @@ std::optional<LicenseData> extract_fields_from_candidates(
     // authorizes external fills either.
     if (base.has_value()) {
         apply_min_length_gates(*base);
+        apply_date_sanity_gates(*base);
         if (!has_core_identity(*base)) base.reset();
     }
     if (external.empty() || !base.has_value()) {
@@ -3299,6 +3314,7 @@ std::optional<LicenseData> extract_fields_from_candidates(
     // external path that can introduce a fresh sub-floor fragment (its
     // dates / zip / state are shape-checked before filling).
     apply_min_length_gates(out);
+    apply_date_sanity_gates(out);
     return out;
 }
 
