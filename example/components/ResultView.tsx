@@ -471,7 +471,9 @@ function LicenseHero({
               { color: t.ink2, fontFamily: t.mono },
             ]}
           >
-            {mode === 'barcode' ? 'PDF417 → AAMVA' : `${OCR_LABEL} → extractor`}
+            {mode === 'barcode'
+              ? 'PDF417 → AAMVA (C++)'
+              : `${OCR_LABEL} → C++ marker parse`}
           </Text>
         </View>
       </View>

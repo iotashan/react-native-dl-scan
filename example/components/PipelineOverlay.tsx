@@ -22,30 +22,54 @@ interface Stage {
   sub: string;
 }
 
+// Stage narration mirrors what the native pipeline ACTUALLY does — keep in
+// sync with _pipelineStage transitions in HybridDLScanIOS.swift /
+// HybridDLScanAndroid.kt (1 = C++ field resolve, 2 = confidence scored,
+// 3 = card image saved, 4 = headshot, 5 = handoff to the JS finalization,
+// which runs the TTA verification re-parse — and on iOS 26+ the
+// RecognizeDocumentsRequest DataDetector cross-check — before the result
+// lands). The barcode path has no native stage signal (the PDF417 hit
+// arrives as a single callback), so its list sequences on display timers.
 const STAGES_BARCODE: Stage[] = [
-  { k: 'cam', nativeStage: 0, label: 'Camera', sub: '1080p @ 30fps' },
+  { k: 'cam', nativeStage: 0, label: 'Camera', sub: 'full-res frames' },
   {
     k: 'pd',
     nativeStage: 0,
-    label: 'PDF417',
-    sub: 'vision-camera-barcode-scanner',
+    label: 'PDF417 detect',
+    sub:
+      Platform.OS === 'ios'
+        ? 'VisionCamera CodeScanner (AVFoundation)'
+        : 'MLKit BarcodeScanning',
   },
-  { k: 'nitro', nativeStage: 0, label: 'Nitro JNI', sub: 'JS ↔ C++ bridge' },
-  { k: 'aamva', nativeStage: 0, label: 'AAMVA', sub: 'C++ field resolver' },
+  {
+    k: 'nitro',
+    nativeStage: 0,
+    label: 'Nitro bridge',
+    sub: Platform.OS === 'ios' ? 'Swift ↔ C++ (Nitro)' : 'JNI ↔ C++ (Nitro)',
+  },
+  {
+    k: 'aamva',
+    nativeStage: 0,
+    label: 'AAMVA decode',
+    sub: 'C++ subfile parser → typed fields',
+  },
 ];
+
+const IOS_26_PLUS =
+  Platform.OS === 'ios' && parseInt(String(Platform.Version), 10) >= 26;
 
 const STAGES_OCR: Stage[] = [
   {
-    k: 'extract',
+    k: 'resolve',
     nativeStage: 1,
-    label: 'Extracting fields',
-    sub: 'C++ extract_fields_from_candidates',
+    label: 'Resolving fields',
+    sub: 'C++ AAMVA marker grammar over the voted consensus',
   },
   {
-    k: 'normalize',
+    k: 'score',
     nativeStage: 2,
-    label: 'Normalizing data',
-    sub: 'per-field shape gates + tier scoring',
+    label: 'Scoring confidence',
+    sub: 'shape gates → provenance tiers',
   },
   {
     k: 'card',
@@ -64,10 +88,12 @@ const STAGES_OCR: Stage[] = [
       Platform.OS === 'ios' ? 'VNDetectFaceRectangles' : 'MLKit FaceDetection',
   },
   {
-    k: 'done',
+    k: 'verify',
     nativeStage: 5,
-    label: 'Result ready',
-    sub: 'all fields + images delivered',
+    label: 'Verifying result',
+    sub: IOS_26_PLUS
+      ? 'TTA re-parse · DataDetector cross-check'
+      : 'TTA re-parse of the best crop',
   },
 ];
 
