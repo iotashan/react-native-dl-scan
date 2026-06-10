@@ -163,10 +163,13 @@ class TightenersTest {
     }
 
     @Test
-    fun sex_sandwichedM_returnsOriginal() {
+    fun sex_sandwichedM_failsClosed() {
         // Lookbehind prevents matching the M inside a 3-letter token.
-        // No isolated [MFX] = no match = return original.
-        assertEquals("BLM",
+        // No isolated [MFX] = no match = EMPTY (fail closed). Returning
+        // the original let stable junk outvote genuine M/F/X reads in
+        // the (List15, BboxIoU) voter bucket — the live 30-frame sex
+        // hunts. Empty candidates never vote.
+        assertEquals("",
             HybridDLScanAndroid.tightenByContentShape("BLM", "list_15"))
     }
 

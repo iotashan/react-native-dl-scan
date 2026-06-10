@@ -2492,8 +2492,11 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
                 "list_18" -> firstColorCodeMatch(text, kEyeColorCodes) ?: text
                 "list_19" -> firstColorCodeMatch(text, kHairColorCodes) ?: text
                 "list_15" -> {
+                    // Regex miss → FAIL CLOSED (mirrors iOS; see the Swift
+                    // list_15 comment): raw fused-row junk must not vote,
+                    // it can only outvote the genuine M/F/X reads.
                     Regex("(?<![A-Z])[MFX](?![A-Z])")
-                        .find(text.uppercase())?.value ?: text
+                        .find(text.uppercase())?.value ?: ""
                 }
                 "list_17" -> {
                     val upper = text.uppercase().replace("IB", "LB").replace("|B", "LB")

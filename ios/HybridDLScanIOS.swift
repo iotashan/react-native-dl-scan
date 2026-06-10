@@ -1167,21 +1167,24 @@ class HybridDLScanIOS: HybridDLScanSpec {
       request.regionOfInterest = CGRect(x: x, y: yBot, width: w, height: h)
       regionRequests.append((det, request))
     }
-    // Phase 2 — perform the region requests CONCURRENTLY. Measured on
-    // device: a single batched perform still runs requests serially inside
-    // Vision (~125ms per region, ~1.8s/frame — only ~10% better than the
-    // serial loop), so the win has to come from real parallelism. Each
-    // lane gets its OWN VNImageRequestHandler over the same read-only
-    // pixel buffer; results attach to each request, and phase 3 walks
-    // regionRequests in build order, so candidate ordering (and therefore
-    // voter/parser behavior) is unchanged regardless of completion order.
-    // Failure semantics match the old loop: a failing lane only loses its
-    // own region.
-    DispatchQueue.concurrentPerform(iterations: regionRequests.count) { i in
-      let laneHandler = VNImageRequestHandler(cvPixelBuffer: buffer,
-                                              orientation: orientation,
-                                              options: [:])
-      try? laneHandler.perform([regionRequests[i].request])
+    // Phase 2 — ONE batched perform for all regions. Three delivery
+    // mechanisms were measured on device: serial loop ~1957ms, batched
+    // ~1765ms, concurrent per-lane handlers ~1993ms — Vision serializes
+    // text recognition on the shared recognition hardware regardless, so
+    // batching is kept purely for its (small) shared-preparation win and
+    // simplicity. The only real lever on this cost is issuing FEWER
+    // requests. Results attach per-request; phase 3 walks build order.
+    let handler = VNImageRequestHandler(cvPixelBuffer: buffer,
+                                        orientation: orientation,
+                                        options: [:])
+    do {
+      try handler.perform(regionRequests.map { $0.request })
+    } catch {
+      // Batched perform failed as a whole — retry the unrun requests
+      // serially so one bad region can't cost the frame (old semantics).
+      for (_, request) in regionRequests where request.results == nil {
+        try? handler.perform([request])
+      }
     }
     // Phase 3 — post-process in detection order (determinism contract).
     for (det, request) in regionRequests {
@@ -1620,7 +1623,13 @@ class HybridDLScanIOS: HybridDLScanSpec {
          let m = re.firstMatch(in: upper, range: NSRange(location: 0, length: ns15.length)) {
         return ns15.substring(with: m.range)
       }
-      return text
+      // Regex miss → FAIL CLOSED (root cause of the 30-frame sex hunts):
+      // returning the raw text let stable junk like "SEX" outvote and
+      // evict the rare genuine "M" reads in the (List15, BboxIoU) voter
+      // bucket, and a junk consensus can never pass normalize_sex_field
+      // anyway. An empty value is skipped by the candidate builder, so
+      // only real M/F/X letters ever vote for this field.
+      return ""
     case "list_17":
       // Weight — extract `\d+ ?(LB|KG|LBS|KGS)`. AAMVA D-20 D-12 stores
       // weight in pounds (or kg with the unit suffix). Observations look

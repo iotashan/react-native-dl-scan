@@ -1048,3 +1048,22 @@ TEST(ConfidenceJson, EmptyMapReturnsEmptyString) {
     LicenseData ld;
     EXPECT_EQ(confidence_json(ld), "");
 }
+
+TEST(StructuredExtractor, GenderJunkDoesNotPreemptList15Sex) {
+    // Root-cause regression (sex never stabilized live): the gender YOLO
+    // class has no tightener, so a junk consensus used to permanently
+    // null sex even when the strict pool held a clean letter — the
+    // list_15 fallback only ran when the gender KEY was absent. gender
+    // must ENRICH, never PREEMPT.
+    const auto __cands = make_candidates({
+        {"list_1",         "DOE"},
+        {"gender",         "15 SEX"},
+        {"list_15_strict", "M"},
+    });
+    auto r = extract_fields_from_candidates(__cands);
+    ASSERT_TRUE(r.has_value());
+    ASSERT_TRUE(r->sex.has_value());
+    EXPECT_EQ(sval(r->sex), "M");
+    // Strict-pool provenance: AllGatesPassed, not the bbox tier.
+    EXPECT_FLOAT_EQ(conf(*r, "sex"), 0.95f);
+}

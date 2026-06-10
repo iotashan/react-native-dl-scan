@@ -1395,14 +1395,20 @@ static std::optional<LicenseData> extract_fields_structured(const FieldsMap& fie
     //   StrictOnly    → AllGatesPassed  (0.95)
     //   RegularOnly   → ShapeMatched    (0.85) — sex normalizer is a shape check
     {
-        auto sex_raw = read_first_field(fields, {"gender"});
+        // gender ENRICHES, never PREEMPTS (pair-workflow root-cause fix):
+        // the gender YOLO class has no tightener, so a junk consensus
+        // ("15 SEX", fused-row noise) used to permanently null sex even
+        // when list_15/list_15_strict held a clean letter — the fallback
+        // only ran when the gender KEY was absent, not when its VALUE
+        // failed normalization. Normalize first, fall through on failure;
+        // the fallback still must pass the unchanged normalizer.
         FieldProvenance sex_prov = FieldProvenance::RegularOnly;
-        if (!sex_raw.has_value()) {
+        out.sex = normalize_sex_field(read_first_field(fields, {"gender"}));
+        if (!out.sex.has_value()) {
             auto pr = read_strict_or_regular(fields, "list_15");
-            sex_raw = pr.first;
-            sex_prov = pr.second;
+            out.sex = normalize_sex_field(pr.first);
+            if (out.sex.has_value()) sex_prov = pr.second;
         }
-        out.sex = normalize_sex_field(sex_raw);
         if (out.sex.has_value())
             record_confidence(out, "sex", tier_for(sex_prov, CONFIDENCE_SHAPE_MATCH));
     }
