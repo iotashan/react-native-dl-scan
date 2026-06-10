@@ -30,6 +30,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import Svg, { Polygon } from 'react-native-svg';
 import type { ThemeTokens, Direction } from '../../theme/tokens';
 import {
   computeViewfinderGeometry,
@@ -310,6 +311,31 @@ export function Viewfinder({
             ocrProgress={scanProgress}
             ocrStage={ocrStage}
           />
+          {/* Skewed card-edge quad: the bracket reticle stays axis-aligned
+           *  for framing guidance, while this polygon hugs the card's REAL
+           *  perspective edges through the 4 detected corners. */}
+          {shouldTrack && trackedCutout?.viewCorners && (
+            <Svg
+              width={size.w}
+              height={size.h}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            >
+              <Polygon
+                points={[0, 1, 2, 3]
+                  .map(
+                    (i) =>
+                      `${trackedCutout.viewCorners[i * 2]},${trackedCutout.viewCorners[i * 2 + 1]}`
+                  )
+                  .join(' ')}
+                fill="none"
+                stroke={t.reticle}
+                strokeWidth={2.5}
+                strokeOpacity={0.9}
+                strokeLinejoin="round"
+              />
+            </Svg>
+          )}
           {shouldTrack && trackedCutout?.viewCorners && (
             <FieldOverlay
               data={licenseData ?? null}
