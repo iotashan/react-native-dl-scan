@@ -1144,6 +1144,10 @@ class HybridDLScanIOS: HybridDLScanSpec {
     // names/DLN are recovered via the whole-card STRICT AAMVA-index parse
     // (list_1_strict/list_2_strict/list_4d_strict), not by padding here.
     let pad: CGFloat = 0.005
+    // Phase 1 — build every region request up front, in detection order.
+    var regionRequests: [(det: (name: String, bbox: CGRect, conf: Float),
+                          request: VNRecognizeTextRequest)] = []
+    regionRequests.reserveCapacity(detections.count)
     for det in detections {
       if kNonOcrClasses.contains(det.name) { continue }
       let request = VNRecognizeTextRequest()
@@ -1157,11 +1161,28 @@ class HybridDLScanIOS: HybridDLScanSpec {
       let yTop = min(1, (imageH - det.bbox.minY) / imageH + pad)
       let h = yTop - yBot
       request.regionOfInterest = CGRect(x: x, y: yBot, width: w, height: h)
-      do {
-        try handler.perform([request])
-      } catch {
-        continue
+      regionRequests.append((det, request))
+    }
+    // Phase 2 — ONE perform for ALL regions. The timing data showed the old
+    // per-region perform loop at ~150ms PER REGION (~2.1s/frame, 88% of the
+    // frame budget) while the whole-card pass — one perform over the same
+    // buffer — runs in ~120ms: each perform call re-prepares the full-res
+    // image. A single batched perform shares that preparation and lets
+    // Vision schedule the requests itself. Results attach per-request, and
+    // phase 3 walks regionRequests in build order, so candidate ordering
+    // (and therefore voter/parser behavior) is unchanged.
+    do {
+      try handler.perform(regionRequests.map { $0.request })
+    } catch {
+      // Fallback — batched perform failed as a whole (the old loop dropped
+      // only the failing region). Retry serially so one bad region can't
+      // cost the frame; requests that already ran keep their results.
+      for (_, request) in regionRequests where request.results == nil {
+        try? handler.perform([request])
       }
+    }
+    // Phase 3 — post-process in detection order (determinism contract).
+    for (det, request) in regionRequests {
       let texts = (request.results ?? []).compactMap { obs -> String? in
         guard let candidate = obs.topCandidates(1).first,
               candidate.confidence >= 0.3 else { return nil }
