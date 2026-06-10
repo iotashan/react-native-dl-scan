@@ -35,6 +35,7 @@ import type { LicenseDataSpec } from './specs/DLScan.nitro';
  */
 const NON_FIELD_KEYS = new Set<keyof LicenseData>([
   'cardImagePath',
+  'ocrObservations',
   'headshotImagePath',
   'dataConfidence',
   'mrz',
@@ -285,6 +286,11 @@ export const _mergeAccumulated = (
   }
   // Image paths arrive late (consensus frame only); prefer any non-null.
   if (next.cardImagePath != null) merged.cardImagePath = next.cardImagePath;
+  // The OCR observations describe cardImagePath's image — they travel
+  // together (both attach on the consensus frame; both null on TTA).
+  if (next.ocrObservations != null) {
+    merged.ocrObservations = next.ocrObservations;
+  }
   if (next.headshotImagePath != null) {
     merged.headshotImagePath = next.headshotImagePath;
   }

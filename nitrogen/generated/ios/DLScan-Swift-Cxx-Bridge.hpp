@@ -24,6 +24,8 @@ namespace margelo::nitro::dlscan { struct LicenseDataSpec; }
 namespace margelo::nitro::dlscan { struct MRZDataSpec; }
 // Forward declaration of `MRZTypeSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { enum class MRZTypeSpec; }
+// Forward declaration of `OcrObservationSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct OcrObservationSpec; }
 // Forward declaration of `RectifiedFrameSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { struct RectifiedFrameSpec; }
 // Forward declaration of `Sex` to properly resolve imports.
@@ -42,6 +44,7 @@ namespace VisionCamera { class HybridFrameSpec_cxx; }
 #include "LicenseDataSpec.hpp"
 #include "MRZDataSpec.hpp"
 #include "MRZTypeSpec.hpp"
+#include "OcrObservationSpec.hpp"
 #include "RectifiedFrameSpec.hpp"
 #include "Sex.hpp"
 #include <NitroModules/ArrayBuffer.hpp>
@@ -148,6 +151,32 @@ namespace margelo::nitro::dlscan::bridge::swift {
     return optional.has_value();
   }
   inline MRZDataSpec get_std__optional_MRZDataSpec_(const std::optional<MRZDataSpec>& optional) noexcept {
+    return optional.value();
+  }
+  
+  // pragma MARK: std::vector<OcrObservationSpec>
+  /**
+   * Specialized version of `std::vector<OcrObservationSpec>`.
+   */
+  using std__vector_OcrObservationSpec_ = std::vector<OcrObservationSpec>;
+  inline std::vector<OcrObservationSpec> create_std__vector_OcrObservationSpec_(size_t size) noexcept {
+    std::vector<OcrObservationSpec> vector;
+    vector.reserve(size);
+    return vector;
+  }
+  
+  // pragma MARK: std::optional<std::vector<OcrObservationSpec>>
+  /**
+   * Specialized version of `std::optional<std::vector<OcrObservationSpec>>`.
+   */
+  using std__optional_std__vector_OcrObservationSpec__ = std::optional<std::vector<OcrObservationSpec>>;
+  inline std::optional<std::vector<OcrObservationSpec>> create_std__optional_std__vector_OcrObservationSpec__(const std::vector<OcrObservationSpec>& value) noexcept {
+    return std::optional<std::vector<OcrObservationSpec>>(value);
+  }
+  inline bool has_value_std__optional_std__vector_OcrObservationSpec__(const std::optional<std::vector<OcrObservationSpec>>& optional) noexcept {
+    return optional.has_value();
+  }
+  inline std::vector<OcrObservationSpec> get_std__optional_std__vector_OcrObservationSpec__(const std::optional<std::vector<OcrObservationSpec>>& optional) noexcept {
     return optional.value();
   }
   

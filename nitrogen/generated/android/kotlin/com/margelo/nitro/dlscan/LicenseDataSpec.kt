@@ -95,6 +95,9 @@ data class LicenseDataSpec(
   val cardImagePath: String?,
   @DoNotStrip
   @Keep
+  val ocrObservations: Array<OcrObservationSpec>?,
+  @DoNotStrip
+  @Keep
   val headshotImagePath: String?
 ) {
   /* primary constructor */
@@ -127,6 +130,7 @@ data class LicenseDataSpec(
       && Objects.deepEquals(this.mrz, other.mrz)
       && Objects.deepEquals(this.dataConfidenceJson, other.dataConfidenceJson)
       && Objects.deepEquals(this.cardImagePath, other.cardImagePath)
+      && Objects.deepEquals(this.ocrObservations, other.ocrObservations)
       && Objects.deepEquals(this.headshotImagePath, other.headshotImagePath)
   }
 
@@ -157,6 +161,7 @@ data class LicenseDataSpec(
       mrz,
       dataConfidenceJson,
       cardImagePath,
+      ocrObservations,
       headshotImagePath
     ).contentDeepHashCode()
   }
@@ -169,8 +174,8 @@ data class LicenseDataSpec(
     @Keep
     @Suppress("unused")
     @JvmStatic
-    private fun fromCpp(firstName: String?, lastName: String?, middleName: String?, dateOfBirth: String?, expirationDate: String?, issueDate: String?, licenseNumber: String?, street: String?, city: String?, state: String?, postalCode: String?, country: String?, sex: Sex?, eyeColor: String?, hairColor: String?, height: String?, weight: String?, vehicleClass: String?, restrictions: String?, endorsements: String?, aamvaVersion: Double?, documentType: DocumentType?, mrz: MRZDataSpec?, dataConfidenceJson: String?, cardImagePath: String?, headshotImagePath: String?): LicenseDataSpec {
-      return LicenseDataSpec(firstName, lastName, middleName, dateOfBirth, expirationDate, issueDate, licenseNumber, street, city, state, postalCode, country, sex, eyeColor, hairColor, height, weight, vehicleClass, restrictions, endorsements, aamvaVersion, documentType, mrz, dataConfidenceJson, cardImagePath, headshotImagePath)
+    private fun fromCpp(firstName: String?, lastName: String?, middleName: String?, dateOfBirth: String?, expirationDate: String?, issueDate: String?, licenseNumber: String?, street: String?, city: String?, state: String?, postalCode: String?, country: String?, sex: Sex?, eyeColor: String?, hairColor: String?, height: String?, weight: String?, vehicleClass: String?, restrictions: String?, endorsements: String?, aamvaVersion: Double?, documentType: DocumentType?, mrz: MRZDataSpec?, dataConfidenceJson: String?, cardImagePath: String?, ocrObservations: Array<OcrObservationSpec>?, headshotImagePath: String?): LicenseDataSpec {
+      return LicenseDataSpec(firstName, lastName, middleName, dateOfBirth, expirationDate, issueDate, licenseNumber, street, city, state, postalCode, country, sex, eyeColor, hairColor, height, weight, vehicleClass, restrictions, endorsements, aamvaVersion, documentType, mrz, dataConfidenceJson, cardImagePath, ocrObservations, headshotImagePath)
     }
   }
 }

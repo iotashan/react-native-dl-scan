@@ -166,7 +166,35 @@ export interface LicenseData {
    */
   dataConfidence?: Record<string, ConfidenceEntry> | null;
   cardImagePath: string | null;
+  /**
+   * Per-line OCR observations over the saved card image. Present only
+   * when `cardImagePath` is present — the boxes describe that EXACT
+   * image. Null/absent on the barcode path or when the card-image OCR
+   * pass failed. See {@link OcrObservation} for the coordinate contract.
+   */
+  ocrObservations?: OcrObservation[] | null;
   headshotImagePath: string | null;
+}
+
+/**
+ * One recognized OCR text line on the saved card image (`cardImagePath`).
+ *
+ * Coordinate contract: `x`/`y`/`width`/`height` are normalized to [0, 1]
+ * relative to the image at `cardImagePath`, origin TOP-LEFT, +y down;
+ * `(x, y)` is the box's top-left corner. Multiply by the rendered image's
+ * width/height to position an overlay.
+ */
+export interface OcrObservation {
+  /** The recognized text of this OCR line. */
+  text: string;
+  /** Normalized [0,1] left edge. */
+  x: number;
+  /** Normalized [0,1] top edge (+y down). */
+  y: number;
+  /** Normalized [0,1] box width. */
+  width: number;
+  /** Normalized [0,1] box height. */
+  height: number;
 }
 
 export type ConfidenceTier =

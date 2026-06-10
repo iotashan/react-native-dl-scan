@@ -250,6 +250,17 @@ export interface LicenseData {
   documentType?: DocumentType | null;
   mrz?: MRZData | null;             // populated for travel docs (passport / national_id)
   dataConfidence?: Record<string, ConfidenceEntry>;
+  cardImagePath: string | null;     // file:// JPEG of the rectified card (OCR mode)
+  ocrObservations?: OcrObservation[] | null; // per-line OCR boxes over that image
+  headshotImagePath: string | null; // file:// JPEG of the cropped portrait
+}
+
+export interface OcrObservation {
+  text: string;                     // the recognized OCR line
+  x: number;                        // ┐ normalized [0,1] box, relative to the
+  y: number;                        // │ cardImagePath image, origin TOP-LEFT,
+  width: number;                    // │ +y down; (x, y) is the box's top-left
+  height: number;                   // ┘ corner
 }
 
 export type DocumentType =
@@ -280,6 +291,32 @@ export type SexValue = TypedValue<SexCode>;
 export type EyeColorValue = TypedValue<EyeColorCode>;
 export type HairColorValue = TypedValue<HairColorCode>;
 ```
+
+### OCR observations (`ocrObservations`)
+
+In OCR mode, the result that carries `cardImagePath` also carries
+`ocrObservations`: one entry per text line a dedicated whole-card OCR pass
+(Vision on iOS, MLKit on Android) recognized on the **saved card image
+itself** — so the boxes always describe exactly the pixels in
+`cardImagePath`, regardless of how the live pipeline rectified its
+intermediate frames.
+
+**Coordinate contract.** All four box values are normalized to `[0, 1]`
+relative to the `cardImagePath` image, with the origin at the **top-left**
+corner and **+y pointing down**; `(x, y)` is the box's top-left corner.
+To place an overlay, multiply by the rendered image's width/height:
+`left = x * W`, `top = y * H`, `width = width * W`, `height = height * H`.
+
+The field is best-effort metadata: it is absent on the barcode path and
+whenever the OCR pass fails (it never blocks or alters parsing). What you
+can build with it:
+
+- **Overlay / debug visualizations** — render each recognized string where
+  it sits on the card (the example app's "Overlay" scanned-card view).
+- **Custom redaction** — blur or mask the regions whose text matches
+  sensitive fields before persisting or sharing the card image.
+- **Field-location heatmaps** — aggregate observation boxes across scans to
+  learn where a jurisdiction prints each field.
 
 ### `ScanMode`
 

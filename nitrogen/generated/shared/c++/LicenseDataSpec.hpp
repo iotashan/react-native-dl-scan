@@ -34,12 +34,16 @@ namespace margelo::nitro::dlscan { enum class Sex; }
 namespace margelo::nitro::dlscan { enum class DocumentType; }
 // Forward declaration of `MRZDataSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { struct MRZDataSpec; }
+// Forward declaration of `OcrObservationSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct OcrObservationSpec; }
 
 #include <string>
 #include <optional>
 #include "Sex.hpp"
 #include "DocumentType.hpp"
 #include "MRZDataSpec.hpp"
+#include "OcrObservationSpec.hpp"
+#include <vector>
 
 namespace margelo::nitro::dlscan {
 
@@ -73,11 +77,12 @@ namespace margelo::nitro::dlscan {
     std::optional<MRZDataSpec> mrz     SWIFT_PRIVATE;
     std::optional<std::string> dataConfidenceJson     SWIFT_PRIVATE;
     std::optional<std::string> cardImagePath     SWIFT_PRIVATE;
+    std::optional<std::vector<OcrObservationSpec>> ocrObservations     SWIFT_PRIVATE;
     std::optional<std::string> headshotImagePath     SWIFT_PRIVATE;
 
   public:
     LicenseDataSpec() = default;
-    explicit LicenseDataSpec(std::optional<std::string> firstName, std::optional<std::string> lastName, std::optional<std::string> middleName, std::optional<std::string> dateOfBirth, std::optional<std::string> expirationDate, std::optional<std::string> issueDate, std::optional<std::string> licenseNumber, std::optional<std::string> street, std::optional<std::string> city, std::optional<std::string> state, std::optional<std::string> postalCode, std::optional<std::string> country, std::optional<Sex> sex, std::optional<std::string> eyeColor, std::optional<std::string> hairColor, std::optional<std::string> height, std::optional<std::string> weight, std::optional<std::string> vehicleClass, std::optional<std::string> restrictions, std::optional<std::string> endorsements, std::optional<double> aamvaVersion, std::optional<DocumentType> documentType, std::optional<MRZDataSpec> mrz, std::optional<std::string> dataConfidenceJson, std::optional<std::string> cardImagePath, std::optional<std::string> headshotImagePath): firstName(firstName), lastName(lastName), middleName(middleName), dateOfBirth(dateOfBirth), expirationDate(expirationDate), issueDate(issueDate), licenseNumber(licenseNumber), street(street), city(city), state(state), postalCode(postalCode), country(country), sex(sex), eyeColor(eyeColor), hairColor(hairColor), height(height), weight(weight), vehicleClass(vehicleClass), restrictions(restrictions), endorsements(endorsements), aamvaVersion(aamvaVersion), documentType(documentType), mrz(mrz), dataConfidenceJson(dataConfidenceJson), cardImagePath(cardImagePath), headshotImagePath(headshotImagePath) {}
+    explicit LicenseDataSpec(std::optional<std::string> firstName, std::optional<std::string> lastName, std::optional<std::string> middleName, std::optional<std::string> dateOfBirth, std::optional<std::string> expirationDate, std::optional<std::string> issueDate, std::optional<std::string> licenseNumber, std::optional<std::string> street, std::optional<std::string> city, std::optional<std::string> state, std::optional<std::string> postalCode, std::optional<std::string> country, std::optional<Sex> sex, std::optional<std::string> eyeColor, std::optional<std::string> hairColor, std::optional<std::string> height, std::optional<std::string> weight, std::optional<std::string> vehicleClass, std::optional<std::string> restrictions, std::optional<std::string> endorsements, std::optional<double> aamvaVersion, std::optional<DocumentType> documentType, std::optional<MRZDataSpec> mrz, std::optional<std::string> dataConfidenceJson, std::optional<std::string> cardImagePath, std::optional<std::vector<OcrObservationSpec>> ocrObservations, std::optional<std::string> headshotImagePath): firstName(firstName), lastName(lastName), middleName(middleName), dateOfBirth(dateOfBirth), expirationDate(expirationDate), issueDate(issueDate), licenseNumber(licenseNumber), street(street), city(city), state(state), postalCode(postalCode), country(country), sex(sex), eyeColor(eyeColor), hairColor(hairColor), height(height), weight(weight), vehicleClass(vehicleClass), restrictions(restrictions), endorsements(endorsements), aamvaVersion(aamvaVersion), documentType(documentType), mrz(mrz), dataConfidenceJson(dataConfidenceJson), cardImagePath(cardImagePath), ocrObservations(ocrObservations), headshotImagePath(headshotImagePath) {}
 
   public:
     friend bool operator==(const LicenseDataSpec& lhs, const LicenseDataSpec& rhs) = default;
@@ -118,6 +123,7 @@ namespace margelo::nitro {
         JSIConverter<std::optional<margelo::nitro::dlscan::MRZDataSpec>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "mrz"))),
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "dataConfidenceJson"))),
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "cardImagePath"))),
+        JSIConverter<std::optional<std::vector<margelo::nitro::dlscan::OcrObservationSpec>>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "ocrObservations"))),
         JSIConverter<std::optional<std::string>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "headshotImagePath")))
       );
     }
@@ -148,6 +154,7 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "mrz"), JSIConverter<std::optional<margelo::nitro::dlscan::MRZDataSpec>>::toJSI(runtime, arg.mrz));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "dataConfidenceJson"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.dataConfidenceJson));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "cardImagePath"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.cardImagePath));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "ocrObservations"), JSIConverter<std::optional<std::vector<margelo::nitro::dlscan::OcrObservationSpec>>>::toJSI(runtime, arg.ocrObservations));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "headshotImagePath"), JSIConverter<std::optional<std::string>>::toJSI(runtime, arg.headshotImagePath));
       return obj;
     }
@@ -184,6 +191,7 @@ namespace margelo::nitro {
       if (!JSIConverter<std::optional<margelo::nitro::dlscan::MRZDataSpec>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "mrz")))) return false;
       if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "dataConfidenceJson")))) return false;
       if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "cardImagePath")))) return false;
+      if (!JSIConverter<std::optional<std::vector<margelo::nitro::dlscan::OcrObservationSpec>>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "ocrObservations")))) return false;
       if (!JSIConverter<std::optional<std::string>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "headshotImagePath")))) return false;
       return true;
     }

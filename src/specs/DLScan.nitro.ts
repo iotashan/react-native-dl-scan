@@ -54,6 +54,32 @@ export interface RectifiedFrameSpec {
   token: number;
 }
 
+/**
+ * One recognized OCR text line on the saved card image (`cardImagePath`).
+ *
+ * Coordinate contract: `x`/`y`/`width`/`height` are normalized to [0, 1]
+ * in CARD-IMAGE coordinates — i.e. relative to the exact image saved at
+ * `cardImagePath` — with the origin at the TOP-LEFT corner and +y pointing
+ * DOWN. `(x, y)` is the box's top-left corner. Multiply by the rendered
+ * image's width/height to position an overlay.
+ *
+ * Produced by a dedicated whole-card OCR pass over the saved card JPEG
+ * (Vision on iOS, MLKit on Android) at card-capture time, so the boxes
+ * always describe the same pixels as `cardImagePath`.
+ */
+export interface OcrObservationSpec {
+  /** The recognized text of this OCR line. */
+  text: string;
+  /** Normalized [0,1] left edge (top-left origin). */
+  x: number;
+  /** Normalized [0,1] top edge (top-left origin, +y down). */
+  y: number;
+  /** Normalized [0,1] box width. */
+  width: number;
+  /** Normalized [0,1] box height. */
+  height: number;
+}
+
 // Mirrors src/types.ts LicenseData with nullable fields expressed as optional
 // (Nitro maps optional → std::optional on the native side).
 // Note: aamvaVersion is a number here; null/absent means not parsed.
@@ -107,6 +133,15 @@ export interface LicenseDataSpec {
    * were detected or the rectification failed.
    */
   cardImagePath?: string;
+  /**
+   * Per-line OCR observations over the saved card image. Present only
+   * when `cardImagePath` is present (they are captured together and
+   * describe the SAME image); absent on the barcode path, on the TTA
+   * verification path, and whenever the dedicated card-image OCR pass
+   * fails (fail-soft — never blocks the scan result).
+   * See {@link OcrObservationSpec} for the coordinate contract.
+   */
+  ocrObservations?: OcrObservationSpec[];
   /**
    * file:// path to the cropped headshot (JPEG) extracted from the card
    * via platform face detection (VNDetectFaceRectanglesRequest on iOS,
