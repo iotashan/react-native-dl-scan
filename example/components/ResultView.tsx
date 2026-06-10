@@ -12,7 +12,7 @@
 // in one place. They aren't exported individually — there's no
 // reuse case outside ResultView.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Image,
   ScrollView,
@@ -26,7 +26,11 @@ import {
 
 const OCR_LABEL = Platform.OS === 'ios' ? 'VisionKit' : 'MLKit';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { LicenseData, ConfidenceEntry } from 'react-native-dl-scan';
+import type {
+  LicenseData,
+  ConfidenceEntry,
+  OcrObservation,
+} from 'react-native-dl-scan';
 import { formatTypedValue } from 'react-native-dl-scan';
 import {
   TIER_LABEL,
@@ -179,21 +183,13 @@ export function ResultView({
         </View>
 
         {data.cardImagePath != null && (
-          <View style={styles.cardPreview}>
-            <Text
-              style={[
-                styles.sectionLabel,
-                { color: t.ink2, borderBottomColor: t.hairline },
-              ]}
-            >
-              SCANNED CARD
-            </Text>
-            <Image
-              source={{ uri: data.cardImagePath }}
-              style={styles.cardPreviewImage}
-              resizeMode="contain"
-            />
-          </View>
+          <ScannedCardSection
+            // Keyed by path so the toggle/measure state resets per new scan.
+            key={data.cardImagePath}
+            uri={data.cardImagePath}
+            observations={data.ocrObservations ?? []}
+            t={t}
+          />
         )}
       </ScrollView>
 
@@ -631,6 +627,158 @@ function pickGradient(direction: Direction, t: ThemeTokens): GradientSpec {
   } as GradientSpec;
 }
 
+// ─── Scanned-card preview (Overlay | Original) ─────────────────────────────
+
+/**
+ * SCANNED CARD section (#82): the saved card image with an Overlay|Original
+ * segmented toggle. Overlay (the default) dims the card behind a translucent
+ * scrim and draws every OCR observation at roughly the position/size it was
+ * recognized. Observation coordinates are normalized to the card image, so
+ * they're mapped through the MEASURED rendered box (onLayout), with the
+ * box's aspect driven by the image's intrinsic size (Image.getSize) — never
+ * an assumed CR-80 ratio. When observations are absent (barcode mode, or
+ * the native OCR pass failed) the toggle is disabled and the plain image
+ * renders.
+ */
+function ScannedCardSection({
+  uri,
+  observations,
+  t,
+}: {
+  uri: string;
+  observations: OcrObservation[];
+  t: ThemeTokens;
+}) {
+  const [view, setView] = useState<'overlay' | 'original'>('overlay');
+  const [aspect, setAspect] = useState<number | null>(null);
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    Image.getSize(
+      uri,
+      (w, h) => {
+        if (!cancelled && w > 0 && h > 0) setAspect(w / h);
+      },
+      () => {
+        // Intrinsic size unavailable → keep the CR-80 fallback frame and
+        // leave the overlay disabled (it needs the true aspect to align).
+        if (!cancelled) setAspect(null);
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [uri]);
+
+  const overlayReady = observations.length > 0 && aspect != null;
+  const showOverlay = overlayReady && view === 'overlay';
+
+  return (
+    <View style={styles.cardPreview}>
+      <View style={styles.cardPreviewHeader}>
+        <Text
+          style={[styles.sectionLabel, { fontFamily: t.mono, color: t.ink2 }]}
+        >
+          SCANNED CARD
+        </Text>
+        <View
+          pointerEvents={overlayReady ? 'auto' : 'none'}
+          style={[
+            styles.segmentHost,
+            {
+              backgroundColor: t.surface2,
+              borderColor: t.hairline,
+              opacity: overlayReady ? 1 : 0.4,
+            },
+          ]}
+        >
+          {(['overlay', 'original'] as const).map((k) => {
+            const on = (showOverlay ? 'overlay' : 'original') === k;
+            return (
+              <Pressable
+                key={k}
+                onPress={() => setView(k)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on, disabled: !overlayReady }}
+                accessibilityLabel={`${k} card view`}
+                style={[
+                  styles.segmentBtn,
+                  on && {
+                    backgroundColor: t.surface,
+                    borderColor: t.hairline,
+                    borderWidth: StyleSheet.hairlineWidth,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.segmentLabel,
+                    { fontFamily: t.mono, color: on ? t.ink : t.ink3 },
+                  ]}
+                >
+                  {k === 'overlay' ? 'Overlay' : 'Original'}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+      <View
+        onLayout={(e) =>
+          setBox({
+            w: e.nativeEvent.layout.width,
+            h: e.nativeEvent.layout.height,
+          })
+        }
+        style={[styles.cardPreviewFrame, { aspectRatio: aspect ?? 1.585 }]}
+      >
+        <Image
+          source={{ uri }}
+          style={StyleSheet.absoluteFill}
+          // With the frame at the image's intrinsic aspect the image fills
+          // it edge-to-edge (cover == contain there). Until getSize
+          // resolves, contain inside the CR-80 fallback frame — the
+          // overlay is off in that state anyway.
+          resizeMode={aspect != null ? 'cover' : 'contain'}
+        />
+        {showOverlay && box != null && (
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            {/* Scrim between the card and the text: theme bg at 0.6 keeps
+                the card identifiable while giving the ink-colored text
+                enough contrast in both light and dark themes. */}
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: t.bg, opacity: 0.6 },
+              ]}
+            />
+            {observations.map((o, i) => (
+              <Text
+                key={`${i}-${o.text}`}
+                numberOfLines={1}
+                style={{
+                  position: 'absolute',
+                  left: o.x * box.w,
+                  top: o.y * box.h,
+                  width: Math.max(o.width * box.w, 2),
+                  // ~0.72 of the bbox height ≈ cap height of the line;
+                  // floor keeps degenerate boxes from rendering at 0.
+                  fontSize: Math.max(o.height * box.h * 0.72, 4),
+                  lineHeight: Math.max(o.height * box.h, 5),
+                  fontFamily: t.mono,
+                  color: t.ink,
+                }}
+              >
+                {o.text}
+              </Text>
+            ))}
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
 // ─── Confidence rail ───────────────────────────────────────────────────────
 
 function ConfidenceRail({
@@ -1040,10 +1188,35 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 16,
   },
-  cardPreviewImage: {
+  cardPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  cardPreviewFrame: {
+    position: 'relative',
     width: '100%',
-    aspectRatio: 1.585,
     borderRadius: 10,
+    overflow: 'hidden',
     backgroundColor: 'rgba(0,0,0,0.04)',
+  },
+  segmentHost: {
+    flexDirection: 'row',
+    padding: 2,
+    gap: 2,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  segmentBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  segmentLabel: {
+    fontSize: 9.5,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    fontWeight: '600',
   },
 });
