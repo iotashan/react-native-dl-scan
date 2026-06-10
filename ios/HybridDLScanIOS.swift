@@ -513,6 +513,13 @@ class HybridDLScanIOS: HybridDLScanSpec {
                                                detectedState: detectedState)
     timingSteps.append(("perRegionOcr", Self.msSince(tStep)))
     let frameCandidates = bboxCandidates + demographicCandidates
+    // Dev diagnostic: two scans in a row ran to the 30-frame cap because
+    // sex never stabilized per-frame (TTA recovered it both times). Count
+    // this frame's sex candidates so the timing log shows whether the
+    // field produces candidates that lose the vote or none at all.
+    let sexFieldId = Self.yoloClassNameToFieldId("list_15")
+    let sexCands = frameCandidates.filter { $0.fieldId == sexFieldId }.count
+    timingSteps.append(("sexCandidates", Double(sexCands)))
     voter.accept(frameCandidates)
     let consensus = voter.consensus()
     let totalExpected: Double = 14
@@ -1125,9 +1132,6 @@ class HybridDLScanIOS: HybridDLScanSpec {
   ) -> [FieldCandidate] {
     let imageW = CGFloat(CVPixelBufferGetWidth(buffer))
     let imageH = CGFloat(CVPixelBufferGetHeight(buffer))
-    let handler = VNImageRequestHandler(cvPixelBuffer: buffer,
-                                         orientation: orientation,
-                                         options: [:])
     // Iter-11 latency win: skip YOLO classes that are graphical regions
     // (face / donor / ghostimg / barcode crops) or don't have a FieldId
     // mapping. Drops ~25% of Vision calls per frame (e.g. 20 -> 16),
@@ -1163,23 +1167,21 @@ class HybridDLScanIOS: HybridDLScanSpec {
       request.regionOfInterest = CGRect(x: x, y: yBot, width: w, height: h)
       regionRequests.append((det, request))
     }
-    // Phase 2 — ONE perform for ALL regions. The timing data showed the old
-    // per-region perform loop at ~150ms PER REGION (~2.1s/frame, 88% of the
-    // frame budget) while the whole-card pass — one perform over the same
-    // buffer — runs in ~120ms: each perform call re-prepares the full-res
-    // image. A single batched perform shares that preparation and lets
-    // Vision schedule the requests itself. Results attach per-request, and
-    // phase 3 walks regionRequests in build order, so candidate ordering
-    // (and therefore voter/parser behavior) is unchanged.
-    do {
-      try handler.perform(regionRequests.map { $0.request })
-    } catch {
-      // Fallback — batched perform failed as a whole (the old loop dropped
-      // only the failing region). Retry serially so one bad region can't
-      // cost the frame; requests that already ran keep their results.
-      for (_, request) in regionRequests where request.results == nil {
-        try? handler.perform([request])
-      }
+    // Phase 2 — perform the region requests CONCURRENTLY. Measured on
+    // device: a single batched perform still runs requests serially inside
+    // Vision (~125ms per region, ~1.8s/frame — only ~10% better than the
+    // serial loop), so the win has to come from real parallelism. Each
+    // lane gets its OWN VNImageRequestHandler over the same read-only
+    // pixel buffer; results attach to each request, and phase 3 walks
+    // regionRequests in build order, so candidate ordering (and therefore
+    // voter/parser behavior) is unchanged regardless of completion order.
+    // Failure semantics match the old loop: a failing lane only loses its
+    // own region.
+    DispatchQueue.concurrentPerform(iterations: regionRequests.count) { i in
+      let laneHandler = VNImageRequestHandler(cvPixelBuffer: buffer,
+                                              orientation: orientation,
+                                              options: [:])
+      try? laneHandler.perform([regionRequests[i].request])
     }
     // Phase 3 — post-process in detection order (determinism contract).
     for (det, request) in regionRequests {
