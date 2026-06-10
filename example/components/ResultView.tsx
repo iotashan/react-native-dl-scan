@@ -664,8 +664,30 @@ const norm = (s: string) => s.toUpperCase().replace(/\s+/g, ' ').trim();
 function valueCandidates(value: string): string[] {
   const out = [value];
   const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (iso) out.push(`${iso[2]}/${iso[3]}/${iso[1]}`);
+  if (iso) {
+    out.push(`${iso[2]}/${iso[3]}/${iso[1]}`);
+    // Some layouts print 2-digit years; only consulted when the 4-digit
+    // forms found nothing, and core matching still requires containment.
+    out.push(`${iso[2]}/${iso[3]}/${iso[1].slice(2)}`);
+  }
   return out;
+}
+
+/** Alphanumeric core of a string plus a map from each core index back to
+ *  the index in the source string — so a core match can be projected onto
+ *  the observation's original character span (and from there onto its
+ *  box, proportionally). */
+function coreOf(s: string): { core: string; pos: number[] } {
+  let core = '';
+  const pos: number[] = [];
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i] as string;
+    if (/[A-Z0-9]/.test(c)) {
+      core += c;
+      pos.push(i);
+    }
+  }
+  return { core, pos };
 }
 
 /**
@@ -706,6 +728,7 @@ function placeFinalValues(
     if (value == null || value === '') continue;
     const candidates = valueCandidates(norm(value));
     let placed: ValuePlacement | null = null;
+    // Pass 1 — literal containment in the normalized observation text.
     for (const cand of candidates) {
       for (const o of observations) {
         const hay = norm(o.text);
@@ -728,6 +751,42 @@ function placeFinalValues(
         if (exact) break;
       }
       if (placed) break;
+    }
+    // Pass 2 — alphanumeric-core containment. The parser canonicalizes
+    // separators (license numbers gain dashes the card may print as
+    // spaces), so literal matching misses real on-card values. Core
+    // matching ignores separators on both sides and projects the match
+    // back through the index map onto the observation's box. Only for
+    // cores >= 4 chars: shorter values (sex, eyes) match in pass 1 or
+    // would overmatch here. For the license number additionally tolerate
+    // 1-2 trailing OCR artifacts on the value (never below 7, the
+    // parser's own floor).
+    if (!placed) {
+      const trims = k === 'licenseNumber' ? [0, 1, 2] : [0];
+      outer: for (const cand of candidates) {
+        const candCore = coreOf(cand).core;
+        for (const trim of trims) {
+          const want = candCore.slice(0, candCore.length - trim);
+          if (want.length < (k === 'licenseNumber' ? 7 : 4)) break;
+          for (const o of observations) {
+            const hay = norm(o.text);
+            const { core, pos } = coreOf(hay);
+            const idx = core.indexOf(want);
+            if (idx < 0) continue;
+            const startChar = pos[idx] as number;
+            const endChar = (pos[idx + want.length - 1] as number) + 1;
+            const len = Math.max(hay.length, 1);
+            placed = {
+              text: value,
+              x: o.x + o.width * (startChar / len),
+              y: o.y,
+              width: o.width * ((endChar - startChar) / len),
+              height: o.height,
+            };
+            break outer;
+          }
+        }
+      }
     }
     if (placed) placements.push(placed);
   }
@@ -813,6 +872,7 @@ function ScannedCardSection({
               <Pressable
                 key={k}
                 onPress={() => enabled && setView(k)}
+                hitSlop={{ top: 6, bottom: 6, left: 2, right: 2 }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: on, disabled: !enabled }}
                 accessibilityLabel={`${label} card view`}
@@ -859,48 +919,81 @@ function ScannedCardSection({
         />
         {effective !== 'original' && box != null && (
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            {/* Scrim between the card and the text: theme bg at 0.6 keeps
-                the card identifiable while giving the ink-colored text
-                enough contrast in both light and dark themes. */}
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: t.bg, opacity: 0.6 },
-              ]}
-            />
-            {/* Overlay = the APPROVED final values where they were found
-                (labels/markers excluded). Raw OCR = every detected string
-                verbatim at its detected box. Both render each item at ONE
-                font size for the whole string, and neither constrains text
-                width — items take their natural width past the measured box
-                rather than ever truncating with an ellipsis. */}
-            {(effective === 'overlay' ? placements : observations).map(
-              (o, i) => (
-                <Text
-                  key={`${i}-${o.text}`}
-                  style={{
-                    position: 'absolute',
-                    left: o.x * box.w,
-                    top: o.y * box.h,
-                    minWidth: Math.max(o.width * box.w, 2),
-                    // ~0.72 of the bbox height ≈ cap height of the line;
-                    // floor keeps degenerate boxes from rendering at 0.
-                    fontSize: Math.max(o.height * box.h * 0.72, 4),
-                    lineHeight: Math.max(o.height * box.h, 5),
-                    fontFamily: t.mono,
-                    // High-contrast on ANY card region (design review): bright
-                    // green + a dark shadow halo, readable over both the light
-                    // and dark areas of the photo regardless of theme.
-                    color: '#00FF66',
-                    textShadowColor: 'rgba(0,0,0,0.9)',
-                    textShadowOffset: { width: 0, height: 1 },
-                    textShadowRadius: 2,
-                  }}
-                >
-                  {o.text}
-                </Text>
-              )
+            {/* RAW OCR keeps the full-image scrim so the dense soup of
+                detected strings stays legible. The Overlay view instead
+                boxes each value individually (below) and leaves the card
+                photo un-dimmed. */}
+            {effective === 'rawocr' && (
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  { backgroundColor: t.bg, opacity: 0.6 },
+                ]}
+              />
             )}
+            {/* Overlay = the APPROVED final values where they were found
+                (labels/markers excluded), each in its own translucent box —
+                the same treatment as the live scan's field chips, values
+                only. Raw OCR = every detected string verbatim at its
+                detected box. Both render each item at ONE font size for the
+                whole string, and neither constrains text width — items take
+                their natural width past the measured box rather than ever
+                truncating with an ellipsis. */}
+            {effective === 'overlay'
+              ? placements.map((o, i) => (
+                  <View
+                    key={`${i}-${o.text}`}
+                    style={{
+                      position: 'absolute',
+                      // Padding is subtracted from the anchor so the GLYPHS
+                      // stay at the observed position; the box hangs around
+                      // them.
+                      left: o.x * box.w - 4,
+                      top: o.y * box.h - 2,
+                      minWidth: Math.max(o.width * box.w, 2) + 8,
+                      backgroundColor: 'rgba(0,0,0,0.65)',
+                      borderRadius: 4,
+                      paddingHorizontal: 4,
+                      paddingVertical: 2,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        // ~0.72 of the bbox height ≈ cap height of the line;
+                        // floor keeps degenerate boxes from rendering at 0.
+                        fontSize: Math.max(o.height * box.h * 0.72, 4),
+                        lineHeight: Math.max(o.height * box.h, 5),
+                        fontFamily: t.mono,
+                        // The live-scan chip green — readable on the dark
+                        // box regardless of the card art behind it.
+                        color: '#4ade80',
+                        fontWeight: '600',
+                      }}
+                    >
+                      {o.text}
+                    </Text>
+                  </View>
+                ))
+              : observations.map((o, i) => (
+                  <Text
+                    key={`${i}-${o.text}`}
+                    style={{
+                      position: 'absolute',
+                      left: o.x * box.w,
+                      top: o.y * box.h,
+                      minWidth: Math.max(o.width * box.w, 2),
+                      fontSize: Math.max(o.height * box.h * 0.72, 4),
+                      lineHeight: Math.max(o.height * box.h, 5),
+                      fontFamily: t.mono,
+                      color: '#00FF66',
+                      textShadowColor: 'rgba(0,0,0,0.9)',
+                      textShadowOffset: { width: 0, height: 1 },
+                      textShadowRadius: 2,
+                    }}
+                  >
+                    {o.text}
+                  </Text>
+                ))}
           </View>
         )}
       </View>
@@ -1056,6 +1149,9 @@ function FieldChip({
         styles.chip,
         {
           flexBasis: span === 2 ? '100%' : '48%',
+          // Span-1 pairs grow to close the 48%+gap+48% shortfall so their
+          // rows end flush with the span-2 chips (street / license №).
+          flexGrow: span === 2 ? 0 : 1,
           backgroundColor: t.surface,
           borderColor: isMissing ? DROP_COLOR + '66' : t.hairline,
           // Missing → strong dim; populated-below-min → soft dim; else full.
@@ -1338,12 +1434,16 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   segmentBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 6,
+    // WCAG 2.1 / HIG tap target: with the host's padding and the hitSlop
+    // on the Pressable this lands at >=44pt effective height on phones.
+    minHeight: 36,
+    justifyContent: 'center',
   },
   segmentLabel: {
-    fontSize: 9.5,
+    fontSize: 11,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     fontWeight: '600',
