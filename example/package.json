@@ -9,7 +9,9 @@
     "ios": "expo run:ios",
     "prebuild": "expo prebuild --clean",
     "generate-licenses": "node scripts/generate-licenses.js",
-    "check:linkage": "node scripts/check-library-linkage.js"
+    "check:linkage": "node scripts/check-library-linkage.js",
+    "e2e:ios": "node e2e/run.mjs --platform ios --session ipadlive",
+    "e2e:android": "node e2e/run.mjs --platform android --session pix"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

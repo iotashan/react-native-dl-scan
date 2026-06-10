@@ -18,7 +18,6 @@ import {
   useCameraPermission,
   type CameraDevice,
 } from 'react-native-vision-camera';
-import * as Device from 'expo-device';
 import {
   useLicenseScanner,
   type LicenseData,
@@ -197,7 +196,12 @@ export function useScannerInternals({
   // firing in the background.
   const outputs = phase === 'scanning' ? [scanner.output] : [];
 
-  const showFixture = showFixtureTweak && !Device.isDevice;
+  // The fixture is a dev affordance, but it is deliberately available on
+  // PHYSICAL devices too (not just simulators): the on-device E2E suite
+  // (example/e2e/) uses it to fake a parsed result so the whole result
+  // surface is testable without a real card. The settings-drawer toggle
+  // remains the off-switch.
+  const showFixture = showFixtureTweak;
   const runFixture = async () => {
     try {
       const r = await Hybrid.parseBarcodeData(FIXTURE_SAMPLE);
