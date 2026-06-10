@@ -192,11 +192,13 @@ TEST(ExternalCandidates, DateAgreement_UpgradesToCrossValidated) {
     EXPECT_FLOAT_EQ(conf(*r, "expirationDate"), 1.0f);
 }
 
-TEST(ExternalCandidates, DateDisagreement_NoOp) {
-    // Strict DOB populated; DataDetector's oldest date DISAGREES. The
-    // deterministic parse stays authoritative: value AND confidence are
-    // untouched (no overwrite, no upgrade, no downgrade). The agreeing
-    // ISS/EXP slots still upgrade independently.
+TEST(ExternalCandidates, DateDisagreement_InvalidatesWholeSet) {
+    // Strict DOB populated; DataDetector's oldest date DISAGREES. A
+    // populated-slot disagreement is evidence the {DOB, ISS, EXP} mapping
+    // assumption broke for this card (e.g. the detector picked up a
+    // revision/audit date instead of the true DOB) — so the WHOLE set is
+    // discarded: no fills, no upgrades, on ANY date slot. The
+    // deterministic parse stays untouched.
     FieldCandidateVector v{
         cand(FieldId::List1, "GARCIA", FieldSource::StrictTextPool),
         cand(FieldId::List3, "04/15/1990", FieldSource::StrictTextPool),
@@ -208,10 +210,26 @@ TEST(ExternalCandidates, DateDisagreement_NoOp) {
     ASSERT_TRUE(r.has_value());
     EXPECT_EQ(sval(r->dateOfBirth), "1990-04-15");
     EXPECT_FLOAT_EQ(conf(*r, "dateOfBirth"), 0.95f);
-    // Empty ISS/EXP slots still fill from the assigned set.
-    EXPECT_EQ(sval(r->issueDate), "2022-08-01");
-    EXPECT_EQ(sval(r->expirationDate), "2030-08-01");
-    EXPECT_FLOAT_EQ(conf(*r, "issueDate"), 0.85f);
+    // The suspect set must NOT fill the empty sibling slots.
+    EXPECT_FALSE(r->issueDate.has_value());
+    EXPECT_FALSE(r->expirationDate.has_value());
+}
+
+TEST(ExternalCandidates, ImplausibleDobIssGap_SkipsAllDates) {
+    // Three distinct dates, but the "DOB" (oldest) is within 10 years of
+    // the "ISS" (middle) — that is not a {DOB, ISS, EXP} triple (real DOBs
+    // precede issuance by years). Plausibility gate skips every date fill.
+    FieldCandidateVector v{
+        cand(FieldId::List1, "GARCIA", FieldSource::StrictTextPool),
+        dd(FieldId::DetectedDate, "2020-04-15"),
+        dd(FieldId::DetectedDate, "2024-08-01"),
+        dd(FieldId::DetectedDate, "2030-08-01"),
+    };
+    auto r = extract_fields_from_candidates(v);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_FALSE(r->dateOfBirth.has_value());
+    EXPECT_FALSE(r->issueDate.has_value());
+    EXPECT_FALSE(r->expirationDate.has_value());
 }
 
 // ─── address: pre-split sub-fields ─────────────────────────────────────────

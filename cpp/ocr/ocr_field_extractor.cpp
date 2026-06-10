@@ -3099,12 +3099,39 @@ static void merge_external_candidates(LicenseData& out,
             // construction). Any other count is ambiguous — skip all
             // date assignment rather than guess.
             std::sort(dates.begin(), dates.end());
-            external_fill_or_upgrade(out, out.dateOfBirth, "dateOfBirth",
-                                     dates[0]);
-            external_fill_or_upgrade(out, out.issueDate, "issueDate",
-                                     dates[1]);
-            external_fill_or_upgrade(out, out.expirationDate,
-                                     "expirationDate", dates[2]);
+            // SET-LEVEL fail-closed (adversarial-review finding): the
+            // {DOB, ISS, EXP} mapping is only trustworthy when NOTHING
+            // contradicts it. If any already-populated date slot disagrees
+            // with its assigned external date, the mapping assumption is
+            // suspect for this card (e.g. the detector missed the true DOB
+            // and picked up a revision/audit date) — skip ALL date fills
+            // and upgrades, not just the disagreeing slot. A plausibility
+            // gate backs this up: a real DOB precedes issuance by years,
+            // so a "DOB" within 10 years of its "ISS" is not a
+            // {DOB, ISS, EXP} triple, whatever else it is.
+            auto slot_consistent =
+                [&](const std::optional<std::string>& slot,
+                    const std::string& assigned) {
+                    return !slot.has_value() ||
+                           external_values_agree(*slot, assigned);
+                };
+            const bool assignment_consistent =
+                slot_consistent(out.dateOfBirth, dates[0]) &&
+                slot_consistent(out.issueDate, dates[1]) &&
+                slot_consistent(out.expirationDate, dates[2]);
+            // normalize_date_field guarantees ISO YYYY-MM-DD, so the year
+            // prefix is always 4 digits.
+            const int dob_year = std::stoi(dates[0].substr(0, 4));
+            const int iss_year = std::stoi(dates[1].substr(0, 4));
+            const bool dob_plausible = iss_year - dob_year >= 10;
+            if (assignment_consistent && dob_plausible) {
+                external_fill_or_upgrade(out, out.dateOfBirth, "dateOfBirth",
+                                         dates[0]);
+                external_fill_or_upgrade(out, out.issueDate, "issueDate",
+                                         dates[1]);
+                external_fill_or_upgrade(out, out.expirationDate,
+                                         "expirationDate", dates[2]);
+            }
         }
     }
 

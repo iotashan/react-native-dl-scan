@@ -636,11 +636,17 @@ class HybridDLScanIOS: HybridDLScanSpec {
     // CrossValidated, but never replace or delete. They deliberately
     // bypass the voter — a single-shot source has nothing to vote on.
     var ddCandidates: [FieldCandidate] = []
-    if #available(iOS 26.0, *) {
-      if let rdrBuffer = rgb8ToPixelBuffer(retained, width: w, height: h) {
-        ddCandidates = Self.runRecognizeDocumentsCandidates(on: rdrBuffer)
+    // compiler(>=6.2) == Xcode 26+: RecognizeDocumentsRequest only exists in
+    // the iOS 26 SDK, so consumers building with older Xcode must compile
+    // the library WITHOUT this source (the runtime #available alone doesn't
+    // help them — the symbols wouldn't resolve at compile time).
+    #if compiler(>=6.2)
+      if #available(iOS 26.0, *) {
+        if let rdrBuffer = rgb8ToPixelBuffer(retained, width: w, height: h) {
+          ddCandidates = Self.runRecognizeDocumentsCandidates(on: rdrBuffer)
+        }
       }
-    }
+    #endif
     guard let cppData = Self.extractFromCandidates(consensus + ddCandidates) else {
       return .first(.null)
     }
@@ -649,6 +655,10 @@ class HybridDLScanIOS: HybridDLScanSpec {
   }
 
   // MARK: - #124: iOS 26+ RecognizeDocumentsRequest DataDetector source
+
+  // Whole section requires the iOS 26 SDK (Xcode 26 / Swift 6.2) — see the
+  // matching guard at the call site in runTtaVerification.
+  #if compiler(>=6.2)
 
   /// One-shot RecognizeDocumentsRequest over the retained best crop.
   /// Synchronous wrapper: runTtaVerification is a sync Nitro method already
@@ -675,7 +685,12 @@ class HybridDLScanIOS: HybridDLScanSpec {
             let document = observations.first?.document else { return }
       box.candidates = Self.dataDetectorCandidates(from: document)
     }
-    semaphore.wait()
+    // Bounded wait (review hardening): a hung Vision request must degrade to
+    // "no auxiliary evidence", never hang scan finalization. 5 s is >10x the
+    // measured p99 (~660 ms in the #124 spike).
+    if semaphore.wait(timeout: .now() + 5.0) == .timedOut {
+      return []
+    }
     return box.candidates
   }
 
@@ -774,6 +789,8 @@ class HybridDLScanIOS: HybridDLScanSpec {
     }
     return out
   }
+
+  #endif  // compiler(>=6.2) — #124 RecognizeDocumentsRequest section
 
   // MARK: - Detection pipeline
 
