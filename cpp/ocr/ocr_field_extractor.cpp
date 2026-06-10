@@ -523,7 +523,7 @@ static std::string strip_whitespace(const std::string& s) {
 /// match; punctuation/whitespace immediately following the label is also
 /// consumed. Returns the value unchanged if none of [labels] match the
 /// prefix. Used to canonicalize HGT/WGT/EYES/HAIR-style printed labels that
-/// AAMVA D-20 places next to the field index — e.g. "HGT 5'-04\"" → "5'-04\"".
+/// AAMVA D-20 places next to the field index — e.g. "HGT 5'-09\"" → "5'-09\"".
 ///
 /// paired plan, 2026-05-10: this lives in C++ (not the platform layer)
 /// because field semantics belong to the parser core. Platform owns geometry
@@ -587,7 +587,7 @@ static std::optional<std::string> normalize_height_field(
         return s;
     }
     // Apostrophe-loss path: dense WI / IL / NY card rows OCR the foot
-    // mark out of the height ("5'-04\"" → "5-04"). Accept dash-form when
+    // mark out of the height ("5'-09\"" → "5-09"). Accept dash-form when
     // both numbers parse as realistic feet (4..7) and inches (0..11);
     // reformat to canonical "F'II\"" so downstream consumers see a
     // single shape rather than having to handle both.
@@ -1669,7 +1669,7 @@ static std::string first_regex_match(const std::string& value,
 }
 
 /// Per-AAMVA-index value pre-extractor. OCR concatenates adjacent fields onto
-/// one observation ("16 HGT 5'-04 17 WGT 160 lb", "15 SEX M 16 HGT"); the
+/// one observation ("16 HGT 5'-09 17 WGT 185 lb", "15 SEX M 16 HGT"); the
 /// lexer's value span then includes the trailing junk and the anchored domain
 /// regex rejects it. Pull JUST the field-shape portion so value_matches_domain
 /// sees a clean value. Direct port of Swift/Kotlin extractFieldShape. Returns

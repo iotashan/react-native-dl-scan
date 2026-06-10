@@ -190,8 +190,8 @@ static std::string normalize_for_compare(const std::string& field_id,
         field_id == "card_num1" || field_id == "card_num2") {
         return norm_strip_ws_upper(v);
     }
-    // Height / weight: punctuation varies wildly across state DLs (5'-04''
-    // vs 5'04" vs 5-4 vs 64 in; 221 LB vs 221LB vs 221 lbs). Compare on
+    // Height / weight: punctuation varies wildly across state DLs (5'-09''
+    // vs 5'09" vs 5-4 vs 64 in; 221 LB vs 221LB vs 221 lbs). Compare on
     // digits-only — measures whether the parser captured the numeric
     // value, regardless of formatting. round-10 acknowledged that
     // some fields have format ambiguity that the eval normalizer must

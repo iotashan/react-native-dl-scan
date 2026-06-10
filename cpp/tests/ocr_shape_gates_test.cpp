@@ -427,7 +427,7 @@ TEST(OcrDigitConfusion, RejectsPureGarbage) {
 
 // ─── Height: apostrophe-loss recovery (task #82 follow-on) ─────────────────
 //
-// Live Pixel logcat on a WI DL showed OCR reading "5'-04\"" as "5-04"
+// Live Pixel logcat on a WI DL showed OCR reading "5'-09\"" as "5-09"
 // (apostrophe collapsed into the dash). The previous normalizer's fast
 // path required an apostrophe, so the dash-form was silently dropped
 // and "Height Not detected" appeared in the result UI despite the
@@ -438,12 +438,12 @@ TEST(OcrDigitConfusion, RejectsPureGarbage) {
 TEST(HeightField_ApostropheLoss, AcceptsDashFormAndReformats) {
     FieldCandidateVector v{
         cand(FieldId::List1, "DOEFORD"),
-        cand(FieldId::List16, "5-04", FieldSource::StrictTextPool),
+        cand(FieldId::List16, "5-09", FieldSource::StrictTextPool),
     };
     auto r = extract_fields_from_candidates(v);
     ASSERT_TRUE(r.has_value());
     ASSERT_TRUE(r->height.has_value());
-    EXPECT_EQ(*r->height, "5'04\"");
+    EXPECT_EQ(*r->height, "5'09\"");
 }
 
 TEST(HeightField_ApostropheLoss, SingleInchDigitPadded) {
@@ -480,12 +480,12 @@ TEST(HeightField_ApostropheLoss, RejectsOutOfRangeInches) {
 TEST(HeightField_ApostropheLoss, ApostropheFormStillPassesUnchanged) {
     FieldCandidateVector v{
         cand(FieldId::List1, "DOEFORD"),
-        cand(FieldId::List16, "5'-04\"", FieldSource::StrictTextPool),
+        cand(FieldId::List16, "5'-09\"", FieldSource::StrictTextPool),
     };
     auto r = extract_fields_from_candidates(v);
     ASSERT_TRUE(r.has_value());
     ASSERT_TRUE(r->height.has_value());
-    EXPECT_EQ(*r->height, "5'-04\"");
+    EXPECT_EQ(*r->height, "5'-09\"");
 }
 
 TEST(ShapeGate_Street, NoCszMeansNoStrip) {

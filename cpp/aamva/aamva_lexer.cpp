@@ -251,7 +251,7 @@ const std::unordered_map<std::string, DomainRegex>& expected_domain() {
         // Sex
         add("15", R"(^[MFXmfx]$)",
             std::regex::ECMAScript);
-        // Height — WI 5'-04", 5'04", 5-10, bare 510, and `075 in` (round-6).
+        // Height — WI 5'-09", 5'09", 5-10, bare 510, and `075 in` (round-6).
         add("16", R"(^(?:\d{1,2}'-?\s*\d{1,2}["]?|\d{1,2}-\d{1,2}|\d{3}|\d{2,3}\s*in)$)",
             std::regex::ECMAScript);
         // Weight — case-insensitive lbs?

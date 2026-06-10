@@ -97,18 +97,18 @@ TEST(AamvaLexerInvariants, TrailingNonDigitIsAccepted) {
 
 // ============================================================================
 // Invariant 4 — value-boundary scan requires a label-peek on splits.
-// Prevents "5'-04\"" from being false-split at the leading '5'.
+// Prevents "5'-09\"" from being false-split at the leading '5'.
 // ============================================================================
 
 TEST(AamvaLexerInvariants, ValueBoundaryRequiresLabelPeek_HeightFiveFootFour) {
-    // "4d HEIGHT 5'-04" 8 EYES BLU" — the '5' inside the height value
+    // "4d HEIGHT 5'-09" 8 EYES BLU" — the '5' inside the height value
     // must NOT be split out as a "5" token. The '8' DOES have a label
     // (EYES) so that's the legitimate next token.
-    auto tokens = find_all_aamva_tokens("4d HEIGHT 5'-04\" 8 EYES BLU");
+    auto tokens = find_all_aamva_tokens("4d HEIGHT 5'-09\" 8 EYES BLU");
     ASSERT_EQ(tokens.size(), 2u);
     EXPECT_EQ(tokens[0].index, "4d");
     EXPECT_EQ(tokens[0].label, "HEIGHT");
-    EXPECT_EQ(tokens[0].value, "5'-04\"");
+    EXPECT_EQ(tokens[0].value, "5'-09\"");
     EXPECT_EQ(tokens[1].index, "8");
     EXPECT_EQ(tokens[1].label, "EYES");
     EXPECT_EQ(tokens[1].value, "BLU");
@@ -149,13 +149,13 @@ TEST(AamvaLexerHelpers, CanonicalizeFunctionDirect) {
 }
 
 // ============================================================================
-// Invariant 6 — height regex covers WI "5'-04\"", "5'04\"", "5-10", "510",
+// Invariant 6 — height regex covers WI "5'-09\"", "5'09\"", "5-10", "510",
 // and `075 in` 3-digit-inches (round-6).
 // ============================================================================
 
 TEST(AamvaLexerDomain, Height_WI_QuoteHyphenForm) {
-    EXPECT_TRUE(value_matches_domain("5'-04\"", "16"));
-    EXPECT_TRUE(value_matches_domain("5'04\"", "16"));
+    EXPECT_TRUE(value_matches_domain("5'-09\"", "16"));
+    EXPECT_TRUE(value_matches_domain("5'09\"", "16"));
 }
 
 TEST(AamvaLexerDomain, Height_HyphenForm) {
@@ -186,9 +186,9 @@ TEST(AamvaLexerDomain, Weight_BareDigits) {
 
 TEST(AamvaLexerDomain, Weight_LbCaseInsensitive) {
     EXPECT_TRUE(value_matches_domain("160 LB", "17"));
-    EXPECT_TRUE(value_matches_domain("160 lb", "17"));
+    EXPECT_TRUE(value_matches_domain("185 lb", "17"));
     EXPECT_TRUE(value_matches_domain("160 LBS", "17"));
-    EXPECT_TRUE(value_matches_domain("160 lbs", "17"));
+    EXPECT_TRUE(value_matches_domain("185 lbs", "17"));
 }
 
 TEST(AamvaLexerDomain, Weight_RejectsTrailingJunk) {
@@ -257,9 +257,9 @@ TEST(AamvaLexerDomain, UnknownIndexReturnsFalse) {
 }
 
 TEST(AamvaLexerDomain, CleanValueReturnsMatchedSubstring) {
-    auto cleaned = clean_value_to_domain("160 lb", "17");
+    auto cleaned = clean_value_to_domain("185 lb", "17");
     ASSERT_TRUE(cleaned.has_value());
-    EXPECT_EQ(*cleaned, "160 lb");
+    EXPECT_EQ(*cleaned, "185 lb");
 }
 
 // ============================================================================
@@ -347,7 +347,7 @@ TEST(AamvaLexerHelpers, CompatibleLabel_EmptyOrUnknown) {
 // ============================================================================
 
 TEST(AamvaLexerIntegration, FullDemographicLine) {
-    auto tokens = find_all_aamva_tokens("15 SEX M 16 HGT 5'-04\" 17 WGT 160 lb");
+    auto tokens = find_all_aamva_tokens("15 SEX M 16 HGT 5'-09\" 17 WGT 185 lb");
     ASSERT_EQ(tokens.size(), 3u);
 
     EXPECT_EQ(tokens[0].index, "15");
@@ -356,11 +356,11 @@ TEST(AamvaLexerIntegration, FullDemographicLine) {
 
     EXPECT_EQ(tokens[1].index, "16");
     EXPECT_EQ(tokens[1].label, "HGT");
-    EXPECT_EQ(tokens[1].value, "5'-04\"");
+    EXPECT_EQ(tokens[1].value, "5'-09\"");
 
     EXPECT_EQ(tokens[2].index, "17");
     EXPECT_EQ(tokens[2].label, "WGT");
-    EXPECT_EQ(tokens[2].value, "160 lb");
+    EXPECT_EQ(tokens[2].value, "185 lb");
 }
 
 TEST(AamvaLexerIntegration, FourFieldsWithEyeAndHair) {

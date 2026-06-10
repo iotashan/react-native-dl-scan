@@ -558,29 +558,29 @@ class TightenersTest {
     }
 
     @Test fun extractFieldShape_heightStripsConcatenatedWeight() {
-        // WI: "16 HGT 5'-04 17 WGT 160 lb" reads as one OCR line.
-        // Lexer's HGT-bounded value is "5'-04 17 WGT 160 lb". Need 5'-04.
-        assertEquals("5'-04",
-            HybridDLScanAndroid.extractFieldShape("16", "5'-04 17 WGT 160 lb"))
+        // WI: "16 HGT 5'-09 17 WGT 185 lb" reads as one OCR line.
+        // Lexer's HGT-bounded value is "5'-09 17 WGT 185 lb". Need 5'-09.
+        assertEquals("5'-09",
+            HybridDLScanAndroid.extractFieldShape("16", "5'-09 17 WGT 185 lb"))
     }
 
     @Test fun extractFieldShape_heightHyphenOnly() {
-        // OCR may drop the apostrophe: "5-04 WGT 160".
-        assertEquals("5-04",
-            HybridDLScanAndroid.extractFieldShape("16", "5-04 WGT 160"))
+        // OCR may drop the apostrophe: "5-09 WGT 185".
+        assertEquals("5-09",
+            HybridDLScanAndroid.extractFieldShape("16", "5-09 WGT 185"))
     }
 
     @Test fun extractFieldShape_weightPrefersUnitMatch() {
-        // "5-04 WGT 160 lb" — both "5-04" and "160 lb" present.
+        // "5-09 WGT 185 lb" — both "5-09" and "185 lb" present.
         // Weight extractor must pick the unit-suffixed one.
-        assertEquals("160 lb",
-            HybridDLScanAndroid.extractFieldShape("17", "5-04 WGT 160 lb"))
+        assertEquals("185 lb",
+            HybridDLScanAndroid.extractFieldShape("17", "5-09 WGT 185 lb"))
     }
 
     @Test fun extractFieldShape_weightBareDigits() {
         // No unit visible — extract bare 2-3 digit number.
-        assertEquals("160",
-            HybridDLScanAndroid.extractFieldShape("17", "WGT 160 b"))
+        assertEquals("185",
+            HybridDLScanAndroid.extractFieldShape("17", "WGT 185 b"))
     }
 
     @Test fun extractFieldShape_restrictionsNoneFromJunk() {

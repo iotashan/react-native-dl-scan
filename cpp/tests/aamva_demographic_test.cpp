@@ -175,16 +175,16 @@ TEST(AamvaDemographic, FusedRowSexExtraction) {
 // the 15-value at the sex letter. That happens when the trailing tokens carry
 // a label with no preceding AAMVA index (the boundary scan stops only at an
 // index that is followed by a known label). Here the lexer hands the extractor
-// a fused "M HGT 5-04" that fails the ^[MFX]$ domain; only the shape pull
+// a fused "M HGT 5-09" that fails the ^[MFX]$ domain; only the shape pull
 // rescues the lone "M". This case FAILS if extract_field_shape("15") is
 // removed (verified by neutralization), so it pins the fix the real-scan row
 // could not.
 TEST(AamvaDemographic, FusedRowSexShapePullWhenLexerCannotSplit) {
-    std::vector<std::string> obs = {"15 SEX M HGT 5-04"};
+    std::vector<std::string> obs = {"15 SEX M HGT 5-09"};
     auto strict = parse_aamva_demographic_fields(obs);
     EXPECT_EQ(strict_text(strict, FieldId::List15), "M")
         << "extract_field_shape must pull the lone [MFX] from a fused row the "
-           "lexer left as 'M HGT 5-04'";
+           "lexer left as 'M HGT 5-09'";
 }
 
 // ---------------------------------------------------------------------------
@@ -285,7 +285,7 @@ TEST(AamvaDemographic, RealWisconsinRawScanIter2) {
         "g CLASS", "1 DELGADO", "OND", "2 MARCUS ANTOINEO",
         "8 4827 LAKERIDGE DR", "FAIRBROOK, WI 54016",
         "D", "AUG", "80",
-        "15 SEX M 16 HGT 5'-04\" |17 WGT 160 (b",
+        "15 SEX M 16 HGT 5'-09\" |17 WGT 185 (b",
         "18 EYES BRO 19 HAIRBLK",
         "3 DOB 03/27/1976",
         "9a", "END NONE", "05/15/2024",
@@ -303,7 +303,7 @@ TEST(AamvaDemographic, RealWisconsinRawScanIter3) {
         "1 DELGADO", "2 MARCUS ANTOINE",
         "8 4827 LAKERIDGE DR", "FAIRBROOK, WI 54016",
         "9 CLASS", "D", "AUG", "80",
-        "15 SEX M 16 HOT 5'-04% /17 WCT 160 (b",
+        "15 SEX M 16 HOT 5'-09% /17 WCT 160 (b",
         "18 EYES BRO 19 HAIRBLK",
         "INTEL'",
         "3 DOB 03/27/1976 sa END NONE",
@@ -458,7 +458,7 @@ TEST(AamvaDemographic, PennsylvaniaSpaceGroupedLicenseLookAhead) {
         "Реникуванія", "visitPA.com", "4dDLN:", "48 604 659",
         "3 дов: 03/30/1994", "+ WILLIAMS", "2 JOSE", "8 83 FRUIT AVENUE",
         "SHARON, PA 16146", "4bEXP: 07/23/2026", "4aISS: 07/23/2021",
-        "15 SEX: M 18 EYES: BRO", "16 HGT: 5'-04\"", "9 CLASS: A",
+        "15 SEX: M 18 EYES: BRO", "16 HGT: 5'-09\"", "9 CLASS: A",
         "9a END: NONE", "12 RESTR: B", "faill", "5 DD:0000000002173",
         "000000002173", "DRIVER'S LICENSE", "DUPS: 00", "DL",
     });

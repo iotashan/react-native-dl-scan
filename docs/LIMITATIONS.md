@@ -238,7 +238,7 @@ The library does ship a small number of regex-based fallbacks that recover
 specific OCR-fusion patterns observed on real WI / IL / NY licenses:
 
 - **Apostrophe-loss height recovery** — when OCR drops the foot mark
-  (`5'-04"` → `5-04`), `normalize_height_field` accepts the dash-form when
+  (`5'-09"` → `5-09`), `normalize_height_field` accepts the dash-form when
   feet ∈ [4,7] and inches ∈ [0,11] and reformats to canonical `F'II"`.
 - **Trailing-noise eye/hair color recovery** — when OCR appends a stray
   character (`BLK` → `BLKO`), the lexer's anchored allowlist regex tolerates

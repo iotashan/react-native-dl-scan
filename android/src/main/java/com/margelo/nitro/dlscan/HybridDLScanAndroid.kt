@@ -1048,7 +1048,7 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
                 var cleaned = token.value.trim().trimEnd('.', ',', ';')
                 // round-6 follow-on: per-index value pre-extraction.
                 // OCR commonly concatenates adjacent fields into one
-                // observation (e.g. WI: "16 HGT 5'-04 17 WGT 160 lb"
+                // observation (e.g. WI: "16 HGT 5'-09 17 WGT 185 lb"
                 // reads as one line; "3 DOB 03/27/1976 ea ENb NONE"
                 // glues DOB onto the endorsements column). The lexer
                 // extracts everything after the label as the value,
@@ -1987,8 +1987,8 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
 
         /**
          * Per-AAMVA-index value pre-extractor. OCR commonly concatenates
-         * adjacent fields onto one observation (WI: "16 HGT 5'-04 17 WGT
-         * 160 lb" or "3 DOB 03/27/1976 EnB NONE"); the lexer's value
+         * adjacent fields onto one observation (WI: "16 HGT 5'-09 17 WGT
+         * 185 lb" or "3 DOB 03/27/1976 EnB NONE"); the lexer's value
          * span includes the trailing junk; the anchored dom regex
          * rejects it. This helper extracts JUST the field-shape portion
          * so the dom gate sees a clean value. round-6 design.
@@ -2002,7 +2002,7 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
                     m?.value ?: value
                 }
                 "16" -> {
-                    // Height — find first 5'-04" / 5'04" / 5-04 / \d{3}
+                    // Height — find first 5'-09" / 5'09" / 5-09 / \d{3}
                     val m = Regex(
                         """(\d{1,2}'-?\s*\d{1,2}["]?|\d{1,2}-\d{1,2}|\d{3})"""
                     ).find(value)

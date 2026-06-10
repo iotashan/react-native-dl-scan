@@ -241,8 +241,8 @@ export interface LicenseData {
   sex: SexValue | null;             // { code: 'M' | 'F' | 'X' } | { code: 'other', raw }
   eyeColor: EyeColorValue | null;   // { code: EyeColorCode } | { code: 'other', raw }
   hairColor: HairColorValue | null; // { code: HairColorCode } | { code: 'other', raw }
-  height: string | null;            // e.g. "5'04\"" (canonical) or "5'-04" (VisionKit-raw)
-  weight: string | null;            // e.g. "160" or "160 lb"
+  height: string | null;            // e.g. "5'04\"" (canonical) or "5'-09" (VisionKit-raw)
+  weight: string | null;            // e.g. "160" or "185 lb"
   vehicleClass: string | null;
   restrictions: string | null;
   endorsements: string | null;

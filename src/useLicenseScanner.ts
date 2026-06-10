@@ -910,7 +910,7 @@ export function useLicenseScanner(
     // already rate-limits OCR to 2 fps internally, so the cost of larger
     // frames lands on per-frame YUV→bitmap copy + DocAligner+YOLO
     // downscale rather than continuous throughput. The win is denser
-    // pixels under the demographic-row text (5'-04", 160 lb, BRO, BLK)
+    // pixels under the demographic-row text (5'-09", 185 lb, BRO, BLK)
     // and under the AAMVA index tokens, which MLKit OCR needs to
     // recognise without smearing characters across word boundaries. Up
     // from FHD_4_3 (2.7 MP) where Sex/Height/Eye/Hair/Weight rarely

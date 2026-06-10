@@ -639,7 +639,7 @@ TEST(StructuredExtractor, ColorAllowlistOnlyUpgradesCanonicalCodes) {
 TEST(StructuredExtractor, WeightStripsHyphenSeparator) {
     // Task #44 — WGT-/HGT-/etc. separators. Real-world OCR pattern from
     // some state templates that render the label with a trailing dash:
-    // "WGT- 165 LB", "WGT-160 lb". strip_leading_label now consumes `-`
+    // "WGT- 165 LB", "WGT-185 lb". strip_leading_label now consumes `-`
     // (and `;`) along with the existing whitespace+`:,.` separators.
     auto weight_of = [](const std::string& v) {
         auto r = extract_fields_from_candidates(
@@ -647,7 +647,7 @@ TEST(StructuredExtractor, WeightStripsHyphenSeparator) {
         return r.has_value() ? r->weight : std::nullopt;
     };
     EXPECT_EQ(weight_of("WGT- 165 LB"), "165 LB");   // hyphen + space
-    EXPECT_EQ(weight_of("WGT-160 lb"),  "160 lb");   // hyphen no space
+    EXPECT_EQ(weight_of("WGT-185 lb"),  "185 lb");   // hyphen no space
     EXPECT_EQ(weight_of("WGT; 180 LB"), "180 LB");   // semicolon
     EXPECT_EQ(weight_of("WT-200 lb"),   "200 lb");   // shorter label
     EXPECT_EQ(weight_of("WGT 175 LB"),  "175 LB");   // baseline unchanged
@@ -664,7 +664,7 @@ TEST(StructuredExtractor, HeightStripsHyphenSeparator) {
     };
     EXPECT_EQ(height_of("HGT- 5'-10\""), "5'-10\"");
     EXPECT_EQ(height_of("HT;5'-08\""),   "5'-08\"");
-    EXPECT_EQ(height_of("HGT 5'-04\""),  "5'-04\"");  // baseline unchanged
+    EXPECT_EQ(height_of("HGT 5'-09\""),  "5'-09\"");  // baseline unchanged
 }
 
 TEST(StructuredExtractor, StrictKeyWinsOverBboxKey) {
@@ -789,7 +789,7 @@ TEST(StructuredExtractor, HeightGateAcceptsFeetInchVariants) {
             EXPECT_EQ(*r->height, want_height) << "input=" << v;
         }
     };
-    check("5'-04''", "5'-04''");      // clean AAMVA
+    check("5'-09''", "5'-09''");      // clean AAMVA
     check("5'_04':", "5'_04':");      // WI OCR noise (underscore + colon)
     check("S'-02\"", "S'-02\"");      // CA OCR (S for 5)
     check("HGT 5'-10\"", "5'-10\"");  // label stripped
