@@ -13,10 +13,7 @@
 // orchestrator doesn't need to know which scanner is underneath.
 
 import type { CameraOutput } from 'react-native-vision-camera';
-import {
-  useBarcodeScannerOutput,
-  type Barcode,
-} from 'react-native-vision-camera-barcode-scanner';
+import type { Barcode } from 'react-native-vision-camera-barcode-scanner';
 
 // Module-level constant so `useBarcodeScannerOutput`'s identity-based
 // useMemo doesn't allocate a new `barcodeFormats` array each render
@@ -39,6 +36,20 @@ export function useBarcodeOutput(
   options: UseBarcodeOutputOptions
 ): CameraOutput {
   const { onAamvaString, onError } = options;
+  // Lazy require, NOT a top-level import: the plugin's JS module runs
+  // `createHybridObject('BarcodeScannerFactory')` at module scope, and its
+  // native registration is broken under bridgeless RN (the plugin's Kotlin
+  // Package does `initializeNative()` in a `companion object init {}`, which
+  // never executes because nothing references the companion — the same trap
+  // documented in our DLScanPackage). A top-level import therefore throws
+  // during *library* import and takes down the whole app ("App entry not
+  // found") even for consumers that never use barcode mode. Deferring the
+  // require to first render of the barcode hook keeps the front-OCR path
+  // fully decoupled from the plugin's load state. Hook-order stays legal:
+  // this resolves to the same hook on every render of this component.
+  const {
+    useBarcodeScannerOutput,
+  } = require('react-native-vision-camera-barcode-scanner');
   return useBarcodeScannerOutput({
     barcodeFormats: FORMATS,
     // PDF417 on a driver license is small + dense (~5cm × 1cm with
