@@ -188,6 +188,7 @@ export function ResultView({
             key={data.cardImagePath}
             uri={data.cardImagePath}
             observations={data.ocrObservations ?? []}
+            data={data}
             t={t}
           />
         )}
@@ -642,16 +643,107 @@ function pickGradient(direction: Direction, t: ThemeTokens): GradientSpec {
  * the native OCR pass failed) the toggle is disabled and the plain image
  * renders.
  */
+// A final-data overlay placement: a parsed LicenseData VALUE positioned at
+// (a slice of) the OCR observation where it was found on the card.
+interface ValuePlacement {
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const norm = (s: string) => s.toUpperCase().replace(/\s+/g, ' ').trim();
+
+/** Alternate card-facing renderings of a final value (dates are stored ISO
+ *  but printed MM/DD/YYYY on the card). */
+function valueCandidates(value: string): string[] {
+  const out = [value];
+  const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) out.push(`${iso[2]}/${iso[3]}/${iso[1]}`);
+  return out;
+}
+
+/**
+ * Match the APPROVED final field values to the raw observations so the
+ * Overlay view shows clean parsed data where it was found on the card —
+ * not the raw OCR soup, and never the AAMVA labels/markers (only the value
+ * substring is placed). Containment matches position proportionally within
+ * the observation's box; values with no confident match are simply not
+ * rendered (no guessing).
+ */
+function placeFinalValues(
+  data: LicenseData,
+  observations: OcrObservation[]
+): ValuePlacement[] {
+  const FIELDS: (keyof LicenseData)[] = [
+    'firstName',
+    'middleName',
+    'lastName',
+    'street',
+    'city',
+    'state',
+    'postalCode',
+    'dateOfBirth',
+    'expirationDate',
+    'issueDate',
+    'licenseNumber',
+    'sex',
+    'eyeColor',
+    'hairColor',
+    'height',
+    'weight',
+    'vehicleClass',
+    'endorsements',
+  ];
+  const placements: ValuePlacement[] = [];
+  for (const k of FIELDS) {
+    const value = displayField(data, k);
+    if (value == null || value === '') continue;
+    const candidates = valueCandidates(norm(value));
+    let placed: ValuePlacement | null = null;
+    for (const cand of candidates) {
+      for (const o of observations) {
+        const hay = norm(o.text);
+        const idx = hay.indexOf(cand);
+        if (idx < 0) continue;
+        const frac = cand.length / Math.max(hay.length, 1);
+        const offFrac = idx / Math.max(hay.length, 1);
+        const exact = hay.length === cand.length;
+        const next: ValuePlacement = {
+          text: value,
+          x: o.x + (exact ? 0 : o.width * offFrac),
+          y: o.y,
+          width: o.width * (exact ? 1 : frac),
+          height: o.height,
+        };
+        // Prefer the TIGHTEST containing observation (least label noise).
+        if (placed == null || next.width < placed.width || exact) {
+          placed = next;
+        }
+        if (exact) break;
+      }
+      if (placed) break;
+    }
+    if (placed) placements.push(placed);
+  }
+  return placements;
+}
+
 function ScannedCardSection({
   uri,
   observations,
+  data,
   t,
 }: {
   uri: string;
   observations: OcrObservation[];
+  data: LicenseData;
   t: ThemeTokens;
 }) {
-  const [view, setView] = useState<'overlay' | 'original'>('overlay');
+  const [view, setView] = useState<'overlay' | 'rawocr' | 'original'>(
+    'overlay'
+  );
   const [aspect, setAspect] = useState<number | null>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   useEffect(() => {
@@ -672,8 +764,19 @@ function ScannedCardSection({
     };
   }, [uri]);
 
-  const overlayReady = observations.length > 0 && aspect != null;
-  const showOverlay = overlayReady && view === 'overlay';
+  const textModesReady = observations.length > 0 && aspect != null;
+  const placements = textModesReady ? placeFinalValues(data, observations) : [];
+  const overlayReady = textModesReady && placements.length > 0;
+  // Effective mode degrades gracefully: overlay needs placements, raw needs
+  // observations, original always works.
+  const effective =
+    view === 'overlay' && overlayReady
+      ? 'overlay'
+      : view !== 'original' && textModesReady
+        ? view === 'overlay'
+          ? 'rawocr'
+          : view
+        : 'original';
 
   return (
     <View style={styles.cardPreview}>
@@ -684,27 +787,34 @@ function ScannedCardSection({
           SCANNED CARD
         </Text>
         <View
-          pointerEvents={overlayReady ? 'auto' : 'none'}
+          pointerEvents={textModesReady ? 'auto' : 'none'}
           style={[
             styles.segmentHost,
             {
               backgroundColor: t.surface2,
               borderColor: t.hairline,
-              opacity: overlayReady ? 1 : 0.4,
+              opacity: textModesReady ? 1 : 0.4,
             },
           ]}
         >
-          {(['overlay', 'original'] as const).map((k) => {
-            const on = (showOverlay ? 'overlay' : 'original') === k;
+          {(
+            [
+              ['overlay', 'Overlay', overlayReady],
+              ['rawocr', 'Raw OCR', textModesReady],
+              ['original', 'Original', true],
+            ] as const
+          ).map(([k, label, enabled]) => {
+            const on = effective === k;
             return (
               <Pressable
                 key={k}
-                onPress={() => setView(k)}
+                onPress={() => enabled && setView(k)}
                 accessibilityRole="button"
-                accessibilityState={{ selected: on, disabled: !overlayReady }}
-                accessibilityLabel={`${k} card view`}
+                accessibilityState={{ selected: on, disabled: !enabled }}
+                accessibilityLabel={`${label} card view`}
                 style={[
                   styles.segmentBtn,
+                  !enabled && { opacity: 0.45 },
                   on && {
                     backgroundColor: t.surface,
                     borderColor: t.hairline,
@@ -718,7 +828,7 @@ function ScannedCardSection({
                     { fontFamily: t.mono, color: on ? t.ink : t.ink3 },
                   ]}
                 >
-                  {k === 'overlay' ? 'Overlay' : 'Original'}
+                  {label}
                 </Text>
               </Pressable>
             );
@@ -743,7 +853,7 @@ function ScannedCardSection({
           // overlay is off in that state anyway.
           resizeMode={aspect != null ? 'cover' : 'contain'}
         />
-        {showOverlay && box != null && (
+        {effective !== 'original' && box != null && (
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
             {/* Scrim between the card and the text: theme bg at 0.6 keeps
                 the card identifiable while giving the ink-colored text
@@ -754,26 +864,33 @@ function ScannedCardSection({
                 { backgroundColor: t.bg, opacity: 0.6 },
               ]}
             />
-            {observations.map((o, i) => (
-              <Text
-                key={`${i}-${o.text}`}
-                numberOfLines={1}
-                style={{
-                  position: 'absolute',
-                  left: o.x * box.w,
-                  top: o.y * box.h,
-                  width: Math.max(o.width * box.w, 2),
-                  // ~0.72 of the bbox height ≈ cap height of the line;
-                  // floor keeps degenerate boxes from rendering at 0.
-                  fontSize: Math.max(o.height * box.h * 0.72, 4),
-                  lineHeight: Math.max(o.height * box.h, 5),
-                  fontFamily: t.mono,
-                  color: t.ink,
-                }}
-              >
-                {o.text}
-              </Text>
-            ))}
+            {/* Overlay = the APPROVED final values where they were found
+                (labels/markers excluded). Raw OCR = every detected string
+                verbatim at its detected box. Both render each item at ONE
+                font size for the whole string, and neither constrains text
+                width — items take their natural width past the measured box
+                rather than ever truncating with an ellipsis. */}
+            {(effective === 'overlay' ? placements : observations).map(
+              (o, i) => (
+                <Text
+                  key={`${i}-${o.text}`}
+                  style={{
+                    position: 'absolute',
+                    left: o.x * box.w,
+                    top: o.y * box.h,
+                    minWidth: Math.max(o.width * box.w, 2),
+                    // ~0.72 of the bbox height ≈ cap height of the line;
+                    // floor keeps degenerate boxes from rendering at 0.
+                    fontSize: Math.max(o.height * box.h * 0.72, 4),
+                    lineHeight: Math.max(o.height * box.h, 5),
+                    fontFamily: t.mono,
+                    color: t.ink,
+                  }}
+                >
+                  {o.text}
+                </Text>
+              )
+            )}
           </View>
         )}
       </View>
