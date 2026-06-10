@@ -257,7 +257,12 @@ export type DocumentType =
 
 export interface ConfidenceEntry {
   score: number;                    // 0..1, derived from tier (see Confidence Tiers below)
-  tier: 'cross_validated' | 'all_gates_passed' | 'shape_matched' | 'extracted_raw';
+  tier:
+    | 'cross_validated'
+    | 'all_gates_passed'
+    | 'marker_located'
+    | 'shape_matched'
+    | 'extracted_raw';
 }
 
 // Typed value sets (AAMVA D20) — see "Typed value sets" below.
@@ -429,16 +434,19 @@ type TtaMode = 'original' | 'blueChannel' | 'contrastStretch';
 
 ## Confidence Tiers
 
-Every field that reaches `LicenseData` carries a `tier` and a numeric `score` in `dataConfidence`. The score is **not** a probability — it's a fixed value derived from a 4-rung validation ladder:
+Every field that reaches `LicenseData` carries a `tier` and a numeric `score` in `dataConfidence`. The score is **not** a probability — it's a fixed value derived from a 5-rung validation ladder:
 
 | Tier | Score | When it fires |
 |---|---|---|
-| `cross_validated` | 1.00 | Two independent paths (strict-text-pool parser + bbox-IoU YOLO match) **agreed** on the same value |
-| `all_gates_passed` | 0.95 | Strict 4-gate demographic parser accepted the value; no bbox confirmation |
-| `shape_matched` | 0.85 | Value passed its content-shape regex / allowlist (e.g. `MM/DD/YYYY`, `^(BLK\|BRO\|...)$`, `\d{5}` ZIP) |
+| `cross_validated` | 1.00 | Two **independent** sources agreed on the same value — strict-text-pool parser vs. bbox-IoU detector match, or (front scans on iOS 26+) the deterministic parse vs. Apple's `DataDetector` reading of the same card crop |
+| `all_gates_passed` | 0.95 | Strict 4-gate demographic parser accepted the value; no independent confirmation |
+| `marker_located` | 0.88 | Free-text field (name / street) located by its authoritative AAMVA field marker, but the value itself has no checkable shape |
+| `shape_matched` | 0.85 | Value passed its content-shape regex / allowlist (e.g. `MM/DD/YYYY`, `^(BLK\|BRO\|...)$`, `\d{5}` ZIP) — also the entry tier for fields filled by the iOS 26+ DataDetector cross-check |
 | `extracted_raw` | 0.50 | Value was pulled from the OCR text pool but no content gate was applied |
 
-This is documented in `cpp/license_data.hpp` (`enum class ValidationTier`). Users who want a probabilistic confidence should treat the tier as a categorical signal — `cross_validated` and `all_gates_passed` are trustworthy enough to auto-fill a form; `shape_matched` is good for display; `extracted_raw` should be reviewed.
+This is documented in `cpp/license_data.hpp` (`enum class ValidationTier`). Users who want a probabilistic confidence should treat the tier as a categorical signal — `cross_validated` and `all_gates_passed` are trustworthy enough to auto-fill a form; `marker_located`/`shape_matched` are good for display; `extracted_raw` should be reviewed.
+
+On iOS 26+ the finalization pass additionally runs Apple Vision's `RecognizeDocumentsRequest` over the saved card image and uses its `DataDetector` hits (dates, postal address) as an auxiliary evidence source: it can **fill an empty field** (entering at `shape_matched`) or **upgrade an agreeing field** to `cross_validated`, but it never overwrites or removes a value the deterministic parser produced, and it fails closed on any ambiguity (e.g. it only assigns dates when exactly three distinct plausible dates are found). Below iOS 26 — and on Android — the pipeline is byte-identical to before.
 
 ## Architecture
 

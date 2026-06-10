@@ -50,6 +50,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the `OcrModelSources` type for the JS-orchestrated detector path.
 - `STRICT_REQUIRED_FIELDS` — the default required set plus `sex`, for consumers
   that must not finalize a scan without it (pair with `maxFrames: 40`).
+- **iOS 26+: DataDetector cross-check in the finalization pass.** Apple Vision's
+  `RecognizeDocumentsRequest` runs once over the saved card crop; its
+  DataDetector hits (dates, postal address) fill empty fields at
+  `shape_matched` or upgrade exact-agreeing fields to `cross_validated`. Strictly
+  enrich-only and fail-closed (dates assigned only when exactly three distinct,
+  plausible dates are detected; any populated-slot disagreement discards the
+  whole set). No-op below iOS 26, on Android, and for consumers building with
+  pre-Xcode-26 SDKs (compile-guarded).
 
 ### Fixed
 
@@ -57,6 +65,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   re-read overwrote the accumulator before the contradiction check; it now
   compares the fresh frame against a pre-merge snapshot.
 - A failed `"city, ST zip"` address split no longer dumps the raw line into `city`.
+- **Importing the library no longer crashes Android apps at startup.** The
+  Android barcode output eagerly imported
+  `react-native-vision-camera-barcode-scanner`, whose module-scope
+  `createHybridObject` throws under bridgeless React Native (the plugin's
+  native init never runs — an upstream `companion object init {}` bug). The
+  plugin is now lazy-required on first use of barcode mode, fully decoupling
+  front-OCR scanning from the plugin's load state.
+- Example app: the license hero card sizes to its content on both form factors
+  (no more giant empty card on tablets / overflowing card on phones); the
+  detected-card bounding box renders on all shells via orientation-aware
+  corner mapping (previously phone-portrait only); the processing-stage
+  narration matches the real pipeline on both platforms; the tablet
+  result-screen "Start scan" no longer re-emits the prior result.
 
 ## [0.2.0] - 2026-05-28
 
