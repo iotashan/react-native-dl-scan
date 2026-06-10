@@ -415,6 +415,7 @@ const scanner = useLicenseScanner('ocr', OCR_MODELS, {
 | `maxFrames` | `number` | `30` | Hard cap on consensus passes. If the required set isn't complete by then, the scan finalizes best-effort with whatever was captured (`phase: 'incomplete'`). |
 | `validationPass` | `boolean` | `true` | After the required set is first met, require one more pass that re-confirms it before finalizing — guards against a single lucky-but-wrong read. |
 | `tta` | `{ enabled?: boolean; modes?: TtaMode[] }` | **on** (`{ enabled: true, modes: ['original', 'blueChannel', 'contrastStretch'] }`) | Best-crop re-parse at finalization. On **every** finalize the library re-OCRs the single best captured card crop once under each augmentation with a fresh `minVotes: 1` voter and merges anything new. Additive — it can only fill an absent field or upgrade on strictly-higher confidence, never clobber a confirmed value. Disable with `tta: { enabled: false }`. See [TTA verification](#tta-verification-ocr-mode). |
+| `capture` | `'full' \| 'imagesOnly'` | `'full'` | What the scan produces. `'imagesOnly'` skips OCR/parse/voting/TTA and returns only the rectified card JPEG + best-effort headshot, completing as soon as the card image is saved (`requiredFields` is ignored). See [Images-only capture](#images-only-capture-ocr-mode). |
 
 In one sentence: **scan until the required fields are satisfied, capped by `maxFrames`, with an optional final validation pass**, and on every finalize re-parse the best crop once to recover any field the multi-frame vote dropped.
 
@@ -437,6 +438,60 @@ export interface ScanStatus {
   fieldConfidence: LicenseData['dataConfidence'];
 }
 ```
+
+## Images-only capture (OCR mode)
+
+Sometimes the **data** comes from the barcode and you just need a **photo of
+the card front** — a dealership logging a test drive, a rental counter keeping
+the customer's license on file. `capture: 'imagesOnly'` runs the front-scan
+camera pipeline (doc-seg rectification + field detection as the quality gate)
+but skips OCR text recognition, the C++ AAMVA parse, multi-frame voting, and
+TTA entirely, producing only:
+
+- **`cardImagePath`** — `file://` JPEG of the perspective-corrected
+  (cropped & deskewed) card front, identical to the card image a full scan
+  saves.
+- **`headshotImagePath`** — `file://` JPEG of the cropped portrait
+  (platform face detection with a YOLO face-bbox fallback). Best-effort:
+  `null` when no face region is found.
+
+```ts
+import { useLicenseScanner } from 'react-native-dl-scan';
+
+// Scan 1 — the back: the PDF417 barcode carries all the data.
+const barcode = useLicenseScanner('barcode');
+
+// Scan 2 — the front: images only. Completes as soon as the card image
+// is saved (typically the first frame that passes the quality gate).
+const frontCapture = useLicenseScanner('ocr', OCR_MODELS, {
+  capture: 'imagesOnly',
+});
+
+// When frontCapture.isScanning flips false:
+//   frontCapture.licenseData.cardImagePath     -> 'file://...-card.jpg'
+//   frontCapture.licenseData.headshotImagePath -> 'file://...-headshot.jpg' | null
+//   every other LicenseData field              -> null
+```
+
+**The contract:**
+
+- The scan **completes as soon as `cardImagePath` is set** (the headshot is
+  attempted on the same frame; it may legitimately be `null`).
+  `scanStatus.phase` goes straight to `'complete'`.
+- **`requiredFields` is ignored**, and `validationPass` / `tta` are forced
+  off — there is no field data to confirm or re-parse. `maxFrames` remains
+  only as a defensive cap (`phase: 'incomplete'` if it ever fires).
+- **Every `LicenseData` field value is `null`** — `firstName`, `sex`,
+  `dataConfidence`, all of them. Only the two image paths are populated.
+- **`ocrObservations` is absent** — it is produced by the card-image OCR
+  pass, which this mode skips.
+- The capture is **once per scan session**; call `reset()` to capture the
+  next card.
+
+**Performance.** Skipping OCR/parse/voting/TTA makes each frame quicker and
+cheaper than a full scan: per frame the pipeline runs only doc-seg
+rectification + the NanoDet detector pass, and the once-per-scan finalization
+is just the card JPEG save + face detection — no text recognition ever runs.
 
 ## TTA verification (OCR mode)
 
