@@ -948,13 +948,13 @@ function ScannedCardSection({
                       // Padding is subtracted from the anchor so the GLYPHS
                       // stay at the observed position; the box hangs around
                       // them.
-                      left: o.x * box.w - 4,
-                      top: o.y * box.h - 2,
-                      minWidth: Math.max(o.width * box.w, 2) + 8,
-                      backgroundColor: 'rgba(0,0,0,0.65)',
+                      left: o.x * box.w - 3,
+                      top: o.y * box.h - 1,
+                      minWidth: Math.max(o.width * box.w, 2) + 6,
+                      backgroundColor: 'rgba(0,0,0,0.5)',
                       borderRadius: 4,
-                      paddingHorizontal: 4,
-                      paddingVertical: 2,
+                      paddingHorizontal: 3,
+                      paddingVertical: 1,
                     }}
                   >
                     <Text
