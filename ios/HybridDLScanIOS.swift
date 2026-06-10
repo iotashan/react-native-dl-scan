@@ -484,19 +484,7 @@ class HybridDLScanIOS: HybridDLScanSpec {
     guard let entry else { return .first(.null) }
     let rectified = entry.rectified
 
-    // Map JS NanoDet detections (classId + source-pixel bbox) into the internal
-    // (name, bbox, conf) tuples the OCR stages consume.
-    var dets: [(name: String, bbox: CGRect, conf: Float)] = []
-    dets.reserveCapacity(detections.count)
-    for d in detections {
-      let name = String(cString: dlscan.yolo.class_name_or_empty(Int32(d.classId)))
-      if name.isEmpty { continue }
-      dets.append((name: name,
-                   bbox: CGRect(x: CGFloat(d.x1), y: CGFloat(d.y1),
-                                width: CGFloat(max(0, d.x2 - d.x1)),
-                                height: CGFloat(max(0, d.y2 - d.y1))),
-                   conf: Float(d.confidence)))
-    }
+    let dets = Self.mapDetections(detections)
     if dets.isEmpty { return .first(.null) }
 
     // Steps 3..5 of the former runDetectionPipeline, detections now JS-provided.
@@ -557,6 +545,88 @@ class HybridDLScanIOS: HybridDLScanSpec {
                                       ocrObservations: cardObservations,
                                       headshotImagePath: headshotPath)
     return .second(spec)
+  }
+
+  /// Images-only capture (no OCR): the dedicated entry behind the JS
+  /// `completion.capture: 'imagesOnly'` mode. Rides the exact same
+  /// rectify -> NanoDet-detect entry as `ocrExtractFields` — same token
+  /// lookup, same non-empty-detections quality gate (detections prove a
+  /// recognizable card front is in frame AND feed the YOLO-face headshot
+  /// fallback) — then short-circuits straight to the once-per-session
+  /// card-image save + headshot extraction. No OCR text recognition, no C++
+  /// parse, no voting, and no TTA-crop retention run.
+  ///
+  /// Latch discipline differs deliberately from the full path: the full path
+  /// latches `cardCapturedThisSession` BEFORE attempting the save (a failed
+  /// save there still returns field data, the image is just absent), but here
+  /// the saved card IS the scan result, so the latch is only set AFTER
+  /// `saveRectifiedCard` succeeds — a failed save returns null and the next
+  /// frame retries the capture.
+  func captureFrontImages(token: Double,
+                          detections: [FieldDetectionSpec]) throws -> Variant_NullType_LicenseDataSpec {
+    rectifyLock.lock()
+    let entry = rectifiedCache.removeValue(forKey: token)
+    rectifyLock.unlock()
+    guard let entry else { return .first(.null) }
+
+    let dets = Self.mapDetections(detections)
+    if dets.isEmpty { return .first(.null) }
+    if cardCapturedThisSession { return .first(.null) }
+
+    _pipelineStage = 3
+    guard let saved = Self.saveRectifiedCard(sourceBuffer: entry.source,
+                                             orientation: entry.orientation,
+                                             withObservations: false) else {
+      _pipelineStage = 0
+      return .first(.null)
+    }
+    cardCapturedThisSession = true
+    _pipelineStage = 4
+    let headshotPath = Self.extractHeadshot(from: entry.rectified,
+                                            yoloDetections: dets,
+                                            cardImagePath: saved.path)
+    _pipelineStage = 5
+    _scanProgress = 1.0
+    return .second(Self.imagesOnlyLicenseDataSpec(cardImagePath: saved.path,
+                                                  headshotImagePath: headshotPath))
+  }
+
+  /// Map JS NanoDet detections (classId + rectified-image-pixel bbox) into the
+  /// internal (name, bbox, conf) tuples the OCR/headshot stages consume.
+  /// Shared by `ocrExtractFields` and `captureFrontImages`.
+  private static func mapDetections(
+    _ detections: [FieldDetectionSpec]
+  ) -> [(name: String, bbox: CGRect, conf: Float)] {
+    var dets: [(name: String, bbox: CGRect, conf: Float)] = []
+    dets.reserveCapacity(detections.count)
+    for d in detections {
+      let name = String(cString: dlscan.yolo.class_name_or_empty(Int32(d.classId)))
+      if name.isEmpty { continue }
+      dets.append((name: name,
+                   bbox: CGRect(x: CGFloat(d.x1), y: CGFloat(d.y1),
+                                width: CGFloat(max(0, d.x2 - d.x1)),
+                                height: CGFloat(max(0, d.y2 - d.y1))),
+                   conf: Float(d.confidence)))
+    }
+    return dets
+  }
+
+  /// All-fields-absent LicenseDataSpec carrying only the captured image paths —
+  /// the images-only capture result shape (field values null by contract).
+  private static func imagesOnlyLicenseDataSpec(
+    cardImagePath: String?,
+    headshotImagePath: String?
+  ) -> LicenseDataSpec {
+    return LicenseDataSpec(
+      firstName: nil, lastName: nil, middleName: nil, dateOfBirth: nil,
+      expirationDate: nil, issueDate: nil, licenseNumber: nil, street: nil,
+      city: nil, state: nil, postalCode: nil, country: nil, sex: nil,
+      eyeColor: nil, hairColor: nil, height: nil, weight: nil,
+      vehicleClass: nil, restrictions: nil, endorsements: nil,
+      aamvaVersion: nil, documentType: nil, mrz: nil, dataConfidenceJson: nil,
+      cardImagePath: cardImagePath, ocrObservations: nil,
+      headshotImagePath: headshotImagePath
+    )
   }
 
   /// Shared C++ field extraction from a typed FieldCandidate consensus. Builds
@@ -2209,9 +2279,15 @@ class HybridDLScanIOS: HybridDLScanSpec {
   /// an independent doc-seg pass), so its boxes do NOT live in this image's
   /// pixel space and cannot be reused. Observations are fail-soft: nil on
   /// any OCR difficulty, never blocking the card save itself.
+  ///
+  /// `withObservations: false` skips that dedicated OCR pass entirely —
+  /// used by the images-only capture mode, whose contract is "no OCR runs"
+  /// (observations are documented absent there, and skipping the pass is
+  /// part of the mode's performance win).
   private static func saveRectifiedCard(
     sourceBuffer: CVPixelBuffer,
-    orientation: CGImagePropertyOrientation
+    orientation: CGImagePropertyOrientation,
+    withObservations: Bool = true
   ) -> (path: String, observations: [OcrObservationSpec]?)? {
     let request = VNDetectDocumentSegmentationRequest()
     let handler = VNImageRequestHandler(cvPixelBuffer: sourceBuffer,
@@ -2269,7 +2345,7 @@ class HybridDLScanIOS: HybridDLScanSpec {
       return nil
     }
     return (path: url.absoluteString,
-            observations: cardImageObservations(on: cgImage))
+            observations: withObservations ? cardImageObservations(on: cgImage) : nil)
   }
 
   /// #82: per-line OCR observations over the EXACT saved card image, so the
