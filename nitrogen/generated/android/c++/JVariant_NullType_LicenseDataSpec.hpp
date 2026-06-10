@@ -25,6 +25,9 @@
 #include "JMRZDataSpec.hpp"
 #include "MRZTypeSpec.hpp"
 #include "JMRZTypeSpec.hpp"
+#include "OcrObservationSpec.hpp"
+#include <vector>
+#include "JOcrObservationSpec.hpp"
 
 namespace margelo::nitro::dlscan {
 

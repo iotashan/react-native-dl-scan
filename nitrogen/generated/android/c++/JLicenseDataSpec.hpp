@@ -14,12 +14,15 @@
 #include "JDocumentType.hpp"
 #include "JMRZDataSpec.hpp"
 #include "JMRZTypeSpec.hpp"
+#include "JOcrObservationSpec.hpp"
 #include "JSex.hpp"
 #include "MRZDataSpec.hpp"
 #include "MRZTypeSpec.hpp"
+#include "OcrObservationSpec.hpp"
 #include "Sex.hpp"
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace margelo::nitro::dlscan {
 
@@ -90,6 +93,8 @@ namespace margelo::nitro::dlscan {
       jni::local_ref<jni::JString> dataConfidenceJson = this->getFieldValue(fieldDataConfidenceJson);
       static const auto fieldCardImagePath = clazz->getField<jni::JString>("cardImagePath");
       jni::local_ref<jni::JString> cardImagePath = this->getFieldValue(fieldCardImagePath);
+      static const auto fieldOcrObservations = clazz->getField<jni::JArrayClass<JOcrObservationSpec>>("ocrObservations");
+      jni::local_ref<jni::JArrayClass<JOcrObservationSpec>> ocrObservations = this->getFieldValue(fieldOcrObservations);
       static const auto fieldHeadshotImagePath = clazz->getField<jni::JString>("headshotImagePath");
       jni::local_ref<jni::JString> headshotImagePath = this->getFieldValue(fieldHeadshotImagePath);
       return LicenseDataSpec(
@@ -118,6 +123,16 @@ namespace margelo::nitro::dlscan {
         mrz != nullptr ? std::make_optional(mrz->toCpp()) : std::nullopt,
         dataConfidenceJson != nullptr ? std::make_optional(dataConfidenceJson->toStdString()) : std::nullopt,
         cardImagePath != nullptr ? std::make_optional(cardImagePath->toStdString()) : std::nullopt,
+        ocrObservations != nullptr ? std::make_optional([&](auto&& __input) {
+          size_t __size = __input->size();
+          std::vector<OcrObservationSpec> __vector;
+          __vector.reserve(__size);
+          for (size_t __i = 0; __i < __size; __i++) {
+            auto __element = __input->getElement(__i);
+            __vector.push_back(__element->toCpp());
+          }
+          return __vector;
+        }(ocrObservations)) : std::nullopt,
         headshotImagePath != nullptr ? std::make_optional(headshotImagePath->toStdString()) : std::nullopt
       );
     }
@@ -128,7 +143,7 @@ namespace margelo::nitro::dlscan {
      */
     [[maybe_unused]]
     static jni::local_ref<JLicenseDataSpec::javaobject> fromCpp(const LicenseDataSpec& value) {
-      using JSignature = JLicenseDataSpec(jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<JSex>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JDouble>, jni::alias_ref<JDocumentType>, jni::alias_ref<JMRZDataSpec>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>);
+      using JSignature = JLicenseDataSpec(jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<JSex>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JDouble>, jni::alias_ref<JDocumentType>, jni::alias_ref<JMRZDataSpec>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JArrayClass<JOcrObservationSpec>>, jni::alias_ref<jni::JString>);
       static const auto clazz = javaClassStatic();
       static const auto create = clazz->getStaticMethod<JSignature>("fromCpp");
       return create(
@@ -158,6 +173,16 @@ namespace margelo::nitro::dlscan {
         value.mrz.has_value() ? JMRZDataSpec::fromCpp(value.mrz.value()) : nullptr,
         value.dataConfidenceJson.has_value() ? jni::make_jstring(value.dataConfidenceJson.value()) : nullptr,
         value.cardImagePath.has_value() ? jni::make_jstring(value.cardImagePath.value()) : nullptr,
+        value.ocrObservations.has_value() ? [&](auto&& __input) {
+          size_t __size = __input.size();
+          jni::local_ref<jni::JArrayClass<JOcrObservationSpec>> __array = jni::JArrayClass<JOcrObservationSpec>::newArray(__size);
+          for (size_t __i = 0; __i < __size; __i++) {
+            const auto& __element = __input[__i];
+            auto __elementJni = JOcrObservationSpec::fromCpp(__element);
+            __array->setElement(__i, *__elementJni);
+          }
+          return __array;
+        }(value.ocrObservations.value()) : nullptr,
         value.headshotImagePath.has_value() ? jni::make_jstring(value.headshotImagePath.value()) : nullptr
       );
     }

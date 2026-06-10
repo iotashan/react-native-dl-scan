@@ -22,6 +22,8 @@ namespace margelo::nitro::dlscan { enum class DocumentType; }
 namespace margelo::nitro::dlscan { struct MRZDataSpec; }
 // Forward declaration of `MRZTypeSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { enum class MRZTypeSpec; }
+// Forward declaration of `OcrObservationSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct OcrObservationSpec; }
 // Forward declaration of `ArrayBufferHolder` to properly resolve imports.
 namespace NitroModules { class ArrayBufferHolder; }
 // Forward declaration of `FieldDetectionSpec` to properly resolve imports.
@@ -42,6 +44,7 @@ namespace margelo::nitro::camera { class HybridFrameSpec; }
 #include "DocumentType.hpp"
 #include "MRZDataSpec.hpp"
 #include "MRZTypeSpec.hpp"
+#include "OcrObservationSpec.hpp"
 #include <NitroModules/ArrayBuffer.hpp>
 #include <NitroModules/ArrayBufferHolder.hpp>
 #include "FieldDetectionSpec.hpp"

@@ -18,7 +18,7 @@ public extension LicenseDataSpec {
   /**
    * Create a new instance of `LicenseDataSpec`.
    */
-  init(firstName: String?, lastName: String?, middleName: String?, dateOfBirth: String?, expirationDate: String?, issueDate: String?, licenseNumber: String?, street: String?, city: String?, state: String?, postalCode: String?, country: String?, sex: Sex?, eyeColor: String?, hairColor: String?, height: String?, weight: String?, vehicleClass: String?, restrictions: String?, endorsements: String?, aamvaVersion: Double?, documentType: DocumentType?, mrz: MRZDataSpec?, dataConfidenceJson: String?, cardImagePath: String?, headshotImagePath: String?) {
+  init(firstName: String?, lastName: String?, middleName: String?, dateOfBirth: String?, expirationDate: String?, issueDate: String?, licenseNumber: String?, street: String?, city: String?, state: String?, postalCode: String?, country: String?, sex: Sex?, eyeColor: String?, hairColor: String?, height: String?, weight: String?, vehicleClass: String?, restrictions: String?, endorsements: String?, aamvaVersion: Double?, documentType: DocumentType?, mrz: MRZDataSpec?, dataConfidenceJson: String?, cardImagePath: String?, ocrObservations: [OcrObservationSpec]?, headshotImagePath: String?) {
     self.init({ () -> bridge.std__optional_std__string_ in
       if let __unwrappedValue = firstName {
         return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
@@ -166,6 +166,18 @@ public extension LicenseDataSpec {
     }(), { () -> bridge.std__optional_std__string_ in
       if let __unwrappedValue = cardImagePath {
         return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_std__vector_OcrObservationSpec__ in
+      if let __unwrappedValue = ocrObservations {
+        return bridge.create_std__optional_std__vector_OcrObservationSpec__({ () -> bridge.std__vector_OcrObservationSpec_ in
+          var __vector = bridge.create_std__vector_OcrObservationSpec_(__unwrappedValue.count)
+          for __item in __unwrappedValue {
+            __vector.push_back(__item)
+          }
+          return __vector
+        }())
       } else {
         return .init()
       }
@@ -451,6 +463,18 @@ public extension LicenseDataSpec {
       if bridge.has_value_std__optional_std__string_(self.__cardImagePath) {
         let __unwrapped = bridge.get_std__optional_std__string_(self.__cardImagePath)
         return String(__unwrapped)
+      } else {
+        return nil
+      }
+    }()
+  }
+  
+  @inline(__always)
+  var ocrObservations: [OcrObservationSpec]? {
+    return { () -> [OcrObservationSpec]? in
+      if bridge.has_value_std__optional_std__vector_OcrObservationSpec__(self.__ocrObservations) {
+        let __unwrapped = bridge.get_std__optional_std__vector_OcrObservationSpec__(self.__ocrObservations)
+        return __unwrapped.map({ __item in __item })
       } else {
         return nil
       }

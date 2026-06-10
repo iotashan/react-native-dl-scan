@@ -22,6 +22,8 @@ namespace margelo::nitro::dlscan { struct LicenseDataSpec; }
 namespace margelo::nitro::dlscan { struct MRZDataSpec; }
 // Forward declaration of `MRZTypeSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { enum class MRZTypeSpec; }
+// Forward declaration of `OcrObservationSpec` to properly resolve imports.
+namespace margelo::nitro::dlscan { struct OcrObservationSpec; }
 // Forward declaration of `RectifiedFrameSpec` to properly resolve imports.
 namespace margelo::nitro::dlscan { struct RectifiedFrameSpec; }
 // Forward declaration of `Sex` to properly resolve imports.
@@ -34,6 +36,7 @@ namespace margelo::nitro::dlscan { enum class Sex; }
 #include "LicenseDataSpec.hpp"
 #include "MRZDataSpec.hpp"
 #include "MRZTypeSpec.hpp"
+#include "OcrObservationSpec.hpp"
 #include "RectifiedFrameSpec.hpp"
 #include "Sex.hpp"
 #include <NitroModules/ArrayBuffer.hpp>
