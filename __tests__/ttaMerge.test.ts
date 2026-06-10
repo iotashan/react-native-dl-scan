@@ -112,4 +112,39 @@ describe('TTA merge wiring (_mergeAccumulated)', () => {
     const tta = base({ firstName: 'JANE' });
     expect(_mergeAccumulated(null, tta)).toBe(tta);
   });
+
+  it('keeps cardImagePath + ocrObservations through a TTA pass (TTA carries neither)', () => {
+    // The TTA verification result never re-attaches the card image or its
+    // observations — the merge must not lose them.
+    const observations = [
+      { text: 'GARCIA', x: 0.32, y: 0.18, width: 0.2, height: 0.05 },
+    ];
+    const accumulated = base({
+      firstName: 'MARIA',
+      cardImagePath: 'file:///cards/abc-card.jpg',
+      ocrObservations: observations,
+    });
+    const tta = base({ vehicleClass: 'D' });
+
+    const merged = _mergeAccumulated(accumulated, tta);
+
+    expect(merged.cardImagePath).toBe('file:///cards/abc-card.jpg');
+    expect(merged.ocrObservations).toBe(observations);
+  });
+
+  it('adopts ocrObservations alongside cardImagePath from the consensus frame', () => {
+    const accumulated = base({ firstName: 'MARIA' });
+    const observations = [
+      { text: 'SPRINGFIELD', x: 0.1, y: 0.4, width: 0.3, height: 0.04 },
+    ];
+    const frame = base({
+      cardImagePath: 'file:///cards/abc-card.jpg',
+      ocrObservations: observations,
+    });
+
+    const merged = _mergeAccumulated(accumulated, frame);
+
+    expect(merged.cardImagePath).toBe('file:///cards/abc-card.jpg');
+    expect(merged.ocrObservations).toBe(observations);
+  });
 });

@@ -177,6 +177,10 @@ export function normalizeLicenseData(result: LicenseDataSpec): LicenseData {
         ? safeParseConfidence(result.dataConfidenceJson)
         : null,
     cardImagePath: undefinedToNull(result.cardImagePath),
+    // OcrObservationSpec and the public OcrObservation are structurally
+    // identical plain objects; pass through, normalizing only the
+    // undefined → null convention.
+    ocrObservations: undefinedToNull(result.ocrObservations),
     headshotImagePath: undefinedToNull(result.headshotImagePath),
   };
 }
