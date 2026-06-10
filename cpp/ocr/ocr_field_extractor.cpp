@@ -3179,24 +3179,16 @@ std::optional<LicenseData> extract_fields_from_candidates(
     // No external candidates → bit-identical to the pre-#124 resolver.
     // This is the platform-neutral no-op property: Android (and any iOS
     // device below 26) never reaches the merge below.
-    if (external.empty()) return base;
+    //
+    // FILL-ONLY also means ENRICH-ONLY (pair-review hardening): the
+    // DataDetector source augments a SUCCESSFUL deterministic parse — it
+    // can never create a scan result by itself. When the validity gate
+    // failed, that verdict stands regardless of external evidence; an
+    // auxiliary single-shot source must not resurrect a failed parse.
+    if (external.empty() || !base.has_value()) return base;
 
-    LicenseData out = base.value_or(LicenseData{});
+    LicenseData out = *base;
     merge_external_candidates(out, external);
-    if (base.has_value()) return out;
-    // The deterministic parse failed its validity gate, but DataDetector
-    // fills may satisfy it now (same clauses as extract_fields_structured:
-    // a name, a license number, a DOB, or an address). A DataDetector-only
-    // partial parse (e.g. DOB + address) is a useful result — surfaced and
-    // marked incomplete downstream rather than dropped.
-    bool has_name = out.firstName.has_value() || out.lastName.has_value();
-    bool has_address = out.street.has_value() ||
-        (out.city.has_value() && out.state.has_value() &&
-         out.postalCode.has_value());
-    if (!has_name && !out.licenseNumber.has_value() &&
-        !out.dateOfBirth.has_value() && !has_address) {
-        return std::nullopt;
-    }
     return out;
 }
 

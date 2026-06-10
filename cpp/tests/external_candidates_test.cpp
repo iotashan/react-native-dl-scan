@@ -355,10 +355,11 @@ TEST(ExternalCandidates, NewIdsUnderNonDataDetectorSource_Dropped) {
     EXPECT_FALSE(r->dateOfBirth.has_value());
 }
 
-TEST(ExternalCandidates, ExternalOnly_PartialParse_PassesValidityGate) {
-    // The deterministic parse produced nothing, but the DataDetector
-    // evidence alone (DOB + full address) satisfies the same core-identity
-    // validity gate — surfaced as a partial parse, not dropped.
+TEST(ExternalCandidates, ExternalOnly_NeverCreatesResult) {
+    // FILL-ONLY is also ENRICH-ONLY: even maximal DataDetector evidence
+    // (three assignable dates + a full address) must not resurrect a
+    // deterministic parse that failed its validity gate. An auxiliary
+    // single-shot source can never create a scan result by itself.
     FieldCandidateVector v{
         dd(FieldId::DetectedDate, "1990-04-15"),
         dd(FieldId::DetectedDate, "2022-08-01"),
@@ -369,16 +370,10 @@ TEST(ExternalCandidates, ExternalOnly_PartialParse_PassesValidityGate) {
         dd(FieldId::PostalCode, "53703"),
     };
     auto r = extract_fields_from_candidates(v);
-    ASSERT_TRUE(r.has_value());
-    EXPECT_EQ(sval(r->dateOfBirth), "1990-04-15");
-    EXPECT_EQ(sval(r->city), "SPRINGFIELD");
-    EXPECT_FALSE(r->firstName.has_value());
-    EXPECT_FALSE(r->licenseNumber.has_value());
+    EXPECT_FALSE(r.has_value());
 }
 
-TEST(ExternalCandidates, ExternalOnly_InsufficientFields_ReturnsNullopt) {
-    // City + state alone satisfy neither the address clause (needs all
-    // three of city/state/postal) nor any other core-identity clause.
+TEST(ExternalCandidates, ExternalOnly_PartialEvidence_NoResultEither) {
     FieldCandidateVector v{
         dd(FieldId::City, "SPRINGFIELD"),
         dd(FieldId::State, "WI"),
