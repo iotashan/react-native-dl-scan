@@ -64,6 +64,7 @@ namespace margelo::nitro::dlscan {
     std::vector<double> decodeCorners(const std::shared_ptr<ArrayBuffer>& output) override;
     std::variant<nitro::NullType, RectifiedFrameSpec> rectifyFrame(const std::shared_ptr<margelo::nitro::camera::HybridFrameSpec>& frame) override;
     std::variant<nitro::NullType, LicenseDataSpec> ocrExtractFields(double token, const std::vector<FieldDetectionSpec>& detections) override;
+    std::variant<nitro::NullType, LicenseDataSpec> captureFrontImages(double token, const std::vector<FieldDetectionSpec>& detections) override;
     std::variant<nitro::NullType, LicenseDataSpec> runTtaVerification(const std::vector<double>& modes) override;
 
   private:

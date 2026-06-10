@@ -48,6 +48,13 @@ export function scanFrameBarcode(
  * RGB + a token; JS runs the NanoDet field detector via fast-tflite; native
  * then OCRs + extracts using those detections (ocrExtractFields).
  *
+ * With `imagesOnly` set (the hook's `completion.capture: 'imagesOnly'` mode),
+ * the same rectify -> detect entry runs, but native short-circuits to the
+ * once-per-session card-image save + headshot crop (captureFrontImages) — no
+ * OCR text recognition, C++ parse, voting, or TTA. Native returns null every
+ * frame until the card JPEG saves; the success spec carries ONLY
+ * `cardImagePath` / `headshotImagePath` (all field values absent).
+ *
  * Returns the raw LicenseDataSpec (or null until a card + detections land). The
  * caller normalizes undefined -> null at the worklet -> JS boundary.
  *
@@ -55,7 +62,8 @@ export function scanFrameBarcode(
  */
 export function scanFrameOcrNanodet(
   frame: Frame,
-  fieldModel: TfliteModel
+  fieldModel: TfliteModel,
+  imagesOnly: boolean = false
 ): LicenseDataSpec | null {
   'worklet';
   const rect = _hybrid.rectifyFrame(frame);
@@ -66,6 +74,9 @@ export function scanFrameOcrNanodet(
     rect.width,
     rect.height
   );
+  if (imagesOnly) {
+    return _hybrid.captureFrontImages(rect.token, detections) ?? null;
+  }
   return _hybrid.ocrExtractFields(rect.token, detections) ?? null;
 }
 

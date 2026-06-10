@@ -275,6 +275,29 @@ export interface DLScan extends HybridObject<{
   ): LicenseDataSpec | null;
 
   /**
+   * Images-only capture (NO OCR) for a previously-rectified frame (looked up
+   * by `token`), using the JS-provided NanoDet field detections as the
+   * quality gate (non-empty detections prove a recognizable card front is in
+   * frame) and as the YOLO-face fallback source for the headshot crop. Rides
+   * the exact same rectify -> detect entry as `ocrExtractFields`, but
+   * short-circuits straight to the once-per-session card-image save +
+   * headshot extraction — no OCR text recognition, no C++ parse, no voting,
+   * and no TTA-crop retention run (quicker and cheaper per frame).
+   *
+   * Returns null on every frame until the card JPEG saves successfully (a
+   * failed save does NOT latch the once-per-session capture, so the next
+   * frame retries). On success returns a LicenseDataSpec whose field values
+   * are ALL absent and only `cardImagePath` (always present on success) and
+   * `headshotImagePath` (best-effort — absent when no face region was found)
+   * are populated. `ocrObservations` is absent too: it is produced by the
+   * card-image OCR pass, which this mode skips.
+   */
+  captureFrontImages(
+    token: number,
+    detections: FieldDetectionSpec[]
+  ): LicenseDataSpec | null;
+
+  /**
    * Test-time-augmentation (TTA) verification pass. ADDITIVE + opt-in: the JS
    * hook only calls this when the consumer enables `completion.tta`, after the
    * normal scan has reached completion. Re-OCRs the BEST captured card crop —

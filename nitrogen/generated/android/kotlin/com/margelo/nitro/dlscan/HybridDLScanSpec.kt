@@ -76,6 +76,10 @@ abstract class HybridDLScanSpec: HybridObject() {
   
   @DoNotStrip
   @Keep
+  abstract fun captureFrontImages(token: Double, detections: Array<FieldDetectionSpec>): Variant_NullType_LicenseDataSpec
+  
+  @DoNotStrip
+  @Keep
   abstract fun runTtaVerification(modes: DoubleArray): Variant_NullType_LicenseDataSpec
 
   // Default implementation of `HybridObject.toString()`

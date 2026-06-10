@@ -46,6 +46,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Images-only capture mode** — `completion: { capture: 'imagesOnly' }` on
+  `useLicenseScanner` (new `CaptureMode` type). The front scan rides the same
+  doc-seg rectification + NanoDet quality gate but skips OCR text recognition,
+  the C++ AAMVA parse, multi-frame voting, and TTA entirely, returning only
+  the rectified card JPEG (`cardImagePath`) and the best-effort headshot crop
+  (`headshotImagePath`, nullable). Completes as soon as the card image saves;
+  `requiredFields` is ignored, every `LicenseData` field value is null, and
+  `ocrObservations` is absent. Quicker and cheaper per frame than a full scan.
+  Use case: read the barcode for data AND keep a photo of the card front
+  (dealership test drives, rental counters). Backed by a new
+  `captureFrontImages` Nitro method on both platforms.
 - **`ocrObservations` on the scan result** — per-line OCR observations
   (`text` + normalized bounding box) over the saved card image. Boxes are
   normalized `[0,1]`, origin top-left, +y down, relative to the exact image

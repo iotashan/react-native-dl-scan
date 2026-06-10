@@ -86,6 +86,22 @@ const DEFAULT_TTA_MODES: TtaMode[] = [
 ];
 
 /**
+ * What an OCR-mode scan produces.
+ *
+ *  - `'full'` (default) — the complete pipeline: OCR text recognition, C++
+ *    AAMVA parse, multi-frame voting, optional TTA verification, plus the
+ *    once-per-scan card-image save and headshot crop.
+ *  - `'imagesOnly'` — images-only capture: ONLY the rectified (perspective-
+ *    corrected) card JPEG (`cardImagePath`) and the best-effort headshot crop
+ *    (`headshotImagePath`). The OCR text recognition, C++ parse, voting, and
+ *    TTA stages are skipped entirely, so each frame is quicker and cheaper
+ *    than a full scan. Use case: the data comes from the barcode scan, but
+ *    the consumer also needs a photo of the card front (dealership test
+ *    drives, rental counters).
+ */
+export type CaptureMode = 'full' | 'imagesOnly';
+
+/**
  * Configurable completion contract for OCR mode. The scan accumulates frames
  * (votes) until every `requiredFields` entry is populated in the consensus
  * result — each already backed by the native voter's >=2-vote floor — then,
@@ -137,6 +153,19 @@ export interface ScanCompletionPolicy {
    * `modes` defaults to `['original', 'blueChannel', 'contrastStretch']`.
    */
   tta?: { enabled?: boolean; modes?: TtaMode[] };
+  /**
+   * What the scan produces — `'full'` (default) or `'imagesOnly'`. See
+   * {@link CaptureMode}.
+   *
+   * In `'imagesOnly'` mode the completion semantics change: the scan
+   * completes as soon as the card image is saved (`cardImagePath` set; the
+   * headshot is attempted too but may legitimately be null when no face
+   * region is found). `requiredFields` is IGNORED, `validationPass` and
+   * `tta` are forced off, and every `LicenseData` field value in the result
+   * is null — `ocrObservations` is absent as well, since it is produced by
+   * the OCR pass this mode skips.
+   */
+  capture?: CaptureMode;
 }
 
 /**
@@ -423,6 +452,94 @@ export const _decideScanOutcome = (input: ScanOutcomeInput): ScanOutcome => {
 };
 
 /**
+ * Defaults-applied scan configuration derived from a
+ * {@link ScanCompletionPolicy}. Exported for unit testing ONLY (the `_`
+ * prefix marks it internal — it is not re-exported from the package index).
+ */
+export interface _ResolvedScanConfig {
+  requiredFields: (keyof LicenseData)[];
+  maxFrames: number;
+  validationPass: boolean;
+  ttaEnabled: boolean;
+  ttaModeInts: number[];
+  imagesOnly: boolean;
+}
+
+/**
+ * Apply defaults + the images-only overrides to a completion policy (pure —
+ * unit-testable without the hook). In `capture: 'imagesOnly'` mode the
+ * field-oriented machinery is forced off:
+ *
+ *  - `requiredFields` resolves to `[]` — completion is "`cardImagePath` is
+ *    set", never field presence, and the empty list keeps `ScanStatus`'s
+ *    required-field accounting from displaying pending fields that can never
+ *    arrive (every field value is null in this mode).
+ *  - `validationPass` is forced false — the capture frame is the ONLY frame
+ *    native ever returns (null until the card JPEG saves), so there is no
+ *    second frame to re-confirm against; leaving validation on would hang
+ *    the scan in `'validating'` forever.
+ *  - TTA is forced off — nothing was OCR'd and native retains no TTA crop in
+ *    this mode, so the verification pass has nothing to re-parse.
+ */
+export const _resolveCompletionPolicy = (
+  completion?: ScanCompletionPolicy
+): _ResolvedScanConfig => {
+  const imagesOnly = completion?.capture === 'imagesOnly';
+  const ttaEnabled = !imagesOnly && completion?.tta?.enabled !== false;
+  return {
+    requiredFields: imagesOnly
+      ? []
+      : (completion?.requiredFields ?? DEFAULT_REQUIRED_FIELDS),
+    maxFrames: completion?.maxFrames ?? DEFAULT_MAX_FRAMES,
+    validationPass: imagesOnly ? false : (completion?.validationPass ?? true),
+    ttaEnabled,
+    ttaModeInts: ttaEnabled
+      ? (completion?.tta?.modes ?? DEFAULT_TTA_MODES).map(
+          (m) => TTA_MODE_TO_INT[m]
+        )
+      : [],
+    imagesOnly,
+  };
+};
+
+/** The per-frame decision produced by {@link _decideImagesOnlyOutcome}. */
+export interface ImagesOnlyOutcome {
+  phase: ScanPhase;
+  finalize: boolean;
+  /** True when the card image was captured — the mode's completion criterion. */
+  complete: boolean;
+}
+
+/**
+ * Pure per-frame decision for `capture: 'imagesOnly'` scans — the
+ * images-only sibling of {@link _decideScanOutcome}. Deliberately NOT routed
+ * through the required-fields machinery (pair-review note: with
+ * `requiredFields: []` the generic decision would read ANY non-null frame as
+ * required-complete, even one that somehow arrived without a saved card).
+ * Completion is `cardImagePath != null` and nothing else: `requiredFields`
+ * is ignored, there is no validation pass, and field values (all null in
+ * this mode) never matter.
+ *
+ * `maxFrames` remains purely as a defensive cap. Native returns null on
+ * every frame until the card JPEG saves — so in practice this fires exactly
+ * once, with the capture — but if a non-null frame without a card path ever
+ * arrived, the cap still guarantees termination (phase `'incomplete'`).
+ */
+export const _decideImagesOnlyOutcome = (
+  data: LicenseData,
+  passCount: number,
+  maxFrames: number
+): ImagesOnlyOutcome => {
+  const complete = data.cardImagePath != null;
+  const finalize = complete || passCount >= maxFrames;
+  return {
+    complete,
+    finalize,
+    phase: complete ? 'complete' : finalize ? 'incomplete' : 'scanning',
+  };
+};
+
+/**
  * Drive the full license-scan pipeline (barcode + OCR) for a Camera.
  *
  * Returns an Output (`output`) you spread into `<Camera outputs={[output]} />`.
@@ -442,7 +559,10 @@ export const _decideScanOutcome = (input: ScanOutcomeInput): ScanOutcome => {
  *    extracts the fields. Result is shipped back to JS via `scheduleOnRN`.
  *    `ocrModelSources` is REQUIRED in this mode. Multi-frame completion is
  *    governed by `completion` (see {@link ScanCompletionPolicy}); the live
- *    `scanStatus` exposes the scan's inner state for the UI.
+ *    `scanStatus` exposes the scan's inner state for the UI. With
+ *    `completion.capture: 'imagesOnly'` the same frame pipeline produces ONLY
+ *    the rectified card JPEG + best-effort headshot (no OCR/parse/voting/TTA)
+ *    and completes as soon as `cardImagePath` is set — see {@link CaptureMode}.
  *
  * Both modes update the same {licenseData, error, isScanning} state.
  */
@@ -472,37 +592,17 @@ export function useLicenseScanner(
   ocrModelSources?: OcrModelSources,
   completion?: ScanCompletionPolicy
 ) {
-  // Resolve the completion policy (defaults applied). Read per-result through
+  // Resolve the completion policy (defaults applied, plus the images-only
+  // overrides — see _resolveCompletionPolicy). Read per-result through
   // cfgRef so the result handler keeps a stable identity (the frame-processor
   // worklet captures it) even if the caller passes an unstable `completion`.
-  const requiredFields = completion?.requiredFields ?? DEFAULT_REQUIRED_FIELDS;
-  const maxFrames = completion?.maxFrames ?? DEFAULT_MAX_FRAMES;
-  const validationPass = completion?.validationPass ?? true;
-  // Best-crop re-parse config — resolved to native DLSCAN_AUG_* ints up front
-  // so the result handler keeps a stable identity. Default ON: finalization
-  // ALWAYS re-parses the best retained crop once and merges, deterministically
-  // recovering fields the multi-frame vote dropped. Disable only via an
-  // explicit `tta: { enabled: false }`.
-  const ttaEnabled = completion?.tta?.enabled !== false;
-  const ttaModeInts = ttaEnabled
-    ? (completion?.tta?.modes ?? DEFAULT_TTA_MODES).map(
-        (m) => TTA_MODE_TO_INT[m]
-      )
-    : [];
-  const cfgRef = useRef({
-    requiredFields,
-    maxFrames,
-    validationPass,
-    ttaEnabled,
-    ttaModeInts,
-  });
-  cfgRef.current = {
-    requiredFields,
-    maxFrames,
-    validationPass,
-    ttaEnabled,
-    ttaModeInts,
-  };
+  // TTA ("best-crop re-parse at finalization") resolves to native
+  // DLSCAN_AUG_* ints up front; it defaults ON for full scans and is forced
+  // OFF in images-only mode (nothing was OCR'd; no TTA crop is retained).
+  const resolvedCfg = _resolveCompletionPolicy(completion);
+  const { requiredFields, maxFrames, imagesOnly } = resolvedCfg;
+  const cfgRef = useRef(resolvedCfg);
+  cfgRef.current = resolvedCfg;
 
   const [licenseData, setLicenseData] = useState<LicenseData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -649,8 +749,38 @@ export function useLicenseScanner(
         requiredFields: req,
         maxFrames: cap,
         validationPass: doValidate,
+        imagesOnly: imgOnly,
       } = cfgRef.current;
       passRef.current += 1;
+
+      if (imgOnly) {
+        // Images-only capture: completion is "cardImagePath set" and nothing
+        // else — deliberately NOT routed through the required-field
+        // accounting below (see _decideImagesOnlyOutcome). The headshot was
+        // already attempted natively on the same frame that saved the card,
+        // so a non-null result here is final by construction. No validation
+        // pass, no TTA, no field confidence (nothing was OCR'd).
+        const d = _decideImagesOnlyOutcome(data, passRef.current, cap);
+        setScanStatus({
+          phase: d.phase,
+          passNumber: passRef.current,
+          maxFrames: cap,
+          requiredFields: [],
+          acceptedRequired: [],
+          pendingRequired: [],
+          acceptedOptional: [],
+          requiredComplete: d.complete,
+          fractionComplete: d.complete ? 1 : 0,
+          validation: { active: false, confirmed: false },
+          fieldConfidence: null,
+        });
+        setProgress(d.complete ? 1 : 0);
+        if (d.finalize) {
+          resultCount.setBlocking(WORKLET_FRAME_CAP);
+          setIsScanning(false);
+        }
+        return;
+      }
 
       const acceptedRequired = req.filter((f) => isFieldPresent(data, f));
       const pendingRequired = req.filter((f) => !isFieldPresent(data, f));
@@ -802,7 +932,7 @@ export function useLicenseScanner(
           frame.dispose();
           return;
         }
-        const spec = scanFrameOcrNanodet(frame, fieldModel);
+        const spec = scanFrameOcrNanodet(frame, fieldModel, imagesOnly);
         if (spec != null) {
           const next = seen + 1;
           resultCount.setBlocking(next);

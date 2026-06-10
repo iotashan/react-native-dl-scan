@@ -173,6 +173,14 @@ namespace margelo::nitro::dlscan {
       auto __value = std::move(__result.value());
       return __value;
     }
+    inline std::variant<nitro::NullType, LicenseDataSpec> captureFrontImages(double token, const std::vector<FieldDetectionSpec>& detections) override {
+      auto __result = _swiftPart.captureFrontImages(std::forward<decltype(token)>(token), detections);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
     inline std::variant<nitro::NullType, LicenseDataSpec> runTtaVerification(const std::vector<double>& modes) override {
       auto __result = _swiftPart.runTtaVerification(modes);
       if (__result.hasError()) [[unlikely]] {

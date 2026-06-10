@@ -24,6 +24,7 @@ public protocol HybridDLScanSpec_protocol: HybridObject {
   func decodeCorners(output: ArrayBuffer) throws -> [Double]
   func rectifyFrame(frame: (any HybridFrameSpec)) throws -> Variant_NullType_RectifiedFrameSpec
   func ocrExtractFields(token: Double, detections: [FieldDetectionSpec]) throws -> Variant_NullType_LicenseDataSpec
+  func captureFrontImages(token: Double, detections: [FieldDetectionSpec]) throws -> Variant_NullType_LicenseDataSpec
   func runTtaVerification(modes: [Double]) throws -> Variant_NullType_LicenseDataSpec
 }
 

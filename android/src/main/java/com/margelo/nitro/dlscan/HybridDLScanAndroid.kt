@@ -496,7 +496,12 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
      */
     private fun saveRectifiedCard(
         sourceFrame: Bitmap,
-        corners: FloatArray
+        corners: FloatArray,
+        // `false` skips the dedicated card-image OCR pass entirely — used by
+        // the images-only capture mode, whose contract is "no OCR runs"
+        // (observations are documented absent there, and skipping the pass is
+        // part of the mode's performance win).
+        withObservations: Boolean = true
     ): Pair<String, Array<OcrObservationSpec>?>? {
         return try {
             val padded = expandCorners(corners, sourceFrame.width, sourceFrame.height, 0.06f)
@@ -508,7 +513,7 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
             java.io.FileOutputStream(file).use { out ->
                 cardBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
             }
-            val observations = cardImageObservations(cardBitmap)
+            val observations = if (withObservations) cardImageObservations(cardBitmap) else null
             if (cardBitmap !== sourceFrame) cardBitmap.recycle()
             Pair("file://${file.absolutePath}", observations)
         } catch (t: Throwable) {
@@ -1690,17 +1695,7 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
     ): Variant_NullType_LicenseDataSpec {
         val entry = rectifyLock.withLock { rectifiedCache.remove(token) } ?: return variantOf(null)
         val ocrBitmap = entry.ocrBitmap
-        // JS NanoDet detections are already in ocrBitmap pixel space (decodeFieldOutput
-        // mapped them back via inputSize/width). Map to internal Detection; no 640 rescale.
-        val dets = detections.mapNotNull { d ->
-            val name = nativeClassName(d.classId.toInt())
-            if (name.isEmpty()) null
-            else Detection(
-                name,
-                RectF(d.x1.toFloat(), d.y1.toFloat(), d.x2.toFloat(), d.y2.toFloat()),
-                d.confidence.toFloat()
-            )
-        }
+        val dets = mapDetections(detections)
         if (dets.isEmpty()) return variantOf(null)
 
         val observations = wholeCardObservations(ocrBitmap)
@@ -1765,6 +1760,82 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
         maybeFlushTelemetry()
         return variantOf(r)
     }
+
+    /**
+     * Images-only capture (no OCR): the dedicated entry behind the JS
+     * `completion.capture: 'imagesOnly'` mode. Rides the exact same
+     * rectify -> NanoDet-detect entry as [ocrExtractFields] — same token
+     * lookup, same non-empty-detections quality gate (detections prove a
+     * recognizable card front is in frame AND feed the YOLO-face headshot
+     * fallback) — then short-circuits straight to the once-per-session
+     * card-image save + headshot extraction. No OCR text recognition, no C++
+     * parse, no voting, and no TTA-crop retention run.
+     *
+     * Latch discipline differs deliberately from the full path: the full path
+     * latches [cardCapturedThisSession] BEFORE attempting the save (a failed
+     * save there still returns field data, the image is just absent), but here
+     * the saved card IS the scan result, so the latch is only set AFTER
+     * [saveRectifiedCard] succeeds — a failed save returns null and the next
+     * frame retries the capture.
+     */
+    override fun captureFrontImages(
+        token: Double,
+        detections: Array<FieldDetectionSpec>,
+    ): Variant_NullType_LicenseDataSpec {
+        val entry = rectifyLock.withLock { rectifiedCache.remove(token) } ?: return variantOf(null)
+        val dets = mapDetections(detections)
+        if (dets.isEmpty()) return variantOf(null)
+        if (cardCapturedThisSession) return variantOf(null)
+
+        _pipelineStage = 3.0
+        val saved = saveRectifiedCard(entry.source, entry.corners, withObservations = false)
+        if (saved == null) {
+            _pipelineStage = 0.0
+            return variantOf(null)
+        }
+        cardCapturedThisSession = true
+        _pipelineStage = 4.0
+        val headshotPath = extractHeadshot(entry.ocrBitmap, dets, saved.first)
+        _pipelineStage = 5.0
+        _scanProgress = 1.0
+        return variantOf(imagesOnlyLicenseDataSpec(saved.first, headshotPath))
+    }
+
+    /**
+     * Map JS NanoDet detections (classId + bbox already in ocrBitmap pixel
+     * space — decodeFieldOutput mapped them back via inputSize/width; no 640
+     * rescale) to internal [Detection]s. Shared by [ocrExtractFields] and
+     * [captureFrontImages].
+     */
+    private fun mapDetections(detections: Array<FieldDetectionSpec>): List<Detection> =
+        detections.mapNotNull { d ->
+            val name = nativeClassName(d.classId.toInt())
+            if (name.isEmpty()) null
+            else Detection(
+                name,
+                RectF(d.x1.toFloat(), d.y1.toFloat(), d.x2.toFloat(), d.y2.toFloat()),
+                d.confidence.toFloat()
+            )
+        }
+
+    /**
+     * All-fields-absent [LicenseDataSpec] carrying only the captured image
+     * paths — the images-only capture result shape (field values null by
+     * contract).
+     */
+    private fun imagesOnlyLicenseDataSpec(
+        cardImagePath: String?,
+        headshotImagePath: String?
+    ): LicenseDataSpec = LicenseDataSpec(
+        firstName = null, lastName = null, middleName = null, dateOfBirth = null,
+        expirationDate = null, issueDate = null, licenseNumber = null, street = null,
+        city = null, state = null, postalCode = null, country = null, sex = null,
+        eyeColor = null, hairColor = null, height = null, weight = null,
+        vehicleClass = null, restrictions = null, endorsements = null,
+        aamvaVersion = null, documentType = null, mrz = null, dataConfidenceJson = null,
+        cardImagePath = cardImagePath, ocrObservations = null,
+        headshotImagePath = headshotImagePath
+    )
 
     private fun variantOf(spec: LicenseDataSpec?): Variant_NullType_LicenseDataSpec =
         if (spec != null) {

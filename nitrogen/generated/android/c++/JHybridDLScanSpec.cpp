@@ -183,6 +183,20 @@ namespace margelo::nitro::dlscan {
     }(detections));
     return __result->toCpp();
   }
+  std::variant<nitro::NullType, LicenseDataSpec> JHybridDLScanSpec::captureFrontImages(double token, const std::vector<FieldDetectionSpec>& detections) {
+    static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JVariant_NullType_LicenseDataSpec>(double /* token */, jni::alias_ref<jni::JArrayClass<JFieldDetectionSpec>> /* detections */)>("captureFrontImages");
+    auto __result = method(_javaPart, token, [&](auto&& __input) {
+      size_t __size = __input.size();
+      jni::local_ref<jni::JArrayClass<JFieldDetectionSpec>> __array = jni::JArrayClass<JFieldDetectionSpec>::newArray(__size);
+      for (size_t __i = 0; __i < __size; __i++) {
+        const auto& __element = __input[__i];
+        auto __elementJni = JFieldDetectionSpec::fromCpp(__element);
+        __array->setElement(__i, *__elementJni);
+      }
+      return __array;
+    }(detections));
+    return __result->toCpp();
+  }
   std::variant<nitro::NullType, LicenseDataSpec> JHybridDLScanSpec::runTtaVerification(const std::vector<double>& modes) {
     static const auto method = _javaPart->javaClassStatic()->getMethod<jni::local_ref<JVariant_NullType_LicenseDataSpec>(jni::alias_ref<jni::JArrayDouble> /* modes */)>("runTtaVerification");
     auto __result = method(_javaPart, [&]() {
