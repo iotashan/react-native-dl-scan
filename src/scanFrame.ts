@@ -66,18 +66,39 @@ export function scanFrameOcrNanodet(
   imagesOnly: boolean = false
 ): LicenseDataSpec | null {
   'worklet';
+  // Dev-only per-frame step timings. Covers EVERY frame (the native
+  // scanTimingsJson only rides data-bearing frames) so a slow rectify or
+  // detector shows up even on frames that return null. ~1-2 lines/s in dev.
+  const t0 = __DEV__ ? Date.now() : 0;
   const rect = _hybrid.rectifyFrame(frame);
-  if (rect == null) return null;
+  if (rect == null) {
+    if (__DEV__) {
+      console.log(
+        `[dl-scan/timing] worklet rectify=${Date.now() - t0}ms ` +
+          'native=skipped (no rectified card)'
+      );
+    }
+    return null;
+  }
+  const t1 = __DEV__ ? Date.now() : 0;
   const detections = runFieldDetection(
     fieldModel,
     rect.rgb,
     rect.width,
     rect.height
   );
-  if (imagesOnly) {
-    return _hybrid.captureFrontImages(rect.token, detections) ?? null;
+  const t2 = __DEV__ ? Date.now() : 0;
+  const result = imagesOnly
+    ? (_hybrid.captureFrontImages(rect.token, detections) ?? null)
+    : (_hybrid.ocrExtractFields(rect.token, detections) ?? null);
+  if (__DEV__) {
+    const t3 = Date.now();
+    console.log(
+      `[dl-scan/timing] worklet rectify=${t1 - t0}ms nanodet=${t2 - t1}ms ` +
+        `native=${t3 - t2}ms total=${t3 - t0}ms data=${result != null}`
+    );
   }
-  return _hybrid.ocrExtractFields(rect.token, detections) ?? null;
+  return result;
 }
 
 /**

@@ -487,8 +487,15 @@ class HybridDLScanIOS: HybridDLScanSpec {
     let dets = Self.mapDetections(detections)
     if dets.isEmpty { return .first(.null) }
 
+    // Per-step wall-clock timings shipped on the data-bearing frame
+    // (scanTimingsJson) — null-returning frames are timed JS-side instead.
+    let tTotal = DispatchTime.now()
+    var timingSteps: [(String, Double)] = []
+    var tStep = DispatchTime.now()
+
     // Steps 3..5 of the former runDetectionPipeline, detections now JS-provided.
     let observations = runVisionKitWithBboxes(on: rectified, orientation: .up)
+    timingSteps.append(("wholeCardOcr", Self.msSince(tStep)))
     if observations.isEmpty { return .first(.null) }
     // Feed the shared C++ marker parser the RAW whole-card observations (it does
     // its own marker tokenization, fused-row extraction, and 1-step look-ahead
@@ -499,10 +506,12 @@ class HybridDLScanIOS: HybridDLScanSpec {
     let demographicCandidates = Self.parseAamvaDemographicFields(observations)
     let splitObservations = Self.splitObservationsByAamvaIndices(observations)
     let detectedState = Self.detectState(observations: splitObservations)
+    tStep = DispatchTime.now()
     let bboxCandidates = runVisionKitPerRegion(on: rectified,
                                                detections: dets,
                                                orientation: .up,
                                                detectedState: detectedState)
+    timingSteps.append(("perRegionOcr", Self.msSince(tStep)))
     let frameCandidates = bboxCandidates + demographicCandidates
     voter.accept(frameCandidates)
     let consensus = voter.consensus()
@@ -512,7 +521,10 @@ class HybridDLScanIOS: HybridDLScanSpec {
     if consensus.isEmpty { return .first(.null) }
 
     _pipelineStage = 1
-    guard let cppData = Self.extractFromCandidates(consensus) else { return .first(.null) }
+    tStep = DispatchTime.now()
+    let extracted = Self.extractFromCandidates(consensus)
+    timingSteps.append(("cppExtract", Self.msSince(tStep)))
+    guard let cppData = extracted else { return .first(.null) }
     _pipelineStage = 2
 
     var cardPath: String? = nil
@@ -521,12 +533,16 @@ class HybridDLScanIOS: HybridDLScanSpec {
     if !cardCapturedThisSession {
       cardCapturedThisSession = true
       _pipelineStage = 3
+      tStep = DispatchTime.now()
       if let saved = Self.saveRectifiedCard(sourceBuffer: entry.source, orientation: entry.orientation) {
         cardPath = saved.path
         cardObservations = saved.observations
       }
+      timingSteps.append(("cardSave", Self.msSince(tStep)))
       _pipelineStage = 4
+      tStep = DispatchTime.now()
       headshotPath = Self.extractHeadshot(from: rectified, yoloDetections: dets, cardImagePath: cardPath)
+      timingSteps.append(("headshot", Self.msSince(tStep)))
       _pipelineStage = 5
       // Retain THIS consensus crop (the rectified RGB) as the best card for the
       // optional TTA verification pass. Convert once to RGB8 bytes so
@@ -540,10 +556,12 @@ class HybridDLScanIOS: HybridDLScanSpec {
         rectifyLock.unlock()
       }
     }
+    timingSteps.append(("total", Self.msSince(tTotal)))
     let spec = Self.toLicenseDataSpec(cppData,
                                       cardImagePath: cardPath,
                                       ocrObservations: cardObservations,
-                                      headshotImagePath: headshotPath)
+                                      headshotImagePath: headshotPath,
+                                      scanTimingsJson: Self.timingsJson(timingSteps))
     return .second(spec)
   }
 
@@ -625,7 +643,7 @@ class HybridDLScanIOS: HybridDLScanSpec {
       vehicleClass: nil, restrictions: nil, endorsements: nil,
       aamvaVersion: nil, documentType: nil, mrz: nil, dataConfidenceJson: nil,
       cardImagePath: cardImagePath, ocrObservations: nil,
-      headshotImagePath: headshotImagePath
+      headshotImagePath: headshotImagePath, scanTimingsJson: nil
     )
   }
 
@@ -678,6 +696,16 @@ class HybridDLScanIOS: HybridDLScanSpec {
       return .first(.null)
     }
 
+    // Entering the one-shot verification pass: several augmented re-OCR
+    // rounds (+ DataDetector on iOS 26+) run back-to-back here, easily
+    // 1-3 s. Bump scanProgress past the 0.95 threshold so progress-driven
+    // UIs flip to their "finalizing" state instead of sitting on the last
+    // stabilized-field count for the whole pass.
+    _scanProgress = max(_scanProgress, 0.96)
+    let tTotal = DispatchTime.now()
+    var timingSteps: [(String, Double)] = []
+    var tStep = DispatchTime.now()
+
     let ttaVoter = FieldVoter(maxVotes: 20, minVotes: 1)
     var out = [UInt8](repeating: 0, count: w * h * 3)
     var anyFrame = false
@@ -697,6 +725,7 @@ class HybridDLScanIOS: HybridDLScanSpec {
       ttaVoter.accept(candidates)
       anyFrame = true
     }
+    timingSteps.append(("ttaPasses", Self.msSince(tStep)))
     if !anyFrame { return .first(.null) }
     let consensus = ttaVoter.consensus()
     if consensus.isEmpty { return .first(.null) }
@@ -717,6 +746,7 @@ class HybridDLScanIOS: HybridDLScanSpec {
     // the iOS 26 SDK, so consumers building with older Xcode must compile
     // the library WITHOUT this source (the runtime #available alone doesn't
     // help them — the symbols wouldn't resolve at compile time).
+    tStep = DispatchTime.now()
     #if compiler(>=6.2)
       if #available(iOS 26.0, *) {
         if let rdrBuffer = rgb8ToPixelBuffer(retained, width: w, height: h) {
@@ -724,11 +754,17 @@ class HybridDLScanIOS: HybridDLScanSpec {
         }
       }
     #endif
-    guard let cppData = Self.extractFromCandidates(consensus + ddCandidates) else {
+    timingSteps.append(("dataDetector", Self.msSince(tStep)))
+    tStep = DispatchTime.now()
+    let extracted = Self.extractFromCandidates(consensus + ddCandidates)
+    timingSteps.append(("cppExtract", Self.msSince(tStep)))
+    guard let cppData = extracted else {
       return .first(.null)
     }
+    timingSteps.append(("total", Self.msSince(tTotal)))
     // No card/headshot re-capture — verification reuses the already-saved crop.
-    return .second(Self.toLicenseDataSpec(cppData))
+    return .second(Self.toLicenseDataSpec(
+      cppData, scanTimingsJson: Self.timingsJson(timingSteps)))
   }
 
   // MARK: - #124: iOS 26+ RecognizeDocumentsRequest DataDetector source
@@ -2171,7 +2207,23 @@ class HybridDLScanIOS: HybridDLScanSpec {
   ///   - String fields → String? (via bridge helpers)
   ///   - `sex` → Sex? (Nitro-generated enum; Sex(fromString:) does the conversion)
   ///   - `aamvaVersion` → Double? (TS number maps to C++ double in Nitro)
-  static func toLicenseDataSpec(_ ld: dlscan.LicenseData, cardImagePath: String? = nil, ocrObservations: [OcrObservationSpec]? = nil, headshotImagePath: String? = nil) -> LicenseDataSpec {
+  // MARK: - Pipeline timing instrumentation (scanTimingsJson)
+
+  /// Milliseconds elapsed since `start` (monotonic clock).
+  private static func msSince(_ start: DispatchTime) -> Double {
+    Double(DispatchTime.now().uptimeNanoseconds &- start.uptimeNanoseconds) / 1_000_000
+  }
+
+  /// Encode ordered (step, ms) pairs as the scanTimingsJson wire string.
+  /// Same JSON-string bridging rationale as dataConfidenceJson.
+  private static func timingsJson(_ steps: [(String, Double)]) -> String? {
+    guard !steps.isEmpty else { return nil }
+    let body = steps.map { "\"\($0.0)\":\(Int($0.1.rounded()))" }
+      .joined(separator: ",")
+    return "{" + body + "}"
+  }
+
+  static func toLicenseDataSpec(_ ld: dlscan.LicenseData, cardImagePath: String? = nil, ocrObservations: [OcrObservationSpec]? = nil, headshotImagePath: String? = nil, scanTimingsJson: String? = nil) -> LicenseDataSpec {
     // sex: std::optional<std::string> ("M"/"F"/"X") → Sex?
     let sexStr: String? = optStr(ld.sex)
     let sexValue: Sex? = sexStr.flatMap { Sex(fromString: $0) }
@@ -2256,7 +2308,8 @@ class HybridDLScanIOS: HybridDLScanSpec {
       dataConfidenceJson: dataConfJson,
       cardImagePath:  cardImagePath,
       ocrObservations: ocrObservations,
-      headshotImagePath: headshotImagePath
+      headshotImagePath: headshotImagePath,
+      scanTimingsJson: scanTimingsJson
     )
   }
 

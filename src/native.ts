@@ -182,7 +182,27 @@ export function normalizeLicenseData(result: LicenseDataSpec): LicenseData {
     // undefined → null convention.
     ocrObservations: undefinedToNull(result.ocrObservations),
     headshotImagePath: undefinedToNull(result.headshotImagePath),
+    scanTimings: safeParseTimings(result.scanTimingsJson),
   };
+}
+
+/** Decode the scanTimingsJson wire string; null on any malformed input
+ *  (fail-soft — timings are diagnostics, never worth failing a scan). */
+function safeParseTimings(
+  json: string | undefined
+): Record<string, number> | null {
+  if (json == null || json === '') return null;
+  try {
+    const parsed: unknown = JSON.parse(json);
+    if (parsed == null || typeof parsed !== 'object') return null;
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
+    }
+    return Object.keys(out).length > 0 ? out : null;
+  } catch {
+    return null;
+  }
 }
 
 // Score→tier fallback for the v1 bare-number wire format (backwards-compat

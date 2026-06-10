@@ -1696,7 +1696,14 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
         val dets = mapDetections(detections)
         if (dets.isEmpty()) return variantOf(null)
 
+        // Per-step wall-clock timings shipped on the data-bearing frame
+        // (scanTimingsJson) — null-returning frames are timed JS-side instead.
+        val tTotal = System.nanoTime()
+        val timingSteps = mutableListOf<Pair<String, Double>>()
+        var tStep = System.nanoTime()
+
         val observations = wholeCardObservations(ocrBitmap)
+        timingSteps.add("wholeCardOcr" to msSince(tStep))
         if (observations.isEmpty()) return variantOf(null)
 
         val demographicCandidates = parseAamvaDemographicFields(observations)
@@ -1720,18 +1727,24 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
                     texts[i] = consensus[i].text
                 }
                 _pipelineStage = 1.0
+                tStep = System.nanoTime()
                 @Suppress("UNCHECKED_CAST")
                 val r = nativeExtractFieldsCandidates(fieldIds, sources, texts as Array<String>)
+                timingSteps.add("cppExtract" to msSince(tStep))
                 _pipelineStage = 2.0
                 maybeFlushTelemetry()
                 if (r != null && !cardCapturedThisSession) {
                     cardCapturedThisSession = true
                     _pipelineStage = 3.0
+                    tStep = System.nanoTime()
                     val saved = saveRectifiedCard(entry.source, entry.corners)
                     val cardPath = saved?.first
                     val cardObservations = saved?.second
+                    timingSteps.add("cardSave" to msSince(tStep))
                     _pipelineStage = 4.0
+                    tStep = System.nanoTime()
                     val headshotPath = extractHeadshot(ocrBitmap, dets, cardPath)
+                    timingSteps.add("headshot" to msSince(tStep))
                     _pipelineStage = 5.0
                     // Retain THIS consensus crop (the rectified ocrBitmap as RGB8
                     // bytes) as the best card for the optional TTA verification
@@ -1742,21 +1755,27 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
                         ttaRetainedWidth = ocrBitmap.width
                         ttaRetainedHeight = ocrBitmap.height
                     }
+                    timingSteps.add("total" to msSince(tTotal))
                     return variantOf(
                         r.copy(
                             cardImagePath = cardPath,
                             ocrObservations = cardObservations,
-                            headshotImagePath = headshotPath
+                            headshotImagePath = headshotPath,
+                            scanTimingsJson = timingsJson(timingSteps)
                         )
                     )
                 }
-                return variantOf(r)
+                timingSteps.add("total" to msSince(tTotal))
+                return variantOf(r?.copy(scanTimingsJson = timingsJson(timingSteps)))
             }
         }
         val lines = observations.map { it.text }.toTypedArray()
+        tStep = System.nanoTime()
         val r = nativeExtractOcrFields(lines)
+        timingSteps.add("cppExtract" to msSince(tStep))
+        timingSteps.add("total" to msSince(tTotal))
         maybeFlushTelemetry()
-        return variantOf(r)
+        return variantOf(r?.copy(scanTimingsJson = timingsJson(timingSteps)))
     }
 
     /**
@@ -1832,7 +1851,7 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
         vehicleClass = null, restrictions = null, endorsements = null,
         aamvaVersion = null, documentType = null, mrz = null, dataConfidenceJson = null,
         cardImagePath = cardImagePath, ocrObservations = null,
-        headshotImagePath = headshotImagePath
+        headshotImagePath = headshotImagePath, scanTimingsJson = null
     )
 
     private fun variantOf(spec: LicenseDataSpec?): Variant_NullType_LicenseDataSpec =
@@ -1928,6 +1947,16 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
         val (retained, w, h) = snapshot
         if (w <= 0 || h <= 0 || retained.size < w * h * 3) return variantOf(null)
 
+        // Entering the one-shot verification pass: several augmented re-OCR
+        // rounds run back-to-back here, easily 1-3 s. Bump scanProgress past
+        // the 0.95 threshold so progress-driven UIs flip to their
+        // "finalizing" state instead of sitting on the last
+        // stabilized-field count for the whole pass.
+        _scanProgress = maxOf(_scanProgress, 0.96)
+        val tTotal = System.nanoTime()
+        val timingSteps = mutableListOf<Pair<String, Double>>()
+        var tStep = System.nanoTime()
+
         val ttaVoter = FieldVoter(maxVotes = 20, minVotes = 1)
         try {
             var anyFrame = false
@@ -1946,6 +1975,7 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
                     augBitmap.recycle()
                 }
             }
+            timingSteps.add("ttaPasses" to msSince(tStep))
             if (!anyFrame) return variantOf(null)
             val consensus = ttaVoter.consensus()
             if (consensus.isEmpty()) return variantOf(null)
@@ -1958,10 +1988,13 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
                 sources[i] = consensus[i].source
                 texts[i] = consensus[i].text
             }
+            tStep = System.nanoTime()
             @Suppress("UNCHECKED_CAST")
             val r = nativeExtractFieldsCandidates(fieldIds, sources, texts as Array<String>)
+            timingSteps.add("cppExtract" to msSince(tStep))
+            timingSteps.add("total" to msSince(tTotal))
             // No card/headshot re-capture — verification reuses the saved crop.
-            return variantOf(r)
+            return variantOf(r?.copy(scanTimingsJson = timingsJson(timingSteps)))
         } finally {
             ttaVoter.close()
         }
@@ -2372,6 +2405,22 @@ class HybridDLScanAndroid : HybridDLScanSpec() {
                 if (m.value.length == 3 && m.value in allowlist) return m.value
             }
             return null
+        }
+
+        /** Milliseconds elapsed since [startNanos] (monotonic clock). */
+        private fun msSince(startNanos: Long): Double =
+            (System.nanoTime() - startNanos) / 1_000_000.0
+
+        /**
+         * Encode ordered (step, ms) pairs as the scanTimingsJson wire
+         * string. Same JSON-string bridging rationale as
+         * dataConfidenceJson.
+         */
+        private fun timingsJson(steps: List<Pair<String, Double>>): String? {
+            if (steps.isEmpty()) return null
+            return steps.joinToString(",", "{", "}") {
+                "\"${it.first}\":${Math.round(it.second)}"
+            }
         }
 
         /**

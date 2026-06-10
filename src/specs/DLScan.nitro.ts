@@ -150,6 +150,17 @@ export interface LicenseDataSpec {
    * located a face region.
    */
   headshotImagePath?: string;
+  /**
+   * Wall-clock timings (milliseconds) of the native pipeline steps that
+   * produced THIS result, keyed by step name (e.g. `wholeCardOcr`,
+   * `perRegionOcr`, `cppExtract`, `cardSave`, `headshot`,
+   * `ttaPasses`, `dataDetector`, `total`). Diagnostic data for
+   * performance analysis — step names are NOT a stable API and may
+   * change between releases. Populated on every data-bearing frame;
+   * JSON-encoded for the same Nitro map-bridging reason as
+   * {@link dataConfidenceJson}.
+   */
+  scanTimingsJson?: string;
 }
 
 export interface DLScan extends HybridObject<{

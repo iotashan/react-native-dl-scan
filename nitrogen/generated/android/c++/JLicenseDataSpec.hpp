@@ -97,6 +97,8 @@ namespace margelo::nitro::dlscan {
       jni::local_ref<jni::JArrayClass<JOcrObservationSpec>> ocrObservations = this->getFieldValue(fieldOcrObservations);
       static const auto fieldHeadshotImagePath = clazz->getField<jni::JString>("headshotImagePath");
       jni::local_ref<jni::JString> headshotImagePath = this->getFieldValue(fieldHeadshotImagePath);
+      static const auto fieldScanTimingsJson = clazz->getField<jni::JString>("scanTimingsJson");
+      jni::local_ref<jni::JString> scanTimingsJson = this->getFieldValue(fieldScanTimingsJson);
       return LicenseDataSpec(
         firstName != nullptr ? std::make_optional(firstName->toStdString()) : std::nullopt,
         lastName != nullptr ? std::make_optional(lastName->toStdString()) : std::nullopt,
@@ -133,7 +135,8 @@ namespace margelo::nitro::dlscan {
           }
           return __vector;
         }(ocrObservations)) : std::nullopt,
-        headshotImagePath != nullptr ? std::make_optional(headshotImagePath->toStdString()) : std::nullopt
+        headshotImagePath != nullptr ? std::make_optional(headshotImagePath->toStdString()) : std::nullopt,
+        scanTimingsJson != nullptr ? std::make_optional(scanTimingsJson->toStdString()) : std::nullopt
       );
     }
 
@@ -143,7 +146,7 @@ namespace margelo::nitro::dlscan {
      */
     [[maybe_unused]]
     static jni::local_ref<JLicenseDataSpec::javaobject> fromCpp(const LicenseDataSpec& value) {
-      using JSignature = JLicenseDataSpec(jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<JSex>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JDouble>, jni::alias_ref<JDocumentType>, jni::alias_ref<JMRZDataSpec>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JArrayClass<JOcrObservationSpec>>, jni::alias_ref<jni::JString>);
+      using JSignature = JLicenseDataSpec(jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<JSex>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JDouble>, jni::alias_ref<JDocumentType>, jni::alias_ref<JMRZDataSpec>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JArrayClass<JOcrObservationSpec>>, jni::alias_ref<jni::JString>, jni::alias_ref<jni::JString>);
       static const auto clazz = javaClassStatic();
       static const auto create = clazz->getStaticMethod<JSignature>("fromCpp");
       return create(
@@ -183,7 +186,8 @@ namespace margelo::nitro::dlscan {
           }
           return __array;
         }(value.ocrObservations.value()) : nullptr,
-        value.headshotImagePath.has_value() ? jni::make_jstring(value.headshotImagePath.value()) : nullptr
+        value.headshotImagePath.has_value() ? jni::make_jstring(value.headshotImagePath.value()) : nullptr,
+        value.scanTimingsJson.has_value() ? jni::make_jstring(value.scanTimingsJson.value()) : nullptr
       );
     }
   };

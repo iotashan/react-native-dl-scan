@@ -41,6 +41,7 @@ const NON_FIELD_KEYS = new Set<keyof LicenseData>([
   'mrz',
   'aamvaVersion',
   'documentType',
+  'scanTimings',
 ]);
 
 /** Stage of the OCR multi-frame scan (UI-facing). */
@@ -319,6 +320,10 @@ export const _mergeAccumulated = (
   // together (both attach on the consensus frame; both null on TTA).
   if (next.ocrObservations != null) {
     merged.ocrObservations = next.ocrObservations;
+  }
+  // Latest producer's timings win — each data-bearing call ships its own.
+  if (next.scanTimings != null) {
+    merged.scanTimings = next.scanTimings;
   }
   if (next.headshotImagePath != null) {
     merged.headshotImagePath = next.headshotImagePath;
@@ -701,6 +706,20 @@ export function useLicenseScanner(
   const validationFpRef = useRef('');
   const accumulatedRef = useRef<LicenseData | null>(null);
 
+  // Deferred-finalize bookkeeping: the best-crop re-parse is scheduled a
+  // couple of frames AFTER the finalize decision (see handleOcrResult) so
+  // the interim 'validating' status can paint first. The session counter
+  // invalidates a pending re-parse when reset() starts a new scan.
+  const sessionRef = useRef(0);
+  const ttaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // First-finalize-wins latch (pair-review round 2): scheduleOnRN can have
+  // several frame callbacks queued when the finalize decision lands, and
+  // the worklet-cap signal can race the JS-side finalize. Once latched,
+  // every queued callback drops on entry — otherwise a straggler would
+  // re-publish 'scanning' status over the interim 'validating' state (or
+  // schedule a second 1-3s TTA pass).
+  const finalizedRef = useRef(false);
+
   /**
    * Best-crop re-parse, run once at EVERY finalize (default ON). Re-OCRs the
    * single best retained card crop under the configured augmentations natively
@@ -719,6 +738,12 @@ export function useLicenseScanner(
       const spec = _hybrid.runTtaVerification(modes);
       if (spec == null) return data;
       const ttaData = normalizeLicenseData(spec);
+      if (__DEV__ && ttaData.scanTimings != null) {
+        console.log(
+          '[dl-scan/timing] verification',
+          JSON.stringify(ttaData.scanTimings)
+        );
+      }
       return _mergeAccumulated(data, ttaData);
     } catch {
       // Verification is best-effort: never fail the scan over a TTA error.
@@ -734,9 +759,18 @@ export function useLicenseScanner(
   // signal instead of overloading handleOcrResult.
   const handleOcrResult = useCallback(
     (spec: LicenseDataSpec) => {
+      // First finalize wins — drop callbacks queued behind it (see
+      // finalizedRef). Their frame data is from a scan that already ended.
+      if (finalizedRef.current) return;
       // Accumulate this frame's consensus into the presumed result so a field
       // that converged on an earlier pass is never lost to later OCR variance.
       const frameData = normalizeLicenseData(spec);
+      if (__DEV__ && frameData.scanTimings != null) {
+        console.log(
+          `[dl-scan/timing] frame ${passRef.current + 1}`,
+          JSON.stringify(frameData.scanTimings)
+        );
+      }
       // Snapshot the accumulator BEFORE merging this frame, so the validation
       // contradiction check below compares the fresh re-read against the prior
       // accumulated value — not against a value this same frame just merged in.
@@ -809,68 +843,108 @@ export function useLicenseScanner(
       const fractionComplete =
         req.length > 0 ? acceptedRequired.length / req.length : 1;
 
-      // On EVERY finalize (completion OR maxFrames-hit/'incomplete'), re-parse
-      // the best retained crop and fold its result into the accumulator BEFORE
-      // publishing the final data/status. Composes with the fresh-frame
-      // validation above (does not replace it). When explicitly disabled this is
-      // a no-op and `finalData === data`.
-      const finalData = finalize ? applyTtaVerification(data) : data;
-      // Recompute the field-accounting sets from finalData so a TTA-recovered
-      // field is reflected in the published status. The merge only adds or
-      // strengthens fields (never removes), so this can only grow the accepted
-      // sets relative to `data`.
-      const fAcceptedRequired =
-        finalData === data
-          ? acceptedRequired
-          : req.filter((f) => isFieldPresent(finalData, f));
-      const fPendingRequired =
-        finalData === data
-          ? pendingRequired
-          : req.filter((f) => !isFieldPresent(finalData, f));
-      const fAcceptedOptional =
-        finalData === data
-          ? acceptedOptional
-          : (Object.keys(finalData) as (keyof LicenseData)[]).filter(
-              (k) =>
-                !NON_FIELD_KEYS.has(k) &&
-                !req.includes(k) &&
-                isFieldPresent(finalData, k)
-            );
-      const fRequiredComplete =
-        finalData === data ? requiredComplete : fPendingRequired.length === 0;
-      const fFractionComplete =
-        finalData === data
-          ? fractionComplete
-          : req.length > 0
-            ? fAcceptedRequired.length / req.length
-            : 1;
-      if (finalize && finalData !== data) {
-        accumulatedRef.current = finalData;
-        setLicenseData(finalData);
-      }
-
-      setScanStatus({
-        phase: finalize ? phase : validationActive ? 'validating' : 'scanning',
+      // The status payload for the CURRENT (pre-TTA) accounting — published
+      // as-is per frame, and as the interim 'validating' state on finalize.
+      const baseStatus = {
         passNumber: passRef.current,
         maxFrames: cap,
         requiredFields: req,
-        acceptedRequired: fAcceptedRequired,
-        pendingRequired: fPendingRequired,
-        acceptedOptional: fAcceptedOptional,
-        requiredComplete: fRequiredComplete,
-        fractionComplete: fFractionComplete,
+        acceptedRequired,
+        pendingRequired,
+        acceptedOptional,
+        requiredComplete,
+        fractionComplete,
         validation: {
           active: validationActive,
           confirmed: validationConfirmed,
         },
-        fieldConfidence: finalData.dataConfidence ?? null,
-      });
-      setProgress(finalize ? 1 : fractionComplete);
+        fieldConfidence: data.dataConfidence ?? null,
+      };
 
-      if (finalize) {
-        resultCount.setBlocking(WORKLET_FRAME_CAP);
-        setIsScanning(false);
+      if (!finalize) {
+        setScanStatus({
+          phase: validationActive ? 'validating' : 'scanning',
+          ...baseStatus,
+        });
+        setProgress(fractionComplete);
+        return;
       }
+
+      // FINALIZE. Stop the worklet, publish an interim 'validating' status,
+      // and YIELD to React before the best-crop re-parse:
+      // applyTtaVerification is a synchronous native call (several augmented
+      // re-OCR rounds, plus DataDetector on iOS 26+) that blocks the JS
+      // thread for 1-3 s. Run inline — as it used to be — nothing painted
+      // between the last per-frame state and the final result, so the
+      // viewfinder sat on the last stabilized-field count for the whole
+      // pass. The 0.97 progress also flips progress-driven stage labels to
+      // their "finalizing" copy while the pass runs.
+      finalizedRef.current = true;
+      resultCount.setBlocking(WORKLET_FRAME_CAP);
+      setScanStatus({ phase: 'validating', ...baseStatus });
+      setProgress(0.97);
+      const session = sessionRef.current;
+      ttaTimerRef.current = setTimeout(() => {
+        ttaTimerRef.current = null;
+        if (sessionRef.current !== session) return; // reset() superseded us
+        // On EVERY finalize (completion OR maxFrames-hit/'incomplete'),
+        // re-parse the best retained crop and fold its result into the
+        // accumulator BEFORE publishing the final data/status. Composes with
+        // the fresh-frame validation above (does not replace it). When
+        // explicitly disabled this is a no-op and `finalData === data`.
+        const finalData = applyTtaVerification(data);
+        // Recompute the field-accounting sets from finalData so a
+        // TTA-recovered field is reflected in the published status. The
+        // merge only adds or strengthens fields (never removes), so this can
+        // only grow the accepted sets relative to `data`.
+        const fAcceptedRequired =
+          finalData === data
+            ? acceptedRequired
+            : req.filter((f) => isFieldPresent(finalData, f));
+        const fPendingRequired =
+          finalData === data
+            ? pendingRequired
+            : req.filter((f) => !isFieldPresent(finalData, f));
+        const fAcceptedOptional =
+          finalData === data
+            ? acceptedOptional
+            : (Object.keys(finalData) as (keyof LicenseData)[]).filter(
+                (k) =>
+                  !NON_FIELD_KEYS.has(k) &&
+                  !req.includes(k) &&
+                  isFieldPresent(finalData, k)
+              );
+        const fRequiredComplete =
+          finalData === data ? requiredComplete : fPendingRequired.length === 0;
+        const fFractionComplete =
+          finalData === data
+            ? fractionComplete
+            : req.length > 0
+              ? fAcceptedRequired.length / req.length
+              : 1;
+        if (finalData !== data) {
+          accumulatedRef.current = finalData;
+          setLicenseData(finalData);
+        }
+        setScanStatus({
+          phase,
+          passNumber: passRef.current,
+          maxFrames: cap,
+          requiredFields: req,
+          acceptedRequired: fAcceptedRequired,
+          pendingRequired: fPendingRequired,
+          acceptedOptional: fAcceptedOptional,
+          requiredComplete: fRequiredComplete,
+          fractionComplete: fFractionComplete,
+          validation: {
+            active: validationActive,
+            confirmed: validationConfirmed,
+          },
+          fieldConfidence: finalData.dataConfidence ?? null,
+        });
+        setProgress(1);
+        setIsScanning(false);
+      }, 32);
     },
     [resultCount, applyTtaVerification]
   );
@@ -878,26 +952,63 @@ export function useLicenseScanner(
   const handleScanComplete = useCallback(() => {
     // The worklet hit the absolute frame cap without the JS side finalizing
     // (rare — JS enforces the configurable maxFrames first). Still run the
-    // best-crop re-parse on the accumulated result.
-    if (accumulatedRef.current != null) {
-      const finalData = applyTtaVerification(accumulatedRef.current);
-      if (finalData !== accumulatedRef.current) {
-        accumulatedRef.current = finalData;
-        setLicenseData(finalData);
+    // best-crop re-parse on the accumulated result — deferred behind an
+    // interim 'validating' paint, same as the main finalize path, and
+    // serialized with it through the first-finalize-wins latch.
+    if (finalizedRef.current) return;
+    finalizedRef.current = true;
+    setScanStatus((s) => ({ ...s, phase: 'validating' }));
+    setProgress(0.97);
+    const session = sessionRef.current;
+    ttaTimerRef.current = setTimeout(() => {
+      ttaTimerRef.current = null;
+      if (sessionRef.current !== session) return; // reset() superseded us
+      if (accumulatedRef.current != null) {
+        const finalData = applyTtaVerification(accumulatedRef.current);
+        if (finalData !== accumulatedRef.current) {
+          accumulatedRef.current = finalData;
+          setLicenseData(finalData);
+        }
       }
-    }
-    setIsScanning(false);
-    setProgress(1);
-    setScanStatus((s) => ({
-      ...s,
-      phase: s.requiredComplete ? 'complete' : 'incomplete',
-      fieldConfidence:
-        accumulatedRef.current?.dataConfidence ?? s.fieldConfidence,
-    }));
+      // Recompute the field accounting from the (possibly TTA-enriched)
+      // accumulator — phase must reflect a field the re-parse recovered
+      // (pair-review round 2: the old pre-TTA snapshot could publish
+      // 'incomplete' beside a complete licenseData).
+      const fin = accumulatedRef.current;
+      const req = cfgRef.current.requiredFields;
+      const accepted =
+        fin == null ? [] : req.filter((f) => isFieldPresent(fin, f));
+      const pending =
+        fin == null ? req : req.filter((f) => !isFieldPresent(fin, f));
+      setIsScanning(false);
+      setProgress(1);
+      setScanStatus((s) => ({
+        ...s,
+        phase: pending.length === 0 ? 'complete' : 'incomplete',
+        acceptedRequired: accepted,
+        pendingRequired: pending,
+        requiredComplete: pending.length === 0,
+        fractionComplete: req.length > 0 ? accepted.length / req.length : 1,
+        fieldConfidence: fin?.dataConfidence ?? s.fieldConfidence,
+      }));
+    }, 32);
   }, [applyTtaVerification]);
 
   const handleError = useCallback((message: string) => {
     setError(message);
+  }, []);
+
+  // Invalidate any pending deferred finalize on unmount. The session bump
+  // covers timers this cleanup can't see (belt-and-braces with the
+  // first-finalize-wins latch, which already guarantees at most one).
+  useEffect(() => {
+    return () => {
+      sessionRef.current += 1;
+      if (ttaTimerRef.current != null) {
+        clearTimeout(ttaTimerRef.current);
+        ttaTimerRef.current = null;
+      }
+    };
   }, []);
 
   const ocrOutput: CameraOutput = useFrameOutput({
@@ -952,6 +1063,14 @@ export function useLicenseScanner(
   const output = mode === 'barcode' ? barcodeOutput : ocrOutput;
 
   const reset = useCallback(() => {
+    // Invalidate any pending deferred finalize from the previous scan —
+    // its closure must not publish stale results into the new session.
+    sessionRef.current += 1;
+    finalizedRef.current = false;
+    if (ttaTimerRef.current != null) {
+      clearTimeout(ttaTimerRef.current);
+      ttaTimerRef.current = null;
+    }
     _hybrid.resetLicenseFieldRecognition();
     setLicenseData(null);
     setError(null);

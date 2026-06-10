@@ -253,6 +253,7 @@ export interface LicenseData {
   cardImagePath: string | null;     // file:// JPEG of the rectified card (OCR mode)
   ocrObservations?: OcrObservation[] | null; // per-line OCR boxes over that image
   headshotImagePath: string | null; // file:// JPEG of the cropped portrait
+  scanTimings?: Record<string, number> | null; // pipeline step timings (ms) — diagnostics
 }
 
 export interface OcrObservation {

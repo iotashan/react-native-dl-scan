@@ -18,7 +18,7 @@ public extension LicenseDataSpec {
   /**
    * Create a new instance of `LicenseDataSpec`.
    */
-  init(firstName: String?, lastName: String?, middleName: String?, dateOfBirth: String?, expirationDate: String?, issueDate: String?, licenseNumber: String?, street: String?, city: String?, state: String?, postalCode: String?, country: String?, sex: Sex?, eyeColor: String?, hairColor: String?, height: String?, weight: String?, vehicleClass: String?, restrictions: String?, endorsements: String?, aamvaVersion: Double?, documentType: DocumentType?, mrz: MRZDataSpec?, dataConfidenceJson: String?, cardImagePath: String?, ocrObservations: [OcrObservationSpec]?, headshotImagePath: String?) {
+  init(firstName: String?, lastName: String?, middleName: String?, dateOfBirth: String?, expirationDate: String?, issueDate: String?, licenseNumber: String?, street: String?, city: String?, state: String?, postalCode: String?, country: String?, sex: Sex?, eyeColor: String?, hairColor: String?, height: String?, weight: String?, vehicleClass: String?, restrictions: String?, endorsements: String?, aamvaVersion: Double?, documentType: DocumentType?, mrz: MRZDataSpec?, dataConfidenceJson: String?, cardImagePath: String?, ocrObservations: [OcrObservationSpec]?, headshotImagePath: String?, scanTimingsJson: String?) {
     self.init({ () -> bridge.std__optional_std__string_ in
       if let __unwrappedValue = firstName {
         return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
@@ -183,6 +183,12 @@ public extension LicenseDataSpec {
       }
     }(), { () -> bridge.std__optional_std__string_ in
       if let __unwrappedValue = headshotImagePath {
+        return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
+      } else {
+        return .init()
+      }
+    }(), { () -> bridge.std__optional_std__string_ in
+      if let __unwrappedValue = scanTimingsJson {
         return bridge.create_std__optional_std__string_(std.string(__unwrappedValue))
       } else {
         return .init()
@@ -486,6 +492,18 @@ public extension LicenseDataSpec {
     return { () -> String? in
       if bridge.has_value_std__optional_std__string_(self.__headshotImagePath) {
         let __unwrapped = bridge.get_std__optional_std__string_(self.__headshotImagePath)
+        return String(__unwrapped)
+      } else {
+        return nil
+      }
+    }()
+  }
+  
+  @inline(__always)
+  var scanTimingsJson: String? {
+    return { () -> String? in
+      if bridge.has_value_std__optional_std__string_(self.__scanTimingsJson) {
+        let __unwrapped = bridge.get_std__optional_std__string_(self.__scanTimingsJson)
         return String(__unwrapped)
       } else {
         return nil

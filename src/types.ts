@@ -174,6 +174,17 @@ export interface LicenseData {
    */
   ocrObservations?: OcrObservation[] | null;
   headshotImagePath: string | null;
+  /**
+   * Wall-clock timings (milliseconds) of the native pipeline steps that
+   * produced this result, keyed by step name (e.g. `wholeCardOcr`,
+   * `perRegionOcr`, `cppExtract`, `cardSave`, `headshot`,
+   * `ttaPasses`, `dataDetector`, `total`). Diagnostic data for
+   * performance analysis — step names are NOT a stable API and may change
+   * between releases. Decoded from the native `scanTimingsJson` by
+   * `normalizeLicenseData`; null when the producing call shipped no
+   * timings (e.g. the barcode path).
+   */
+  scanTimings?: Record<string, number> | null;
 }
 
 /**

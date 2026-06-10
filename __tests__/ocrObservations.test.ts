@@ -31,3 +31,33 @@ describe('ocrObservations normalization', () => {
     expect(d.ocrObservations).not.toBeUndefined();
   });
 });
+
+describe('scanTimings normalization', () => {
+  it('decodes the scanTimingsJson wire string into a plain map', () => {
+    const d = normalizeLicenseData({
+      firstName: 'MARIA',
+      scanTimingsJson: '{"wholeCardOcr":412,"cppExtract":3,"total":913}',
+    });
+    expect(d.scanTimings).toEqual({
+      wholeCardOcr: 412,
+      cppExtract: 3,
+      total: 913,
+    });
+  });
+
+  it('normalizes absent or malformed timings to null (fail-soft)', () => {
+    expect(normalizeLicenseData({ firstName: 'MARIA' }).scanTimings).toBeNull();
+    expect(
+      normalizeLicenseData({ firstName: 'MARIA', scanTimingsJson: '' })
+        .scanTimings
+    ).toBeNull();
+    expect(
+      normalizeLicenseData({ firstName: 'MARIA', scanTimingsJson: 'not json' })
+        .scanTimings
+    ).toBeNull();
+    expect(
+      normalizeLicenseData({ firstName: 'MARIA', scanTimingsJson: '{"a":"b"}' })
+        .scanTimings
+    ).toBeNull();
+  });
+});
